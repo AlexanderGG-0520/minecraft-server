@@ -1,0 +1,4 @@
+listeners:
+  - query_port: 25577
+    motd: "Proxy powered by alexandergg"
+    max_players: 100

@@ -1,0 +1,5 @@
+# Fabric-specific JVM flags
+-XX:+UseZGC
+-XX:+ZGenerational
+--add-modules=jdk.incubator.vector
+--enable-native-access=ALL-UNNAMED

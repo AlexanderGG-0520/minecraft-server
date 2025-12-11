@@ -1,0 +1,3 @@
+# Proxy servers need small GC overhead
+-XX:+UseG1GC
+-XX:MaxGCPauseMillis=30

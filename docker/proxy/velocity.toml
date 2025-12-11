@@ -1,0 +1,5 @@
+[servers]
+try = ["hub"]
+
+[forced-hosts]
+"*" = ["hub"]

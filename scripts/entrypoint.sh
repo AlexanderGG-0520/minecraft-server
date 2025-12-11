@@ -47,7 +47,70 @@ if [[ "${MODS_SOURCE:-}" == "s3" ]]; then
 fi
 
 # ============================================================================
-# 5. Detect or download server.jar
+# 5. Load base environment and files
+# ============================================================================
+if [ -f /opt/mc/base/base.env ]; then
+  log "Loading base environment defaults"
+  set -a
+  . /opt/mc/base/base.env
+  set +a
+fi
+
+# Copy base files into /data if not present
+log "Applying base configuration"
+cp -n /opt/mc/base/server.properties /data/ || true
+cp -n /opt/mc/base/whitelist.json /data/ || true
+cp -n /opt/mc/base/ops.json /data/ || true
+
+# Load common JVM flags
+if [ -f /opt/mc/base/jvm-common.args ]; then
+  BASE_JVM_FLAGS="$(cat /opt/mc/base/jvm-common.args | tr '\n' ' ')"
+  JAVA_ARGS="${JAVA_ARGS:-${BASE_JVM_FLAGS}}"
+fi
+
+# ============================================================
+# 6. Apply TYPE-specific configuration layer
+# ============================================================
+
+TYPE_DIR="/opt/mc/${TYPE}"
+
+if [ -d "${TYPE_DIR}" ]; then
+    log "Applying TYPE-specific config for TYPE=${TYPE}"
+
+    # 1) Copy config files (*.yml, *.toml, *.properties, etc)
+    find "${TYPE_DIR}" -maxdepth 1 -type f ! -name "*.args" | while read file; do
+        filename=$(basename "$file")
+        if [ ! -f "/data/${filename}" ]; then
+            log " - copying $filename"
+            cp "$file" "/data/$filename"
+        else
+            log " - keeping existing $filename (user override)"
+        fi
+    done
+
+    # 2) Merge JVM args
+    if [ -f "${TYPE_DIR}/jvm.args" ]; then
+        log "Merging TYPE-specific jvm.args"
+        TYPE_JVM_ARGS="$(cat ${TYPE_DIR}/jvm.args | tr '\n' ' ')"
+        JAVA_FLAGS="${JAVA_FLAGS} ${TYPE_JVM_ARGS}"
+    fi
+
+    # 3) Merge MC args
+    if [ -f "${TYPE_DIR}/mc.args" ]; then
+        log "Merging TYPE-specific mc.args"
+        if [ ! -f /data/mc.args ]; then
+            cp "${TYPE_DIR}/mc.args" /data/mc.args
+        else
+            cat "${TYPE_DIR}/mc.args" >> /data/mc.args
+        fi
+    fi
+
+else
+    log "No TYPE-specific directory found for TYPE=${TYPE}"
+fi
+
+# ============================================================================
+# 7. Detect or download server.jar
 # ============================================================================
 if [[ ! -f "/data/server.jar" ]]; then
   echo "[INFO] No server.jar found. Installing TYPE=${TYPE}, VERSION=${VERSION}"
@@ -57,7 +120,7 @@ else
 fi
 
 # ============================================================================
-# 6. Logging Format
+# 8. Logging Format
 # ============================================================================
 if [[ "${LOG_FORMAT}" == "json" ]]; then
   echo "[INFO] JSON logging enabled"
@@ -68,7 +131,7 @@ else
 fi
 
 # ============================================================================
-# 7. JVM ARGS (C2ME / Java25 向け最適化)
+# 9. JVM ARGS (C2ME / Java25 向け最適化)
 # ============================================================================
 DEFAULT_JVM_FLAGS="
   -Xms${MEMORY}
@@ -90,7 +153,7 @@ fi
 JAVA_ARGS="${JAVA_ARGS:-$DEFAULT_JVM_FLAGS}"
 
 # ============================================================================
-# 8. RCON
+# 10. RCON
 # ============================================================================
 if [[ "${ENABLE_RCON}" == "true" ]]; then
   echo "[INFO] RCON enabled"
@@ -98,8 +161,27 @@ else
   echo "[INFO] RCON disabled"
 fi
 
+# ============================================================
+# 11. Final JVM flag assembly
+# ============================================================
+
+# Base flags
+if [ -f /opt/mc/base/jvm-common.args ]; then
+  COMMON_JVM_ARGS="$(cat /opt/mc/base/jvm-common.args | tr '\n' ' ')"
+  JAVA_FLAGS="${COMMON_JVM_ARGS} ${JAVA_FLAGS}"
+fi
+
+# User overrides (/data/jvm.args)
+if [ -f /data/jvm.args ]; then
+  USER_JVM_ARGS="$(cat /data/jvm.args | tr '\n' ' ')"
+  JAVA_FLAGS="${JAVA_FLAGS} ${USER_JVM_ARGS}"
+fi
+
+log "Final JVM flags:"
+log "${JAVA_FLAGS}"
+
 # ============================================================================
-# 9. Start the Minecraft server
+# 12. Start the Minecraft server
 # ============================================================================
 MC_ARGS="${MC_ARGS:-nogui}"
 
