@@ -54,9 +54,9 @@ jobs:
           push: true
           build-args: |
             JAVA_VERSION=${{ matrix.java }}
-          tags: |
+            tags: |
             ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}
-            ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.java == 21 && 'latest' || '' }}
+
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
