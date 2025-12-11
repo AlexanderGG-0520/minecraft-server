@@ -3,7 +3,7 @@ name: Build & Publish Docker Images
 on:
   push:
     branches:
-      - main
+        - main
   workflow_dispatch:
 
 jobs:
@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-      matrix:
-        java: [8, 11, 17, 21, 25]
+        matrix:
+            java: [8, 11, 17, 21, 25]
 
     permissions:
       contents: read
@@ -38,9 +38,9 @@ jobs:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
 
       # ---------------------------------------------------------
       # 3. Docker Build & Push (Multi-Arch + Java Matrix)
