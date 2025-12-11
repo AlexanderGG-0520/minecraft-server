@@ -1,54 +1,67 @@
-# ─────────────────────────────────────────────
-#  Minecraft Server Docker Image
-#  Multi-Java Version Build (8 / 11 / 17 / 21 / 22 / 25)
-#  C2ME GPU Accelerated Ready
-# ─────────────────────────────────────────────
+# ============================================================
+# Base Java Images (official, glibc, multi-arch)
+# ============================================================
+FROM eclipse-temurin:21-jre AS java21
+FROM eclipse-temurin:25-jre AS java25
 
-# Java version is injected from CI/CD:
-#   --build-arg JAVA_VERSION=21
-# Default = 21 (current Minecraft LTS)
+# ============================================================
+# Runtime Image (Debian stable-slim)
+# ============================================================
+FROM debian:stable-slim AS runtime
+
 ARG JAVA_VERSION=21
-FROM eclipse-temurin:${JAVA_VERSION}-jre-jammy
+ENV DEBIAN_FRONTEND=noninteractive
 
-LABEL maintainer="alexandergg-0520"
-LABEL description="Next-generation Minecraft server image with S3 sync, auto-installers, and multi-Java support."
+# Install required tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash curl wget jq ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8 \
-    DEBIAN_FRONTEND=noninteractive
+# Java runtime selection
+COPY --from=java21 /opt/java/openjdk /opt/java21
+COPY --from=java25 /opt/java/openjdk /opt/java25
 
-# ─────────────────────────────────────────────
-# Base System
-# ─────────────────────────────────────────────
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      bash curl jq unzip ca-certificates dumb-init && \
-    rm -rf /var/lib/apt/lists/*
+RUN if [ "$JAVA_VERSION" = "25" ]; then \
+        ln -sf /opt/java25 /opt/java ; \
+    else \
+        ln -sf /opt/java21 /opt/java ; \
+    fi
 
-# MinIO client (for S3 sync)
-RUN curl -s https://dl.min.io/client/mc/release/linux-amd64/mc \
-      -o /usr/local/bin/mc && \
-    chmod +x /usr/local/bin/mc
+ENV PATH="/opt/java/bin:${PATH}"
 
-# Create runtime user
-RUN useradd -m -u 1000 -d /data mc && \
-    mkdir -p /data && chown -R mc:mc /data
+# ============================================================
+# Minecraft Runtime Layout
+# ============================================================
+WORKDIR /opt/mc
 
-WORKDIR /data
-
-# ─────────────────────────────────────────────
 # Scripts
-# ─────────────────────────────────────────────
-COPY scripts/ /opt/mc/
-RUN chmod +x /opt/mc/*.sh
+COPY docker/scripts ./scripts
+RUN chmod +x ./scripts/*.sh
 
-USER mc
+# Base config layer
+COPY docker/base ./base
 
-EXPOSE 25565
+# Type-specific config layers
+COPY docker/fabric   ./fabric
+COPY docker/forge    ./forge
+COPY docker/neoforge ./neoforge
+COPY docker/paper    ./paper
+COPY docker/proxy    ./proxy
+
+# Runtime directory
+RUN mkdir -p /data
+
+# Expose Minecraft ports
+EXPOSE 25565 25575
+
+# Default ENV
+ENV EULA="false" \
+    MEMORY="4G" \
+    LOG_FORMAT="plain" \
+    TYPE="fabric" \
+    VERSION="latest" \
+    WORLD_RESET_POLICY="never"
+
 VOLUME ["/data"]
 
-# Health check
-HEALTHCHECK --interval=20s --timeout=5s --start-period=45s --retries=3 \
-  CMD /opt/mc/healthcheck.sh
-
-ENTRYPOINT ["/usr/bin/dumb-init", "--", "/opt/mc/entrypoint.sh"]
+ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]

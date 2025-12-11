@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mc-config
+data:
+  TYPE: "vanilla"
+  VERSION: "latest"
+  MEMORY: "4G"
+  EULA: "false"
+  LOG_FORMAT: "plain"
+  S3_SYNC_ENABLED: "false"
+  S3_PREFIX: ""

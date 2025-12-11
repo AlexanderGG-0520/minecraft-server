@@ -1,235 +1,498 @@
-# **alexandergg-0520 / minecraft-server**
+# Minecraft Server Runtime (Multi-TYPE, Java 21/25, S3 Sync, K8s-Ready)
 
-![Build & Publish](https://github.com/alexandergg-0520/minecraft-server/actions/workflows/docker-publish.yml/badge.svg)
-![Java Versions](https://img.shields.io/badge/Java-8%20%7C%2011%20%7C%2017%20%7C%2021%20%7C%2022%20%7C%2025-blue)
-![Types](https://img.shields.io/badge/Types-16%2B-green)
-![GHCR Version](https://img.shields.io/github/v/release/alexandergg-0520/minecraft-server?label=GHCR)
+A next-generation Minecraft server runtime designed to surpass the capabilities of existing images such as `itzg/minecraft-server`.
 
-A next-generation Minecraft server image designed to **surpass itzg/minecraft-server**,
-featuring advanced **auto-installation**, **S3/MinIO syncing**, **world lifecycle controls**,
-and full support for **Java 8 / 11 / 17 / 21 / 22 / 25** including **Java 25 for C2ME GPU Accelerated**.
+This image provides:
 
----
+* **Multi-TYPE support**
+  Fabric / Paper / NeoForge / Forge / Vanilla / Proxy (Velocity, BungeeCord)
+* **Java version matrix**
+  Java **21 (stable)** and **25 (C2ME & Vector API ready)**
+* **Automatic TYPE configuration layering**
+  `base → type → user (/data)` layered runtime
+* **Multi-arch builds:** `linux/amd64` + `linux/arm64`
+* **Automatic server.jar detection & download**
+* **S3 (MinIO/R2/S3) mod/config sync**
+* **Kubernetes & ArgoCD ready**
+  Clean K8s manifests in `deploy/k8s/`
+* **Docker Compose support** for local testing
 
-## ✨ Features
-
-### ✔ itzg-Compatible
-
-Supports common itzg environment variables (`EULA`, `TYPE`, `VERSION`, `MEMORY`, …).
-
-### ✔ Auto Installation for 16+ Server Types
-
-Automatically downloads the correct JAR for major Java Edition server types
-(Vanilla / Fabric / Paper / NeoForge / Velocity / Purpur / Glowstone / etc).
-
-### ✔ S3 / MinIO Mod & Config Sync
-
-Syncs `/data/mods/` and `/data/config/` via MinIO client (`mc mirror`), with optional cleanup.
-
-### ✔ World Lifecycle Management
-
-* Reset world using `/data/reset-world.flag`
-* Optional `WORLD_RESET_POLICY=always_on_start`
-
-### ✔ Kubernetes-Ready
-
-Graceful startup/shutdown, liveness/readiness health checks, persistent storage layout.
-
-### ✔ Java 25 support for C2ME GPU Accelerated
-
-Automatically enables Panama / Vector API flags when running on Java 25.
+This runtime is created for high-scale, production-grade Minecraft hosting on Kubernetes clusters such as Proxmox + k3s + Oracle Linux / Debian-based nodes.
 
 ---
 
-## 🧩 **Supported Server Types (`TYPE=`)**
+## Features
 
-This image currently supports **16 Java Edition server formats**:
+### Multi-TYPE Server Support
 
-### **Mainline**
+Switch server types via environment variables:
 
-* `vanilla` – Official Mojang server
-* `fabric` – Modern mod loader (C2ME-ready)
-* `quilt` – Fabric ecosystem successor
-* `paper` – High-performance modern server
-* `folia` – Region-threaded Paper fork
-* `purpur` – Feature-rich Paper fork
-* `pufferfish` – Performance optimized
-* `airplane` – Lightweight high-performance fork
-* `leaves` – Ultra-light fork for low-resource servers
+* `TYPE=fabric`
+* `TYPE=paper`
+* `TYPE=forge`
+* `TYPE=neoforge`
+* `TYPE=vanilla`
+* `TYPE=proxy`
 
-### **Mod Loaders**
+Each TYPE has its own configuration layer under:
 
-* `forge` – Legacy / classic modloader
-* `neoforge` – Modern Forge successor
-* `mohist` – Forge + Bukkit hybrid
-* `catserver` – Forge + Spigot hybrid
+* `/opt/mc/<type>/`
 
-### **Proxies**
-
-* `velocity` – The modern high-performance proxy
-* `waterfall` – Maintained BungeeCord fork
-* `bungeecord` – Original Minecraft proxy
-
-### **Custom / Alternative Implementations**
-
-* `glowstone` – Lightweight Java implementation
-* `cuberite` – C++ server (requires URL override)
+These are merged automatically by `entrypoint.sh` while preserving user overrides in `/data`.
 
 ---
 
-## 🚀 **Quick Start (Docker Run)**
+### Java 21 / 25 Runtime Selection
 
-```powershell
-docker run -it \
-  -p 25565:25565 \
-  -v ./data:/data \
-  -e EULA=true \
-  -e TYPE=fabric \
-  -e VERSION=1.21.1 \
-  ghcr.io/yourname/minecraft-server:java21
-```
+Select Java at build-time:
+
+* `--build-arg JAVA_VERSION=21`
+* `--build-arg JAVA_VERSION=25`
+
+Java 25 is intended for next-generation workloads:
+
+* Vector API
+* Project Panama
+* C2ME GPU acceleration (future support)
+
+Published image tags:
+
+* `ghcr.io/<owner>/minecraft-server:java21`
+* `ghcr.io/<owner>/minecraft-server:java25`
+* `ghcr.io/<owner>/minecraft-server:latest` (alias for `java21`)
 
 ---
 
-## 🚀 **Quick Start (Docker Compose)**
+### Config Layering System
+
+This image introduces a layered configuration system:
+
+1. **Base layer**
+   `/opt/mc/base/*`
+2. **TYPE-specific layer**
+   `/opt/mc/<type>/*`
+3. **User layer (`/data`)** – highest priority
+
+The runtime copies/merges these layers in order, so you can:
+
+* Set global defaults in `base/`
+* Apply TYPE-specific tuning in `fabric/`, `paper/`, etc.
+* Persist long-term customizations directly in `/data` (PVC / bind mount)
+
+---
+
+### S3 / MinIO Sync
+
+Before server startup, the container can sync mods/configs automatically from S3-compatible storage:
+
+Environment example:
+
+* `S3_SYNC_ENABLED=true`
+* `S3_ENDPOINT=https://minio.example.com`
+* `S3_BUCKET=minecraft-mods`
+* `S3_PREFIX=fabric-smp`
+* `S3_ACCESS_KEY=...`
+* `S3_SECRET_KEY=...`
+
+`sync_s3.sh`:
+
+* Fetches remote file list once
+* Compares checksums (ETag / SHA1) with local files
+* Downloads **only changed files** using parallel workers
+* Deletes local files that were removed from S3
+  → S3 becomes the **source of truth** for mods/config
+
+This design is optimized for GitOps workflows and large modpacks.
+
+---
+
+### Automatic World Reset
+
+If the file `/data/reset-world.flag` exists at startup, the runtime:
+
+* Deletes the world directory
+* Recreates it cleanly
+* Removes the flag (optional design)
+
+This is useful for:
+
+* Temporary event servers
+* CI / integration testing
+* Controlled SMP resets managed via Git or `kubectl exec`
+
+---
+
+### Healthcheck
+
+The container includes `healthcheck.sh`, which can be used with Docker or Kubernetes probes.
+
+It performs checks such as:
+
+* Java PID presence (server process running)
+* Minecraft port responsiveness (e.g. 25565)
+* Optional RCON responsiveness when `ENABLE_RCON=true`
+* Crash signatures in logs (e.g. exceptions in `latest.log`)
+* JVM heap usage threshold (e.g. >90% of max)
+
+This helps Kubernetes detect:
+
+* Hard crashes
+* Soft-locks
+* Out-of-memory situations
+
+---
+
+## Usage (Docker Compose)
+
+Minimal Compose example:
 
 ```yaml
 services:
-  mc:
-    image: ghcr.io/yourname/minecraft-server:java21
-    ports:
-      - "25565:25565"
-    environment:
-      EULA: "true"
-      TYPE: "paper"
-      VERSION: "1.21.1"
-      MEMORY: "4G"
-    volumes:
-      - ./data:/data
+mc:
+image: ghcr.io/<owner>/minecraft-server:java21
+container_name: mc-fabric-smp
+environment:
+TYPE: fabric
+VERSION: latest
+MEMORY: 6G
+EULA: "true"
+S3_SYNC_ENABLED: "true"
+S3_ENDPOINT: "[https://minio.example.com](https://minio.example.com)"
+S3_BUCKET: "minecraft-mods"
+S3_PREFIX: "fabric-smp"
+S3_ACCESS_KEY: "YOUR_ACCESS_KEY"
+S3_SECRET_KEY: "YOUR_SECRET_KEY"
+volumes:
+- ./data:/data
+ports:
+- "25565:25565"
+restart: unless-stopped
+```
+
+This setup:
+
+* Starts a Fabric server
+* Syncs mods/config from S3
+* Persists world data in `./data`
+
+---
+
+## Usage (Kubernetes)
+
+The directory `deploy/k8s/` contains production-ready manifests:
+
+* `deployment.yaml`
+* `service.yaml`
+* `pvc.yaml`
+* `config-env.yaml` (ConfigMap)
+* `secret-s3.yaml` (S3 credentials)
+* optional: `backup-cronjob.yaml`, `hpa.yaml`
+
+Example `env` section in `deployment.yaml`:
+
+env:
+
+```env
+* name: TYPE
+  value: fabric
+* name: VERSION
+  value: latest
+* name: MEMORY
+  value: 6G
+* name: EULA
+  value: "true"
+* name: S3_SYNC_ENABLED
+  value: "true"
+* name: S3_ENDPOINT
+  valueFrom:
+  secretKeyRef:
+  name: mc-s3
+  key: ENDPOINT
+* name: S3_BUCKET
+  valueFrom:
+  secretKeyRef:
+  name: mc-s3
+  key: BUCKET
+* name: S3_PREFIX
+  valueFrom:
+  secretKeyRef:
+  name: mc-s3
+  key: PREFIX
+* name: S3_ACCESS_KEY
+  valueFrom:
+  secretKeyRef:
+  name: mc-s3
+  key: ACCESS_KEY
+* name: S3_SECRET_KEY
+  valueFrom:
+  secretKeyRef:
+  name: mc-s3
+  key: SECRET_KEY
 ```
 
 ---
 
-## 📦 **Using S3 / MinIO Sync**
+## Directory Structure
 
-```md
-MODS_SOURCE=s3
-MODS_S3_ENDPOINT=https://minio.example.com
-MODS_S3_BUCKET=minecraft-mods
-MODS_S3_PREFIX=fabric-smp
-MODS_S3_ACCESS_KEY=xxx
-MODS_S3_SECRET_KEY=yyy
-CLEAN_UNUSED_MODS=true
-```
+docker/
+base/          # base configuration layer
+fabric/        # fabric-specific configs (jvm.args, mc.args, etc.)
+paper/         # paper/spigot/bukkit configs
+forge/
+neoforge/
+proxy/
+scripts/       # entrypoint, server_download, sync_s3, world_reset, healthcheck
 
-This will mirror:
+deploy/
+k8s/           # Kubernetes manifests (Deployment/Service/PVC/etc.)
+compose/       # docker-compose examples
 
-```md
-s3://minecraft-mods/fabric-smp/mods   → /data/mods
-s3://minecraft-mods/fabric-smp/config → /data/config
-```
-
----
-
-## 🔄 **World Reset**
-
-### Manual reset
-
-```md
-touch /data/reset-world.flag
-```
-
-### Reset every startup
-
-```md
-WORLD_RESET_POLICY=always_on_start
-```
+.github/
+workflows/     # GitHub Actions (multi-arch, Java21/25 matrix)
 
 ---
 
-## ⚙️ **Environment Variables Overview**
+## Entry Point
 
-| Variable             | Description                                 |
-| -------------------- | ------------------------------------------- |
-| `EULA`               | Must be `true`                              |
-| `TYPE`               | Server type (fabric/paper/… see list above) |
-| `VERSION`            | Minecraft version or `latest`               |
-| `MEMORY`             | JVM memory (e.g. `6G`)                      |
-| `LOG_FORMAT`         | `plain` or `json`                           |
-| `WORLD_RESET_POLICY` | `never` / `always_on_start`                 |
-| `MODS_SOURCE`        | `s3` to enable MinIO sync                   |
-| `CLEAN_UNUSED_MODS`  | Removes local mods not in S3                |
-| `SERVER_PORT`        | Override port (default 25565)               |
+`entrypoint.sh` is the core of the runtime. It:
+
+1. Loads base environment defaults from `/opt/mc/base/base.env`
+2. Applies TYPE-specific configuration from `/opt/mc/<type>/`
+3. Optionally runs S3 sync for mods/config
+4. Resolves and downloads `server.jar` using the best available official API
+   (Paper API, Fabric meta, Mojang manifest, Forge/NeoForge Maven, Velocity, etc.)
+5. Handles world reset via `/data/reset-world.flag`
+6. Merges JVM arguments from:
+
+   * `/opt/mc/base/jvm.args`
+   * `/opt/mc/<type>/jvm.args`
+   * `/data/jvm.override`
+7. Merges Minecraft launch arguments from:
+
+   * `/opt/mc/base/mc.args`
+   * `/opt/mc/<type>/mc.args`
+   * `/data/mc.override`
+8. Starts the server via:
+
+   `exec java $(cat /data/jvm.args) -jar /data/server.jar $(cat /data/mc.args)`
+
+The process runs as PID 1, which is ideal for Kubernetes and Docker health checks.
 
 ---
 
-## ❤️ **Java Version Strategy**
+## Tags
 
-| Tag      | Purpose                              |
-| -------- | ------------------------------------ |
-| `java8`  | Older Forge packs (1.7–1.12)         |
-| `java11` | Older Forge / legacy hybrids         |
-| `java17` | Modern Paper/Fabric baseline         |
-| `java21` | Current LTS, **default**             |
-| `java22` | Experimental                         |
-| `java25` | **C2ME GPU Accelerated recommended** |
+| Tag      | Description                                |
+| -------- | ------------------------------------------ |
+| `java21` | Stable recommended runtime                 |
+| `java25` | Experimental / SIMD / Panama / C2ME future |
+| `latest` | Alias for `java21`                         |
 
 ---
 
-## 🔬 **Kubernetes Example**
+## Architecture Support
+
+* `linux/amd64`
+* `linux/arm64`
+
+Images are built and pushed as multi-platform manifests using GitHub Actions.
+
+---
+
+## CI / CD (GitHub Actions)
+
+The CI pipeline in `.github/workflows/docker-publish.yml`:
+
+* Builds for both `linux/amd64` and `linux/arm64`
+* Uses a matrix for Java versions `21` and `25`
+* Pushes images to GHCR:
+
+  * `ghcr.io/<owner>/minecraft-server:java21`
+  * `ghcr.io/<owner>/minecraft-server:java25`
+  * `ghcr.io/<owner>/minecraft-server:latest` (Java 21)
+
+It uses `buildx` and registry-backed build cache to speed up subsequent builds.
+
+---
+
+## Advanced Usage
+
+### GitOps with ArgoCD
+
+This image is designed to fit naturally into a GitOps workflow.
+
+Basic ArgoCD `Application` example:
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Application
 metadata:
-  name: mc
+name: minecraft-smp
+namespace: argocd
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mc
-  template:
-    metadata:
-      labels:
-        app: mc
-    spec:
-      containers:
-      - name: server
-        image: ghcr.io/yourname/minecraft-server:java21
-        env:
-        - name: EULA
-          value: "true"
-        - name: TYPE
-          value: "fabric"
-        - name: MEMORY
-          value: "6G"
-        volumeMounts:
-        - name: data
-          mountPath: /data
-      volumes:
-      - name: data
-        persistentVolumeClaim:
-          claimName: minecraft-data
+project: default
+source:
+repoURL: [https://github.com/](https://github.com/)<owner>/<repo>.git
+targetRevision: main
+path: deploy/k8s
+destination:
+server: [https://kubernetes.default.svc](https://kubernetes.default.svc)
+namespace: mc-smp
+syncPolicy:
+automated:
+prune: true
+selfHeal: true
+syncOptions:
+- CreateNamespace=true
 ```
 
+Any changes to the manifests (TYPE, VERSION, MEMORY, S3 profile, etc.) are detected by ArgoCD and applied automatically.
+
 ---
 
-## 📁 **Data Layout**
+### ApplicationSet: Mass-Deploy Multiple Servers
 
-```md
-/data/
-  ├─ world/
-  ├─ mods/
-  ├─ config/
-  ├─ server.jar
-  ├─ logs/
-  └─ reset-world.flag
+For large setups, you can use ArgoCD ApplicationSet to manage many servers from a single Git repository.
+
+Example directory layout:
+
+deploy/
+k8s/          # shared k8s manifests
+servers/
+smp.yaml
+lobby.yaml
+snapshot.yaml
+hardcore.yaml
+
+Each file under `deploy/servers/` describes a server:\
+
+```yaml
+name: smp
+type: fabric
+version: 1.21.4
+memory: 6G
+java: 21
+s3Profile: fabric-smp
+
+name: lobby
+type: paper
+version: 1.20.6
+memory: 2G
+java: 21
+s3Profile: paper-lobby
+
+Example ApplicationSet:
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+name: minecraft-servers
+namespace: argocd
+spec:
+generators:
+- git:
+repoURL: [https://github.com/](https://github.com/)<owner>/<repo>.git
+revision: main
+directories:
+- path: deploy/servers
+template:
+metadata:
+name: mc-{{name}}
+spec:
+project: default
+source:
+repoURL: [https://github.com/](https://github.com/)<owner>/<repo>.git
+targetRevision: main
+path: deploy/k8s
+destination:
+server: [https://kubernetes.default.svc](https://kubernetes.default.svc)
+namespace: mc-{{name}}
+syncPolicy:
+automated:
+prune: true
+selfHeal: true
+syncOptions:
+- CreateNamespace=true
 ```
 
+In this model:
+
+* Adding `deploy/servers/new-world.yaml` automatically creates a new server.
+* Removing a file deletes the corresponding server.
+* Editing YAML updates TYPE / VERSION / MEMORY / Java version.
+
 ---
 
-## 📜 License
+### S3 Layout for Modpacks (Recommended Structure)
 
-MIT License
+Recommended S3 layout (MinIO, R2, or S3):
+
+minecraft-mods/
+fabric-smp/
+mods/
+config/
+paper-lobby/
+mods/
+config/
+snapshot/
+mods/
+config/
+
+Then in your environment:
+
+* `S3_BUCKET=minecraft-mods`
+* `S3_PREFIX=fabric-smp` (or `paper-lobby`, `snapshot`, etc.)
+
+This allows you to:
+
+* Reuse the same image for many different modpacks
+* Manage all modpacks declaratively via S3 + Git
+* Use the same deployment templates and only change `S3_PREFIX`
 
 ---
+
+### Backup & Restore Strategy (Kubernetes)
+
+You can define a `CronJob` that archives the world directory and uploads it to S3:
+
+* Run daily at off-peak hours (e.g. `0 4 * * *`)
+* tar.gz `/data/world`
+* Upload to `s3://minecraft-backups/<server-name>/YYYY-MM-DD_HH-MM-SS.tar.gz`
+
+Restore can be performed by:
+
+1. Stopping the server (scale Deployment to 0)
+2. Extracting the backup into `/data/world`
+3. Scaling back up (Deployment to 1)
+
+This pairs well with:
+
+* `WORLD_RESET_POLICY` flags
+* `/data/reset-world.flag`
+
+---
+
+### JVM Flags & Tuning
+
+You can:
+
+* Put default JVM flags into `/opt/mc/base/jvm.args`
+* TYPE-specific tuning into `/opt/mc/<type>/jvm.args`
+* User-specific or advanced overrides into `/data/jvm.override`
+
+The final JVM flags will be:
+
+base/jvm.args + type/jvm.args + /data/jvm.override
+
+Examples:
+
+* Use G1GC for Paper
+* Use ZGC or Shenandoah for Fabric + C2ME
+* Enable Vector API / Panama for Java 25
+
+---
+
+## License
+
+MIT License.
+You may freely fork, modify, host, or redistribute.
