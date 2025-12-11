@@ -1,0 +1,44 @@
+# Docker
+*.log
+
+# Minecraft Server
+server.jar
+server.properties
+eula.txt
+banned-ips.txt
+banned-players.txt
+ops.json
+whitelist.json
+usercache.json
+world/
+world_nether/
+world_the_end/
+crash-reports/
+logs/
+
+# Environment files
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node/Python
+node_modules/
+__pycache__/
+*.pyc
+venv/
+env/
+
+# Misc
+.git/
+*.jar
+!server.jar

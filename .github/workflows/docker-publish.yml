@@ -1,0 +1,66 @@
+name: Build & Publish Minecraft Server Image
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build Java matrix & push
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [8, 11, 17, 21, 22, 25]
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # QEMU + Buildx → Multi-arch build (amd64, arm64)
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Determine tags
+      - name: Compute Image Tags
+        id: vars
+        run: |
+          echo "TAG_JAVA=java${{ matrix.java }}" >> $GITHUB_OUTPUT
+          # latest は java21 に割り当てる
+          if [ "${{ matrix.java }}" = "21" ]; then
+            echo "TAG_LATEST=latest" >> $GITHUB_OUTPUT
+          fi
+
+      # Build & Push
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            JAVA_VERSION=${{ matrix.java }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.TAG_JAVA }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.TAG_LATEST || '' }}

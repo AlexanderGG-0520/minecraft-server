@@ -1,0 +1,47 @@
+# Git files
+.git
+.gitignore
+.github
+
+# Documentation
+README.md
+LICENSE
+*.md
+
+# IDE/Editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local config
+.env
+.env.local
+config.local.yml
+
+# Temporary/backup files
+*.tmp
+*.bak
+*.log
+*.old
+
+# Dependencies (if applicable)
+node_modules
+vendor
+
+# Test files
+test
+tests
+*.test.js
+
+# Unnecessary directories
+.git
+.gitignore
+docs
+examples
+
+# System files
+Thumbs.db
+.DS_Store
