@@ -59,14 +59,3 @@ jobs:
 
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  # ---------------------------------------------------------
-  # 4. "latest" tag sync to java21 build
-  # ---------------------------------------------------------
-  finalize:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Sync latest tag
-        run: |
-          echo "java21 image becomes latest automatically in tag list."
