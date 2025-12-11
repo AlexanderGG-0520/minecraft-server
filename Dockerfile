@@ -1,6 +1,9 @@
 # ============================================================
 # Base Java Images (official, glibc, multi-arch)
 # ============================================================
+FROM eclipse-temurin:8-jre AS java8
+FROM eclipse-temurin:11-jre AS java11
+FROM eclipse-temurin:17-jre AS java17
 FROM eclipse-temurin:21-jre AS java21
 FROM eclipse-temurin:25-jre AS java25
 
