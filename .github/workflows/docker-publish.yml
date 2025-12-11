@@ -48,14 +48,14 @@ jobs:
       - name: Build and Push Image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          build-args: |
-            JAVA_VERSION=${{ matrix.java }}
+            context: .
+            file: ./docker/Dockerfile
+            platforms: linux/amd64,linux/arm64
+            push: true
+            build-args: |
+                JAVA_VERSION=${{ matrix.java }}
             tags: |
                 ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}
 
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
