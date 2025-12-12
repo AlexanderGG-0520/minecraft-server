@@ -1,91 +1,59 @@
-name: BuildKit Docker Build (Production)
+name: Build & Publish Docker Images
 
 on:
   push:
-    branches: ["main"]
+    branches:
+        - main
   workflow_dispatch:
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: minecraft-server
 
 jobs:
   build:
+    name: Build Multi-Arch Images
     runs-on: ubuntu-latest
+
+    strategy:
+        matrix:
+            java: [8, 11, 17, 21, 25]
+
     permissions:
       contents: read
       packages: write
 
-    strategy:
-      matrix:
-        java: [8, 11, 17, 21, 25]
-
     steps:
-      # ---------------------------------------------------------
-      # 1. Checkout
-      # ---------------------------------------------------------
-      - name: Checkout repository
-        uses: actions/checkout@v4
+        -   name: Checkout repository
+            uses: actions/checkout@v4
 
-      # ---------------------------------------------------------
-      # 2. BuildKit setup（安定性最強）
-      # ---------------------------------------------------------
-      - name: Set up BuildKit environment
-        run: |
-          BUILDKIT_VERSION="v0.15.1"
-          curl -L \
-            "https://github.com/moby/buildkit/releases/download/${BUILDKIT_VERSION}/buildkit-${BUILDKIT_VERSION}.linux-amd64.tar.gz" \
-            | sudo tar -xzC /usr/local
+        # ---------------------------------------------------------
+        # 1. QEMU + Buildx Setup
+        # ---------------------------------------------------------
+        -   name: Set up QEMU
+            uses: docker/setup-qemu-action@v3
 
-          sudo mkdir -p /run/buildkit
-          sudo chmod 755 /run/buildkit
-          sudo pkill -f buildkitd || true
+        -   name: Set up Docker Buildx
+            uses: docker/setup-buildx-action@v3
 
-          sudo /usr/local/bin/buildkitd \
-            --addr unix:///run/buildkit/buildkitd.sock \
-            --root /tmp/buildkit-root \
-            --oci-worker=true \
-            --containerd-worker=false \
-            --debug &
+        # ---------------------------------------------------------
+        # 2. Login to GHCR
+        # ---------------------------------------------------------
+        -   name: Login to GitHub Container Registry
+            uses: docker/login-action@v3
+            with:
+                registry: ghcr.io
+                username: ${{ github.actor }}
+                password: ${{ secrets.GITHUB_TOKEN }}
 
-          echo "Waiting for BuildKit..."
-          for i in {1..30}; do
-            if sudo /usr/local/bin/buildctl \
-                --addr unix:///run/buildkit/buildkitd.sock debug workers >/dev/null 2>&1; then
-              break
-            fi
-            sleep 2
-          done
-
-          sudo chmod 666 /run/buildkit/buildkitd.sock
-
-      # ---------------------------------------------------------
-      # 3. Login to GHCR
-      # ---------------------------------------------------------
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # ---------------------------------------------------------
-      # 4. Build & Push Multi-Arch Images（本番用）
-      # ---------------------------------------------------------
-      - name: Build & Push (Java ${{ matrix.java }})
-        run: |
-          export BUILDKIT_HOST=unix:///run/buildkit/buildkitd.sock
-
-          IMAGE="${REGISTRY}/alexandergg-0520/${IMAGE_NAME}:java${{ matrix.java }}"
-
-          echo "===== Building ${IMAGE} ====="
-
-          /usr/local/bin/buildctl build \
-            --frontend dockerfile.v0 \
-            --local context=. \
-            --local dockerfile=./docker \
-            --opt build-arg:JAVA_VERSION=${{ matrix.java }} \
-            --opt platform=linux/amd64,linux/arm64 \
-            --output type=image,name=${IMAGE},push=true
-
-          echo "===== Push Completed: ${IMAGE} ====="
+        # ---------------------------------------------------------
+        # 3. Docker Build & Push (Multi-Arch + Java Matrix)
+        # ---------------------------------------------------------
+        -   name: Build and Push Image
+            uses: docker/build-push-action@v6
+            with:
+                context: ./
+                file: ./docker/Dockerfile
+                platforms: linux/amd64,linux/arm64
+                push: true
+                build-args: |
+                    JAVA_VERSION=${{ matrix.java }}
+                tags: |
+                    ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}
+                no-cache: true
