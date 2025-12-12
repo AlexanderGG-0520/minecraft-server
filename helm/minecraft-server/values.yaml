@@ -1,0 +1,28 @@
+image:
+  repository: ghcr.io/alexandergg-0520/minecraft-server
+  tag: java21
+  pullPolicy: Always
+
+env:
+  TYPE: vanilla
+  VERSION: "1.21.11"
+  EULA: "true"
+
+  MAX_MEMORY: 6G
+  INIT_MEMORY: 6G
+
+  OPS: "your-username-here"
+  ENABLE_WHITELIST: "true"
+  WHITELIST: "PlayerA,PlayerB"
+
+  VIEW_DISTANCE: "12"
+  SIMULATION_DISTANCE: "12"
+
+persistence:
+  enabled: true
+  size: 20Gi
+
+resources:
+  limits:
+    memory: 8Gi
+    cpu: "4"

@@ -1,128 +1,129 @@
-# 📌 README.md
+# Minecraft Server on Kubernetes
 
-````markdown
-# Minecraft Server Helm Chart
+````md
+<p align="center">
+  <img src="https://img.shields.io/github/actions/workflow/status/AlexanderGG-0520/minecraft-server/build.yml?label=Build&logo=github" />
+  <img src="https://img.shields.io/github/license/AlexanderGG-0520/minecraft-server" />
+  <img src="https://img.shields.io/github/stars/AlexanderGG-0520/minecraft-server?style=social" />
+</p>
 
-Helm Chart for deploying Minecraft servers on Kubernetes with **ArgoCD / GitOps** support.
-
-Supports:
-- Vanilla
-- Fabric
-- Forge
-- Paper
-- Purpur
-- Velocity / Waterfall / BungeeCord
-
-🌟 GPU-enabled via runtimeClassName (nvidia)
+<p align="center">
+  <b>Production-ready Minecraft Server for Kubernetes</b><br/>
+  Helm-native · ArgoCD-friendly · Multi-loader support
+</p>
 
 ---
 
-## 🚀 Quick Start — 5 Minutes to Launch
+## 📘 Documentation
 
-### 🧰 Prerequisites
+<p align="center">
+  <a href="https://alexandergg-0520.github.io/minecraft-server">
+    <img src="https://raw.githubusercontent.com/itzg/docker-minecraft-server/master/docs/assets/documentation.png" alt="Documentation"/>
+  </a>
+</p>
 
-✔ Kubernetes cluster  
-✔ Helm 3.x  
-✔ (Optional) ArgoCD installed  
+You will find things like:
+
+- 🚀 Quick start with **Helm**
+- 🔄 Switching **Minecraft versions & server types**
+- ⚙️ Configuring `server.properties` via **environment variables**
+- 📦 Mods / Plugins sync (Fabric / Forge / Paper / Purpur)
+- ☁️ S3-based mod & config synchronization
+- 🎮 GPU-ready (OpenCL / CUDA aware)
+- 🔁 GitOps-ready with **ArgoCD**
 
 ---
 
-## 🛠️ 1. Add the Chart Repository (optional)
+## 🚀 Quick Start (Helm)
 
-If you publish the chart (see below), users can install like:
+### 1. Add Helm Repository
 
 ```bash
-helm repo add mc-server https://your.github.io/mc-server-helm
+helm repo add mc https://alexandergg-0520.github.io/minecraft-server
 helm repo update
-````
-
----
-
-## 📁 2. Clone the Repo
-
-```bash
-git clone https://github.com/AlexanderGG-0520/minecraft-server
-cd minecraft-server/charts/minecraft-server
 ```
 
----
-
-## 🍺 3. Install with Helm
-
-Example: Fabric, Minecraft 1.21.10, Java 25
+### 2. Install a Server (Fabric example)
 
 ```bash
-helm install my-mc-server . \
-  --set server.type=fabric \
-  --set server.minecraftVersion=1.21.10 \
-  --set image.java=25 \
-  --set image.tag="java25"
+helm install mc mc/minecraft \
+  --set server.eula=true \
+  --set server.type=FABRIC \
+  --set server.version=1.21.10 \
+  --set java.maxMemory=6G
 ```
+
+That’s it.
+Your Minecraft server is now running on Kubernetes 🎉
 
 ---
 
-## 🔐 4. Expose RCON (optional)
+## 🧱 Supported Server Types
 
-```bash
-kubectl get secret my-mc-server-minecraft-server-rcon -o jsonpath="{.data.RCON_PASSWORD}" | base64 --decode
-```
-
----
-
-## 🧑‍💻 5. Add Ops / Whitelist
-
-```bash
-helm upgrade my-mc-server . \
-  --set players.ops[0]=YourName \
-  --set players.whitelist.enabled=true \
-  --set players.whitelist.users[0]=Friend1
-```
+| Type       | Supported |
+| ---------- | --------- |
+| Vanilla    | ✅         |
+| Fabric     | ✅         |
+| Forge      | ✅         |
+| NeoForge   | ✅         |
+| Paper      | ✅         |
+| Purpur     | ✅         |
+| Velocity   | ✅         |
+| BungeeCord | ✅         |
+| Waterfall  | ✅         |
 
 ---
 
-## 📦 6. Enable S3 Sync
+## ⚙️ Configuration
 
-```bash
-helm upgrade my-mc-server . \
-  --set s3.enabled=true \
-  --set s3.endpoint=https://minio.example.com \
-  --set s3.bucket=minecraft-mods
-```
-
----
-
-## ✨ 7. GPU Support (nvidia)
-
-```bash
-helm upgrade my-mc-server . \
-  --set gpu.enabled=true
-```
-
----
-
-## 📊 Check Status
-
-```bash
-kubectl get pods
-kubectl logs deployment/my-mc-server-minecraft-server
-```
-
----
-
-## 🛠️ Overriding server.properties
-
-Override via values.yaml:
+All configuration is done via **values.yaml** or Helm `--set`.
 
 ```yaml
-minecraft:
-  motd: "Welcome to My MC"
-  difficulty: hard
+server:
+  type: FABRIC
+  version: 1.21.10
+  eula: true
+  motd: "Hello Kubernetes!"
+
+java:
+  maxMemory: 6G
+```
+
+Most `server.properties` options are supported via environment variables
+(compatible with itzg/docker-minecraft-server).
+
+---
+
+## 📦 Mods & Plugins
+
+* Fabric / Forge / NeoForge: mods auto-detected
+* Paper / Purpur: plugins directory
+* Optional **S3 sync** for mods & configs
+
+---
+
+## 🔁 GitOps / ArgoCD
+
+This chart is designed to work perfectly with ArgoCD.
+
+```yaml
+source:
+  repoURL: https://alexandergg-0520.github.io/minecraft-server
+  chart: minecraft
 ```
 
 ---
 
-## 📁 PVC Info
+## 🛡 License
 
-```bash
-kubectl get pvc
-```
+MIT License
+
+---
+
+## ❤️ Credits
+
+Inspired by
+
+* itzg/docker-minecraft-server
+* Kubernetes & Helm community
+

@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  minecraft-server:
+    image: ghcr.io/alexandergg-0520/minecraft-server:latest
+    container_name: minecraft-server
+    ports:
+      - "25565:25565"
+    environment:
+      EULA: "TRUE"
+      GAME_MODE: "survival"
+      DIFFICULTY: "easy"
+      MAX_PLAYERS: "20"
+      MEMORY: "2G"
+      PVP: "true"
+      SPAWN_PROTECTION: "16"
+    volumes:
+      - minecraft-data:/data
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+volumes:
+  minecraft-data:
+    driver: local
