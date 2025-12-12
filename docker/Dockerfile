@@ -14,7 +14,7 @@ FROM eclipse-temurin:8-jre-noble AS java8
 
 FROM debian:stable-slim AS runtime
 
-ARG JAVA_VERSION=25
+ARG JAVA_VERSION=21
 ENV JAVA_VERSION=${JAVA_VERSION}
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -44,9 +44,9 @@ RUN ln -sf /opt/java${JAVA_VERSION} /opt/java \
 
 RUN mkdir -p /opt/mc/{scripts,base,types} /data
 
-COPY docker/scripts/ /opt/mc/scripts/
-COPY docker/base/ /opt/mc/base/
-COPY docker/types/ /opt/mc/types/
+COPY /scripts/ /opt/mc/scripts/
+COPY /base/ /opt/mc/base/
+COPY /types/ /opt/mc/types/
 
 RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
 
