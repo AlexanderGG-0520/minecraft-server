@@ -3,7 +3,7 @@
 # ============================================================
 FROM eclipse-temurin:25-jdk AS base
 
-# ---- runtime tools (重要) ----
+# ---- runtime tools ----
 RUN apt-get update && apt-get install -y \
     curl \
     jq \
@@ -17,9 +17,9 @@ COPY scripts/ /opt/mc/scripts/
 COPY base/    /opt/mc/base/
 COPY types/   /opt/mc/
 
-RUN chmod +x \
-  /opt/mc/scripts/*.sh \
-  /opt/mc/base/*.sh \
+RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh 
+
+# 👇 ここは RUN じゃない
 WORKDIR /data
 VOLUME ["/data"]
 
