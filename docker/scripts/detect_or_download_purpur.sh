@@ -1,17 +1,27 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-OUT=/data/server.jar
-MC="${VERSION:-latest}"
+DATA_DIR=/data
+SERVER_JAR="${DATA_DIR}/server.jar"
 
-[[ -f "$OUT" ]] && exit 0
+log() {
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [paper] $*"
+}
 
-if [[ "$MC" == "latest" ]]; then
-  MC="$(curl -fsSL https://api.purpurmc.org/v2/purpur \
-    | jq -r '.versions[-1]')"
-fi
+[[ -f "$SERVER_JAR" ]] && {
+  log "server.jar already exists"
+  exit 0
+}
 
-BUILD="$(curl -fsSL https://api.purpurmc.org/v2/purpur/${MC} \
-  | jq -r '.builds.latest')"
+VERSION="${VERSION:?VERSION required}"
 
-curl -fL "https://api.purpurmc.org/v2/purpur/${MC}/${BUILD}/download" -o "$OUT"
+log "Downloading Paper ${VERSION}"
+
+BUILD=$(curl -fsSL https://api.purpurmc.org/v2/purpur/${MC} \
+  | jq -r '.builds[-1]')
+
+URL="https://api.purpurmc.org/v2/purpur/${MC}/${BUILD}/download"
+
+curl -fL "$URL" -o "$SERVER_JAR"
+
+log "Paper server.jar downloaded"

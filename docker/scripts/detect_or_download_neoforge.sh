@@ -1,16 +1,29 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-OUT=/data/server.jar
-MC="${VERSION:?VERSION required}"
+DATA_DIR=/data
+SERVER_JAR="${DATA_DIR}/server.jar"
 
-[[ -f "$OUT" ]] && exit 0
+log() {
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [forge] $*"
+}
 
-META="$(curl -fsSL https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml)"
-VER="$(echo "$META" | xmllint --xpath 'string(//versioning/latest)' -)"
+[[ -f "$SERVER_JAR" ]] && {
+  log "server.jar already exists"
+  exit 0
+}
 
-curl -fL "https://maven.neoforged.net/releases/net/neoforged/neoforge/${VER}/neoforge-${VER}-installer.jar" \
-  -o /tmp/installer.jar
+FORGE_VERSION="${FORGE_VERSION:?FORGE_VERSION required}"
 
-java -jar /tmp/installer.jar --installServer /data
-mv /data/neoforge-*.jar "$OUT"
+log "Installing Forge ${FORGE_VERSION}"
+
+INSTALLER="forge-${FORGE_VERSION}-installer.jar"
+URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${VER}/"
+
+curl -fL "$URL" -o /neoforge-${VER}-installer.jar
+
+java -jar /neoforge-${VER}-installer.jar --installServer "$DATA_DIR"
+
+mv "$DATA_DIR/neoforge-*-server.jar" "$SERVER_JAR"
+
+log "Forge server.jar ready"

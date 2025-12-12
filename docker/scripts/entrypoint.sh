@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-log() { echo "[$(timestamp)] [$1] ${*:2}"; }
 fatal() { log ERROR "$1"; exit 1; }
 
 log() {
@@ -49,9 +48,8 @@ cp -r "$TYPE_DIR"/. /data || true
 # ============================================================
 # Download server.jar
 # ============================================================
-/opt/mc/scripts/detect_or_download_${TYPE_LOWER}.sh
 
-[[ -f /data/server.jar ]] || fatal "server.jar missing"
+/opt/mc/scripts/detect_or_download_${TYPE_LOWER}.sh
 
 # ============================================================
 # Build JVM / MC args
@@ -63,30 +61,10 @@ cp -r "$TYPE_DIR"/. /data || true
 # ============================================================
 
 if [[ "${EULA:-false}" == "true" ]]; then
-  if [[ ! -f /data/eula.txt ]]; then
-    echo "eula=true" > /data/eula.txt
-    log INFO "EULA accepted (eula.txt written)"
-  fi
+  echo "eula=true" > /data/eula.txt
+  log INFO "EULA accepted (eula.txt written)"
 else
   log WARN "EULA not accepted. Set EULA=true to run the server."
-fi
-
-
-# ============================================================
-# OPS / WHITELIST
-# ============================================================
-if [[ -n "$OPS" ]]; then
-  IFS=',' read -ra ops <<< "$OPS"
-  for o in "${ops[@]}"; do
-    echo "$o" >> /data/ops.json
-  done
-fi
-
-if [[ "$ENABLE_WHITELIST" == "true" && -n "$WHITELIST" ]]; then
-  IFS=',' read -ra wl <<< "$WHITELIST"
-  for w in "${wl[@]}"; do
-    echo "$w" >> /data/whitelist.json
-  done
 fi
 
 # ============================================================

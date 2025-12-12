@@ -1,19 +1,29 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-OUT=/data/server.jar
-MC="${VERSION:?VERSION required}"
-FORGE_VERSION="${FORGE_VERSION:-latest}"
+DATA_DIR=/data
+SERVER_JAR="${DATA_DIR}/server.jar"
 
-[[ -f "$OUT" ]] && exit 0
+log() {
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [forge] $*"
+}
 
-if [[ "$FORGE_VERSION" == "latest" ]]; then
-  FORGE_VERSION="$(curl -fsSL https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json \
-    | jq -r --arg mc "$MC" '.promos[$mc+"-recommended"]')"
-fi
+[[ -f "$SERVER_JAR" ]] && {
+  log "server.jar already exists"
+  exit 0
+}
 
-INSTALLER="forge-${MC}-${FORGE_VERSION}-installer.jar"
+FORGE_VERSION="${FORGE_VERSION:?FORGE_VERSION required}"
 
-curl -fL "https://maven.minecraftforge.net/net/minecraftforge/forge/${MC}-${FORGE_VERSION}/${INSTALLER}" -o /tmp/installer.jar
-java -jar /tmp/installer.jar --installServer /data
-mv /data/forge-*.jar "$OUT"
+log "Installing Forge ${FORGE_VERSION}"
+
+INSTALLER="forge-${FORGE_VERSION}-installer.jar"
+URL="https://maven.minecraftforge.net/net/minecraftforge/forge/${FORGE_VERSION}/${INSTALLER}"
+
+curl -fL "$URL" -o /tmp/forge-installer.jar
+
+java -jar /tmp/forge-installer.jar --installServer "$DATA_DIR"
+
+mv "$DATA_DIR/forge-*-server.jar" "$SERVER_JAR"
+
+log "Forge server.jar ready"

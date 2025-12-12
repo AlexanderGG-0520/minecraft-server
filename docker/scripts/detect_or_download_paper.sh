@@ -1,18 +1,27 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-OUT=/data/server.jar
-MC="${VERSION:-latest}"
+DATA_DIR=/data
+SERVER_JAR="${DATA_DIR}/server.jar"
 
-[[ -f "$OUT" ]] && exit 0
+log() {
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [paper] $*"
+}
 
-if [[ "$MC" == "latest" ]]; then
-  MC="$(curl -fsSL https://api.papermc.io/v2/projects/paper \
-    | jq -r '.versions[-1]')"
-fi
+[[ -f "$SERVER_JAR" ]] && {
+  log "server.jar already exists"
+  exit 0
+}
 
-BUILD="$(curl -fsSL https://api.papermc.io/v2/projects/paper/versions/${MC} \
-  | jq -r '.builds[-1]')"
+VERSION="${VERSION:?VERSION required}"
 
-URL="https://api.papermc.io/v2/projects/paper/versions/${MC}/builds/${BUILD}/downloads/paper-${MC}-${BUILD}.jar"
-curl -fL "$URL" -o "$OUT"
+log "Downloading Paper ${VERSION}"
+
+BUILD=$(curl -fsSL https://api.papermc.io/v2/projects/paper/versions/${VERSION} \
+  | jq -r '.builds[-1]')
+
+URL="https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/paper-${VERSION}-${BUILD}.jar"
+
+curl -fL "$URL" -o "$SERVER_JAR"
+
+log "Paper server.jar downloaded"
