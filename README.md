@@ -1,26 +1,16 @@
-# Minecraft Server on Kubernetes
+# Minecraft Server Docker Image
 
-````md
-<p align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/AlexanderGG-0520/minecraft-server/build.yml?label=Build&logo=github" />
-  <img src="https://img.shields.io/github/license/AlexanderGG-0520/minecraft-server" />
-  <img src="https://img.shields.io/github/stars/AlexanderGG-0520/minecraft-server?style=social" />
-</p>
-
-<p align="center">
-  <b>Production-ready Minecraft Server for Kubernetes</b><br/>
-  Helm-native · ArgoCD-friendly · Multi-loader support
-</p>
+![Docker Build](https://img.shields.io/github/actions/workflow/status/AlexanderGG-0520/minecraft-server/build.yml?branch=main)
+![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Falexandergg--0520%2Fminecraft--server-blue)
+![Docker Pulls](https://img.shields.io/badge/pulls-private-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Java](https://img.shields.io/badge/java-17%20%7C%2021%20%7C%2025-orange)
+![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue)
+![Helm](https://img.shields.io/badge/helm-supported-0f1689)
 
 ---
 
 ## 📘 Documentation
-
-<p align="center">
-  <a href="https://alexandergg-0520.github.io/minecraft-server">
-    <img src="https://raw.githubusercontent.com/itzg/docker-minecraft-server/master/docs/assets/documentation.png" alt="Documentation"/>
-  </a>
-</p>
 
 You will find things like:
 
@@ -74,7 +64,33 @@ Your Minecraft server is now running on Kubernetes 🎉
 
 ---
 
+## ☕ Java Version
+
+Java version is selected by the **Docker image tag**.
+
+Supported tags:
+
+- `java8`
+- `java11`
+- `java17`
+- `java21` (recommended)
+- `java25` (C2ME GPU Accelerated)
+
+Example:
+
+```yaml
+image:
+  tag: java21
+```
+
+---
+
 ## ⚙️ Configuration
+
+> ℹ️ `server.type` is case-insensitive  
+> (`fabric`, `FABRIC`, `Fabric` are all valid)
+>
+> Recommended: use **uppercase** values (FABRIC, FORGE, PAPER).
 
 All configuration is done via **values.yaml** or Helm `--set`.
 
@@ -92,13 +108,15 @@ java:
 Most `server.properties` options are supported via environment variables
 (compatible with itzg/docker-minecraft-server).
 
+> 📄 See `values.yaml` for all available configuration options and defaults.
+
 ---
 
 ## 📦 Mods & Plugins
 
-* Fabric / Forge / NeoForge: mods auto-detected
-* Paper / Purpur: plugins directory
-* Optional **S3 sync** for mods & configs
+- Fabric / Forge / NeoForge: mods auto-detected
+- Paper / Purpur: plugins directory
+- Optional **S3 sync** for mods & configs
 
 ---
 
@@ -114,9 +132,11 @@ source:
 
 ---
 
-## 🛡 License
+## 📜 License
 
-MIT License
+This project is licensed under the **MIT License**.
+
+See the [LICENSE](./LICENSE) file for details.
 
 ---
 
@@ -124,6 +144,5 @@ MIT License
 
 Inspired by
 
-* itzg/docker-minecraft-server
-* Kubernetes & Helm community
-
+- itzg/docker-minecraft-server
+- Kubernetes & Helm community

@@ -42,11 +42,11 @@ RUN ln -sf /opt/java${JAVA_VERSION} /opt/java \
 # Runtime layout
 # ============================================================
 
-RUN mkdir -p /opt/mc/{scripts,base,types} /data
+RUN mkdir -p /opt/mc/{scripts,base} /data
 
-COPY /scripts/ /opt/mc/scripts/
-COPY /base/ /opt/mc/base/
-COPY /types/ /opt/mc/types/
+COPY scripts/ /opt/mc/scripts/
+COPY base/    /opt/mc/base/
+COPY types/   /opt/mc/
 
 RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
 
@@ -54,3 +54,4 @@ WORKDIR /opt/mc
 VOLUME ["/data"]
 
 ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
+
