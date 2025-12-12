@@ -15,6 +15,12 @@ get_uuid() {
   local player_name=$1
   # Minecraft Profile API から UUID を取得
   uuid=$(curl -s "https://api.mojang.com/users/profiles/minecraft/$player_name" | jq -r '.id')
+  
+  # If UUID is empty, log error and exit
+  if [[ -z "$uuid" ]]; then
+    log ERROR "Failed to fetch UUID for player: $player_name"
+    exit 1
+  fi
   echo "$uuid"
 }
 
