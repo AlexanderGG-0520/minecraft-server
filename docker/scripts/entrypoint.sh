@@ -1,6 +1,85 @@
 #!/bin/bash
 set -euo pipefail
 
+fetch_uuid() {
+  local name="$1"
+  local uuid
+
+  uuid=$(curl -fsSL "https://api.mojang.com/users/profiles/minecraft/${name}" | jq -r '.id' 2>/dev/null || true)
+
+  if [[ -z "$uuid" || "$uuid" == "null" ]]; then
+    # fallback: offline UUID（consistent hash）
+    uuid=$(echo -n "OfflinePlayer:${name}" | md5sum | awk '{print $1}')
+  fi
+
+  echo "$uuid"
+}
+
+generate_ops() {
+  [[ -z "${OPS:-}" ]] && return
+
+  log INFO "Generating ops.json from OPS=${OPS}"
+
+  local ops_file="/data/ops.json"
+  local tmp="/data/ops.tmp.json"
+
+  # 現在の ops.json を読み込み（無ければ空配列）
+  [[ -f "$ops_file" ]] || echo "[]" > "$ops_file"
+
+  cp "$ops_file" "$tmp"
+
+  IFS=',' read -ra PLAYERS <<< "$OPS"
+
+  for p in "${PLAYERS[@]}"; do
+    p=$(echo "$p" | xargs)
+
+    uuid=$(fetch_uuid "$p")
+
+    if ! grep -q "\"name\": \"${p}\"" "$tmp"; then
+      log INFO "Adding OP: ${p} (${uuid})"
+      jq ". += [{\"uuid\": \"${uuid}\", \"name\": \"${p}\", \"level\": 4, \"bypassesPlayerLimit\": false}]" "$tmp" > "${tmp}.new"
+      mv "${tmp}.new" "$tmp"
+    fi
+  done
+
+  mv "$tmp" "$ops_file"
+}
+
+generate_whitelist() {
+  [[ -z "${WHITELIST:-}" ]] && return
+
+  log INFO "Generating whitelist.json from WHITELIST=${WHITELIST}"
+
+  local wl_file="/data/whitelist.json"
+  local tmp="/data/whitelist.tmp.json"
+
+  [[ -f "$wl_file" ]] || echo "[]" > "$wl_file"
+
+  cp "$wl_file" "$tmp"
+
+  IFS=',' read -ra PLAYERS <<< "$WHITELIST"
+
+  for p in "${PLAYERS[@]}"; do
+    p=$(echo "$p" | xargs)
+
+    uuid=$(fetch_uuid "$p")
+
+    if ! grep -q "\"name\": \"${p}\"" "$tmp"; then
+      log INFO "Adding whitelist: ${p} (${uuid})"
+      jq ". += [{\"uuid\": \"${uuid}\", \"name\": \"${p}\"}]" "$tmp" > "${tmp}.new"
+      mv "${tmp}.new" "$tmp"
+    fi
+  done
+
+  mv "$tmp" "$wl_file"
+
+  # whitelist を有効化
+  sed -i 's/^white-list=.*/white-list=true/' /data/server.properties
+  sed -i 's/^enforce-whitelist=.*/enforce-whitelist=true/' /data/server.properties
+}
+
+
+
 # ========================================================================
 #  Logging utilities
 # ========================================================================
@@ -210,6 +289,14 @@ set_prop "rate-limit" "RATE_LIMIT"
 set_prop "pvp" "PVP"
 
 log INFO "server.properties generated."
+
+
+# ============================================================
+#  Generate OPS / WHITELIST
+# ============================================================
+
+generate_ops
+generate_whitelist
 
 
 # ========================================================================
