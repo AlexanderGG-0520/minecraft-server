@@ -85,13 +85,13 @@ sed -e "s/\${SERVER_PORT}/${SERVER_PORT}/g" \
     -e "s/\${RCON_TIMEOUT}/${RCON_TIMEOUT}/g" \
     -e "s/\${MAX_PLAYERS}/${MAX_PLAYERS}/g" \
     -e "s/\${DIFFICULTY}/${DIFFICULTY}/g" \
-    -e "s/\${MODE}/${GAMEMODE}/g" \
+    -e "s/\${MODE}/${MODE}/g" \
     -e "s/\${HARDCORE}/${HARDCORE}/g" \
     -e "s/\${PVP}/${PVP}/g" \
     -e "s/\${ALLOW_FLIGHT}/${ALLOW_FLIGHT}/g" \
     -e "s/\${FORCE_GAMEMODE}/${FORCE_GAMEMODE}/g" \
     -e "s/\${SPAWN_PROTECTION}/${SPAWN_PROTECTION}/g" \
-    -e "s/\${LEVEL}/${LEVEL_NAME}/g" \
+    -e "s/\${LEVEL}/${LEVEL}/g" \
     -e "s/\${SEED}/${LEVEL_SEED}/g" \
     -e "s/\${LEVEL_TYPE}/${LEVEL_TYPE}/g" \
     -e "s/\${GENERATE_STRUCTURES}/${GENERATE_STRUCTURES}/g" \
