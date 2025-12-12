@@ -50,6 +50,14 @@ if [[ -f /data/server-settings.yaml ]]; then
 fi
 
 # ============================================================
+# Server Binary Detection / Download
+# ============================================================
+log INFO "Preparing server binaries"
+/opt/mc/scripts/detect_or_download_dispatcher.sh
+log INFO "Server binaries are ready"
+
+
+# ============================================================
 # JVM & MC Arguments Generation
 # ============================================================
 
