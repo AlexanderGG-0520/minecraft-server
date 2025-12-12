@@ -44,14 +44,19 @@ ENV MC_ACCELERATION=opencl
 # GPU Variant
 # =========================
 
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS cuda
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS gpu
 
-FROM base AS gpu
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
+ && add-apt-repository multiverse \
+ && apt-get update \
+ && apt-get install -y \
     nvidia-opencl-icd \
  && rm -rf /var/lib/apt/lists/*
 
 LABEL org.opencontainers.image.variant=gpu
 ENV ENABLE_OPENCL=true
 ENV MC_ACCELERATION=opencl
+
