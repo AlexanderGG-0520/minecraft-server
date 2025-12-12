@@ -56,5 +56,4 @@ jobs:
                     JAVA_VERSION=${{ matrix.java }}
                 tags: |
                     ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}
-                cache-from: type=gha,scope=minecraft-java${{ matrix.java }}
-                cache-to:   type=gha,scope=minecraft-java${{ matrix.java }},mode=max
+                no-cache: true
