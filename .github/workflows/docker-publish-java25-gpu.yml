@@ -45,16 +45,6 @@ jobs:
             # ----------------------------------------
             # Build & Push
             # ----------------------------------------
-            -   name: Build & Push CPU image
-                uses: docker/build-push-action@v6
-                with:
-                    context: ./docker
-                    file: ./docker/Dockerfile.java25
-                    target: cpu
-                    platforms: linux/amd64,linux/arm64
-                    push: true
-                    tags: |
-                        ghcr.io/alexandergg-0520/minecraft-server:java25-cpu
             -   name: Build & Push GPU image
                 uses: docker/build-push-action@v6
                 with:
