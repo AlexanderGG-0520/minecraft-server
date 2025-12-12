@@ -20,10 +20,6 @@ COPY types/   /opt/mc/
 RUN chmod +x \
   /opt/mc/scripts/*.sh \
   /opt/mc/base/*.sh \
-  /opt/mc/fabric/*.sh \
-  /opt/mc/forge/*.sh \
-  /opt/mc/paper/*.sh
-
 WORKDIR /data
 VOLUME ["/data"]
 
