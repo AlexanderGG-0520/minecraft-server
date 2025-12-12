@@ -13,7 +13,9 @@ FROM eclipse-temurin:25-jre AS java25
 FROM debian:stable-slim AS runtime
 
 ARG JAVA_VERSION=21
+ARG CACHE_BUST=0
 ENV DEBIAN_FRONTEND=noninteractive
+ENV CACHE_BUST=${CACHE_BUST} 
 
 # Install required tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -37,11 +39,15 @@ ENV PATH="/opt/java/bin:${PATH}"
 # ============================================================
 WORKDIR /opt/mc
 
-# Scripts
+# ------------------------------------------------------------
+# Scripts（cache-bust により毎回最新になる）
+# ------------------------------------------------------------
 COPY docker/scripts ./scripts
-RUN chmod +x ./scripts/*.sh
+RUN chmod -R +x ./scripts
 
-# Base config layer
+# ------------------------------------------------------------
+# Base config layer (ほぼ変わらないのでキャッシュOK)
+# ------------------------------------------------------------
 COPY docker/base ./base
 
 # Type-specific config layers
