@@ -15,9 +15,9 @@ get_uuid() {
   local player_name=$1
   # Minecraft Profile API から UUID を取得
   uuid=$(curl -s "https://api.mojang.com/users/profiles/minecraft/$player_name" | jq -r '.id')
-  
-  # If UUID is empty, log error and exit
-  if [[ -z "$uuid" ]]; then
+
+  # If UUID is empty or invalid, log error and exit
+  if [[ -z "$uuid" || "$uuid" == "null" ]]; then
     log ERROR "Failed to fetch UUID for player: $player_name"
     exit 1
   fi
@@ -39,6 +39,7 @@ add_players() {
     echo "[]" > "$json_file"
   fi
 
+  # Iterate through the player list
   for player in $(echo "$player_list" | tr "," "\n"); do
     # Get the UUID for the player
     uuid=$(get_uuid "$player")
@@ -46,6 +47,8 @@ add_players() {
     # Check if player already exists in the JSON (using UUID)
     if ! jq -e ".[] | select(.uuid == \"$uuid\")" "$json_file" > /dev/null; then
       log INFO "Adding player $player ($uuid) to $json_file with permission level $permission_level"
+      
+      # Add player to the JSON file
       jq ". += [{\"name\": \"$player\", \"uuid\": \"$uuid\", \"level\": \"$permission_level\", \"banned\": false}]" "$json_file" > temp.json && mv temp.json "$json_file"
     else
       log INFO "Player $player ($uuid) already exists in $json_file"
