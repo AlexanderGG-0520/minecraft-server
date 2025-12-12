@@ -59,6 +59,13 @@ log INFO "Rendering server.properties from base.env and YAML"
 /opt/mc/scripts/render_server_properties.sh
 log INFO "server.properties generated successfully"
 
+# ============================================================
+# OPS and WHITELIST Application
+# ============================================================
+log INFO "Applying OPS and WHITELIST settings"
+/opt/mc/scripts/apply_ops_and_whitelist.sh
+log INFO "OPS and WHITELIST settings applied successfully"
+
 # ------------------------------------------------------------
 # Proceed with server start-up steps
 # ------------------------------------------------------------
