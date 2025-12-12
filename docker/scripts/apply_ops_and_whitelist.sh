@@ -9,6 +9,16 @@ log() {
 }
 
 # ------------------------------------------------------------
+# Get UUID from Mojang API for a player
+# ------------------------------------------------------------
+get_uuid() {
+  local player_name=$1
+  # Minecraft Profile API から UUID を取得
+  uuid=$(curl -s "https://api.mojang.com/users/profiles/minecraft/$player_name" | jq -r '.id')
+  echo "$uuid"
+}
+
+# ------------------------------------------------------------
 # Add players to ops.json and whitelist.json based on environment variables
 # ------------------------------------------------------------
 add_players() {
@@ -24,12 +34,15 @@ add_players() {
   fi
 
   for player in $(echo "$player_list" | tr "," "\n"); do
-    # Check if player already exists in the JSON
-    if ! jq -e ".[] | select(.name == \"$player\")" "$json_file" > /dev/null; then
-      log INFO "Adding player $player to $json_file with permission level $permission_level"
-      jq ". += [{\"name\": \"$player\", \"uuid\": \"$(uuidgen)\", \"level\": \"$permission_level\", \"banned\": false}]" "$json_file" > temp.json && mv temp.json "$json_file"
+    # Get the UUID for the player
+    uuid=$(get_uuid "$player")
+
+    # Check if player already exists in the JSON (using UUID)
+    if ! jq -e ".[] | select(.uuid == \"$uuid\")" "$json_file" > /dev/null; then
+      log INFO "Adding player $player ($uuid) to $json_file with permission level $permission_level"
+      jq ". += [{\"name\": \"$player\", \"uuid\": \"$uuid\", \"level\": \"$permission_level\", \"banned\": false}]" "$json_file" > temp.json && mv temp.json "$json_file"
     else
-      log INFO "Player $player already exists in $json_file"
+      log INFO "Player $player ($uuid) already exists in $json_file"
     fi
   done
 }
