@@ -28,9 +28,6 @@ log INFO "Checking for empty variables and applying default values"
 # ------------------------------------------------------------
 log INFO "Loading base.env (defaults)"
 source /opt/mc/base/base.env
-log INFO "OPS and WHITELIST processing started"
-/opt/mc/scripts/apply_ops_and_whitelist.sh
-log INFO "OPS and WHITELIST processing completed"
 
 # ------------------------------------------------------------
 # Reset world if RESET_FLAG is true
