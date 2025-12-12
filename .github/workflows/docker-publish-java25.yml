@@ -56,4 +56,3 @@ jobs:
           push: true
           tags: |
             ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}${{ matrix.variant == 'gpu' && '-gpu' || '' }}
-            no-cache: true
