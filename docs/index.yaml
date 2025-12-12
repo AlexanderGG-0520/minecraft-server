@@ -2,12 +2,13 @@ apiVersion: v1
 entries:
   argocd-minecraft-appset:
   - apiVersion: v2
-    created: "2025-12-12T18:34:19.4372435+09:00"
+    appVersion: 1.0.0
+    created: "2025-12-12T18:37:52.5436877+09:00"
     description: ArgoCD ApplicationSet for multiple Minecraft servers
-    digest: fd8439a4df41d364fcca397afc871efe603ebb1e6da55437ff722ca5b372f369
+    digest: 51883194eb617700513ab8d8004ca0848601eeeae116f1cb8226ca02c8dbe0c7
     name: argocd-minecraft-appset
     type: application
     urls:
     - https://alexandergg-0520.github.io/minecraft-server/argocd-minecraft-appset-1.0.0.tgz
     version: 1.0.0
-generated: "2025-12-12T18:34:19.436239+09:00"
+generated: "2025-12-12T18:37:52.5436877+09:00"
