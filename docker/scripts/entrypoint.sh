@@ -57,9 +57,9 @@ retry() {
 #  Import scripts (functions only)
 # ============================================================
 
-# sync_s3.sh / world_reset.sh は "関数実行" のため source が必要
+# sync_s3.sh / reset_world.sh は "関数実行" のため source が必要
 source /opt/mc/scripts/sync_s3.sh
-source /opt/mc/scripts/world_reset.sh
+source /opt/mc/scripts/reset_world.sh
 
 # detect_or_download_server.sh は関数ではなく本体が実行形式
 DETECT_DL="/opt/mc/scripts/detect_or_download_server.sh"
@@ -127,12 +127,12 @@ fi
 
 
 # ============================================================
-#  2. World Reset (flag-based)
+#  2. Reset World (flag-based)
 # ============================================================
 
 if [[ -f "/data/reset-world.flag" ]]; then
   log WARN "reset-world.flag detected — world will be reset"
-  retry 3 1 world_reset_main
+  retry 3 1 reset_world_main
 fi
 
 
