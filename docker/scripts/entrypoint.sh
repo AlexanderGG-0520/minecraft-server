@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================
-#  Logging System (color + timestamp)
+#  Logging (color + timestamp)
 # ============================================================
 
 timestamp() {
@@ -10,9 +10,8 @@ timestamp() {
 }
 
 log() {
-  local level="$1"
-  shift
-  local msg="$@"
+  local level="$1"; shift
+  local msg="$*"
 
   local RESET="\033[0m"
   local RED="\033[31m"
@@ -30,13 +29,8 @@ log() {
     *)     COLOR="$RESET" ;;
   esac
 
-  echo -e "${COLOR}[$(timestamp)] [$level]${RESET} $msg"
+  echo -e "${COLOR}[$(timestamp)] [$level]${RESET} ${msg}"
 }
-
-
-# ============================================================
-#  Error Handling Framework (fatal / retry)
-# ============================================================
 
 fatal() {
   log ERROR "$1"
@@ -59,14 +53,16 @@ retry() {
   done
 }
 
-
 # ============================================================
-#  Import Subscripts
+#  Import scripts (functions only)
 # ============================================================
 
-source /opt/mc/scripts/detect_or_download_server.sh
+# sync_s3.sh / world_reset.sh は "関数実行" のため source が必要
 source /opt/mc/scripts/sync_s3.sh
 source /opt/mc/scripts/world_reset.sh
+
+# detect_or_download_server.sh は関数ではなく本体が実行形式
+DETECT_DL="/opt/mc/scripts/detect_or_download_server.sh"
 
 
 # ============================================================
@@ -78,12 +74,12 @@ log INFO "TYPE=${TYPE}, VERSION=${VERSION}, JAVA=$(java -version 2>&1 | head -n1
 
 
 # ============================================================
-#  1. Load Base Configuration
+#  Load Base Configuration
 # ============================================================
 
 BASE_ENV="/opt/mc/base/base.env"
-
 log INFO "Loading base layer..."
+
 if [[ -f "$BASE_ENV" ]]; then
   source "$BASE_ENV"
 else
@@ -92,7 +88,7 @@ fi
 
 
 # ============================================================
-#  2. Apply TYPE-Specific Layer
+#  Apply TYPE Layer
 # ============================================================
 
 TYPE_DIR="/opt/mc/${TYPE}"
@@ -103,12 +99,12 @@ if [[ ! -d "$TYPE_DIR" ]]; then
   fatal "TYPE directory missing: ${TYPE_DIR}"
 fi
 
-# Base → TYPE → /data（ユーザー上書き）
+# Base → TYPE → /data
 retry 3 1 cp -r "$TYPE_DIR"/* /data
 
 
 # ============================================================
-#  3. Sync Mods/Configs from S3 (optional)
+#  S3 Sync (optional)
 # ============================================================
 
 if [[ "${S3_SYNC_ENABLED:-false}" == "true" ]]; then
@@ -118,11 +114,12 @@ fi
 
 
 # ============================================================
-#  4. Download server.jar (TYPE-aware)
+#  1. Detect or Download server.jar
 # ============================================================
 
 log INFO "Resolving and downloading server.jar..."
-retry 5 2 detect_or_download_server_main
+
+retry 5 2 bash "$DETECT_DL"
 
 if [[ ! -f /data/server.jar ]]; then
   fatal "server.jar missing after download"
@@ -130,7 +127,7 @@ fi
 
 
 # ============================================================
-#  5. World Reset (if reset-world.flag exists)
+#  2. World Reset (flag-based)
 # ============================================================
 
 if [[ -f "/data/reset-world.flag" ]]; then
@@ -140,17 +137,17 @@ fi
 
 
 # ============================================================
-#  6. Merge JVM and MC args
+#  3. Merge JVM / MC Args
 # ============================================================
 
-log INFO "Preparing JVM and Minecraft launch arguments"
+log INFO "Preparing JVM and Minecraft args..."
 
-# jvm args
+# JVM args
 [[ -f /opt/mc/base/jvm.args ]] && cp /opt/mc/base/jvm.args /data/jvm.args
 [[ -f /opt/mc/${TYPE}/jvm.args ]] && cat /opt/mc/${TYPE}/jvm.args >> /data/jvm.args
 [[ -f /data/jvm.override ]] && cat /data/jvm.override >> /data/jvm.args
 
-# mc args
+# MC args
 [[ -f /opt/mc/base/mc.args ]] && cp /opt/mc/base/mc.args /data/mc.args
 [[ -f /opt/mc/${TYPE}/mc.args ]] && cat /opt/mc/${TYPE}/mc.args >> /data/mc.args
 [[ -f /data/mc.override ]] && cat /data/mc.override >> /data/mc.args
@@ -160,7 +157,7 @@ log DEBUG "Merged MC args: $(tr '\n' ' ' < /data/mc.args)"
 
 
 # ============================================================
-#  7. Start Minecraft Server
+#  Launch Minecraft Server
 # ============================================================
 
 log START "Launching Java runtime..."
