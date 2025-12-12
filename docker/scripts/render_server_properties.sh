@@ -52,6 +52,7 @@ log() {
 : "${WHITE_LIST:=false}"
 : "${ENFORCE_WHITELIST:=false}"
 : "${ENFORCE_SECURE_PROFILE:=true}"
+: "${PAUSE_WHEN_EMPTY_SECONDS:=-1}"
 
 # ------------------------------------------------------------
 # Check if the server properties template exists
@@ -106,6 +107,7 @@ sed -e "s/\${SERVER_PORT}/${SERVER_PORT}/g" \
     -e "s/\${WHITE_LIST}/${WHITE_LIST}/g" \
     -e "s/\${ENFORCE_WHITELIST}/${ENFORCE_WHITELIST}/g" \
     -e "s/\${ENFORCE_SECURE_PROFILE}/${ENFORCE_SECURE_PROFILE}/g" \
+    -E "s/\${PAUSE_WHEN_EMPTY_SECONDS}/${PAUSE_WHEN_EMPTY_SECONDS}/g" \
     "$TEMPLATE_PATH" > "$OUTPUT_PATH"
 
 log INFO "server.properties generated successfully at ${OUTPUT_PATH}"
