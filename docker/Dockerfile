@@ -4,6 +4,7 @@
 
 FROM eclipse-temurin:25-jre-noble AS java25
 FROM eclipse-temurin:21-jre-noble AS java21
+FROM eclipse-temurin:16-jre-noble AS java16
 FROM eclipse-temurin:17-jre-noble AS java17
 FROM eclipse-temurin:11-jre-noble AS java11
 FROM eclipse-temurin:8-jre-noble AS java8
@@ -31,6 +32,7 @@ RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
 COPY --from=java25 /opt/java/openjdk /opt/java25
 COPY --from=java21 /opt/java/openjdk /opt/java21
 COPY --from=java17 /opt/java/openjdk /opt/java17
+COPY --from=java16 /opt/java/openjdk /opt/java16
 COPY --from=java11 /opt/java/openjdk /opt/java11
 COPY --from=java8  /opt/java/openjdk /opt/java8
 
