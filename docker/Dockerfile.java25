@@ -44,17 +44,21 @@ ENV MC_ACCELERATION=opencl
 # =========================
 # GPU Variant
 # =========================
-FROM base AS gpu
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS gpu
 
-# CUDA ランタイムだけを追加
-COPY --from=nvidia/cuda:12.4.1-runtime-ubuntu22.04 / /cuda-root
+# Java + Minecraft runtime を後から足す
+COPY --from=base /opt /opt
+COPY --from=base /data /data
 
-ENV LD_LIBRARY_PATH=/cuda-root/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+WORKDIR /data
+VOLUME ["/data"]
 
-# OpenCL ICD (NVIDIA)
+ENV JAVA_VERSION=25
+ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
+
+# OpenCL ICD
 RUN mkdir -p /etc/OpenCL/vendors && \
     echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
-LABEL org.opencontainers.image.variant=gpu
-ENV ENABLE_OPENCL=true
-ENV MC_ACCELERATION=opencl
+ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
+
