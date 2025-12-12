@@ -7,7 +7,7 @@ RUN mkdir -p /opt/mc/{scripts,base,types} /data
 
 COPY scripts/ /opt/mc/scripts/
 COPY base/ /opt/mc/base/
-COPY types/ /opt/mc/types/
+COPY types/ /opt/mc/
 
 RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
 
