@@ -1,83 +1,95 @@
-# ============================================================
-# Base Java Runtime (multi-arch Temurin)
-# ============================================================
-FROM eclipse-temurin:8-jre AS java8
-FROM eclipse-temurin:11-jre AS java11
-FROM eclipse-temurin:17-jre AS java17
-FROM eclipse-temurin:21-jre AS java21
-FROM eclipse-temurin:25-jre AS java25
+# ======================================================================
+#  Minecraft Unified Server — Multi TYPE Runtime
+#  (Fabric / Forge / NeoForge / Paper / Purpur / Vanilla / Proxy etc.)
+# ======================================================================
 
-# ============================================================
-# Final Runtime Image — Debian stable-slim
-# ============================================================
-FROM debian:stable-slim AS runtime
+FROM eclipse-temurin:25-jre-noble AS base
 
-ARG JAVA_VERSION=21
 ENV DEBIAN_FRONTEND=noninteractive
 
-# ------------------------------------------------------------
-# Required Tools
-# ------------------------------------------------------------
+# ----------------------------------------------------------
+# Install required utilities
+# ----------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash curl wget jq ca-certificates unzip \
+    bash curl wget unzip jq ca-certificates tar \
     && rm -rf /var/lib/apt/lists/*
 
-# ------------------------------------------------------------
-# Install MinIO Client (mc) inside the image
-# ------------------------------------------------------------
-RUN wget -q https://dl.min.io/client/mc/release/linux-amd64/mc \
-    -O /usr/local/bin/mc && \
-    chmod +x /usr/local/bin/mc
+# ----------------------------------------------------------
+# Install MinIO client (mc)
+# ----------------------------------------------------------
+RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
+    -o /usr/local/bin/mc \
+    && chmod +x /usr/local/bin/mc
 
-# ------------------------------------------------------------
-# Java Runtimes
-# ------------------------------------------------------------
-COPY --from=java21 /opt/java/openjdk /opt/java21
-COPY --from=java25 /opt/java/openjdk /opt/java25
+# ----------------------------------------------------------
+# Create directories
+# ----------------------------------------------------------
+RUN mkdir -p \
+    /opt/mc/base \
+    /opt/mc/scripts \
+    /opt/mc/vanilla \
+    /opt/mc/fabric \
+    /opt/mc/forge \
+    /opt/mc/neoforge \
+    /opt/mc/paper \
+    /opt/mc/purpur \
+    /opt/mc/velocity \
+    /opt/mc/waterfall \
+    /opt/mc/bungeecord \
+    /data
 
-RUN if [ "$JAVA_VERSION" = "25" ]; then \
-        ln -sf /opt/java25 /opt/java ; \
-    else \
-        ln -sf /opt/java21 /opt/java ; \
-    fi
 
-ENV PATH="/opt/java/bin:${PATH}"
+# ======================================================================
+#  Copy Project Files
+# ======================================================================
 
-# ------------------------------------------------------------
-# Minecraft Runtime Directory Layout
-# ------------------------------------------------------------
-WORKDIR /opt/mc
+# entrypoint
+COPY ./scripts/entrypoint.sh /opt/mc/scripts/entrypoint.sh
+RUN chmod +x /opt/mc/scripts/entrypoint.sh
 
-# Scripts
-COPY docker/scripts ./scripts
-RUN chmod +x ./scripts/*.sh
+# Main modules
+COPY ./scripts/sync_s3.sh                /opt/mc/scripts/sync_s3.sh
+COPY ./scripts/reset_world.sh            /opt/mc/scripts/reset_world.sh
+COPY ./base/make_args.sh                 /opt/mc/base/make_args.sh
 
-# Base ENV (default values: disabled S3 etc)
-COPY docker/base/ /opt/mc/base
+RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/make_args.sh
 
-# Type-specific layers
-COPY docker/fabric   ./fabric
-COPY docker/forge    ./forge
-COPY docker/neoforge ./neoforge
-COPY docker/paper    ./paper
-COPY docker/proxy    ./proxy
+# Detect/download scripts（各 TYPE ごと）
+COPY ./scripts/detect_or_download_*.sh   /opt/mc/scripts/
+RUN chmod +x /opt/mc/scripts/detect_or_download_*.sh
 
-# Data directory
-RUN mkdir -p /data
+# Default base config
+COPY ./base/base.env                     /opt/mc/base/base.env
+COPY ./base/server.properties.base       /opt/mc/base/server.properties.base
+COPY ./base/jvm.args                     /opt/mc/base/jvm.args
+COPY ./base/mc.args                      /opt/mc/base/mc.args
 
-# ------------------------------------------------------------
-# Default Environment Variables
-# ------------------------------------------------------------
-ENV EULA="false" \
-    TYPE="fabric" \
-    VERSION="latest" \
-    MEMORY="4G" \
-    LOG_FORMAT="plain" \
-    S3_SYNC_ENABLED="false" \
-    WORLD_RESET_POLICY="never"
+# TYPE-specific config (empty OK)
+COPY ./types/vanilla/     /opt/mc/vanilla/
+COPY ./types/fabric/      /opt/mc/fabric/
+COPY ./types/forge/       /opt/mc/forge/
+COPY ./types/neoforge/    /opt/mc/neoforge/
+COPY ./types/paper/       /opt/mc/paper/
+COPY ./types/purpur/      /opt/mc/purpur/
+COPY ./types/velocity/    /opt/mc/velocity/
+COPY ./types/waterfall/   /opt/mc/waterfall/
+COPY ./types/bungeecord/  /opt/mc/bungeecord/
 
-VOLUME ["/data"]
+# ======================================================================
+#  Final image configuration
+# ======================================================================
 
+WORKDIR /data
+
+# Allow LD_LIBRARY_PATH overrides (GPU OpenCL など)
+ENV LD_LIBRARY_PATH="/usr/local/opencl:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
+
+# S3 defaults
+ENV S3_TLS_ENABLED=true
+
+# Container runtime
 EXPOSE 25565 25575
 
-ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
+ENTRYPOINT [ "/opt/mc/scripts/entrypoint.sh" ]
+CMD []
+# ======================================================================
