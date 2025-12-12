@@ -31,6 +31,19 @@ ENV MC_ACCELERATION=opencl
 
 ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
 
+# =========================
+# CPU Variant
+# =========================
+FROM base AS cpu
+
+LABEL org.opencontainers.image.variant=cpu
+ENV ENABLE_OPENCL=true
+ENV MC_ACCELERATION=opencl
+
+# =========================
+# GPU Variant
+# =========================
+
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS cuda
 
 FROM base AS gpu
