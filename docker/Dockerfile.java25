@@ -48,15 +48,12 @@ FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
-    software-properties-common \
- && add-apt-repository multiverse \
- && apt-get update \
- && apt-get install -y \
-    nvidia-opencl-icd \
- && rm -rf /var/lib/apt/lists/*
+# OpenCL ICD file を手動で作る
+RUN mkdir -p /etc/OpenCL/vendors && \
+    echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
 LABEL org.opencontainers.image.variant=gpu
 ENV ENABLE_OPENCL=true
 ENV MC_ACCELERATION=opencl
+
 
