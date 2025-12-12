@@ -16,6 +16,12 @@ log INFO "Checking for empty variables and applying default values"
 : "${SERVER_PORT:=25565}"
 : "${RCON_PORT:=25575}"
 : "${MAX_PLAYERS:=20}"
+: "${SERVER_IP:=""}"
+: "${ONLINE_MODE:=true}"
+: "${ENABLE_RCON:=false}"
+: "${RCON_PASSWORD:="change_this_password"}"
+: "${RCON_MAX_CONNECTIONS:=5}"
+: "${RCON_TIMEOUT:=60}"
 
 # ------------------------------------------------------------
 # Load defaults
@@ -24,22 +30,30 @@ log INFO "Loading base.env (defaults)"
 source /opt/mc/base/base.env
 
 # ------------------------------------------------------------
+# Reset world if RESET_FLAG is true
+# ------------------------------------------------------------
+if [[ "${RESET_FLAG:-false}" == "true" ]]; then
+  log INFO "RESET_FLAG is true, resetting world data..."
+  /opt/mc/scripts/reset_world.sh
+  rm -f /data/RESET_FLAG
+  log INFO "World data reset completed."
+fi
+
+# ------------------------------------------------------------
 # YAML settings override (if any)
 # ------------------------------------------------------------
 log INFO "Overriding base.env with YAML values (if any)"
 if [[ -f /data/server-settings.yaml ]]; then
   log INFO "Reading settings from server-settings.yaml"
   # YAML から設定を読み込んで環境変数に設定
-  parse_yaml /data/server-settings.yaml
+  eval $(parse_yaml /data/server-settings.yaml)
 fi
 
 # ------------------------------------------------------------
 # Render server.properties from base.env (and overridden values)
 # ------------------------------------------------------------
 log INFO "Rendering server.properties from base.env and YAML"
-rm -f /data/server.properties
-envsubst < /opt/mc/base/server.properties.base > /data/server.properties
-
+/opt/mc/scripts/render_server_properties.sh
 log INFO "server.properties generated successfully"
 
 # ------------------------------------------------------------
@@ -57,6 +71,7 @@ export JAVA_TOOL_OPTIONS="-Duser.dir=/data"
 
 JVM_ARGS="$(cat /data/jvm.args)"
 MC_ARGS="$(cat /data/mc.args)"
+
 
 # ------------------------------------------------------------
 # Universal server launcher detection
