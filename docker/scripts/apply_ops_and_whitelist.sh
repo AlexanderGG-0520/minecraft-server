@@ -34,8 +34,8 @@ add_players() {
 
   log INFO "Adding players to $json_file"
 
-  # If the file doesn't exist, create it
-  if [[ ! -f "$json_file" ]]; then
+  # If the file doesn't exist or is empty, create it with an empty array
+  if [[ ! -f "$json_file" || ! -s "$json_file" ]]; then
     echo "[]" > "$json_file"
   fi
 
