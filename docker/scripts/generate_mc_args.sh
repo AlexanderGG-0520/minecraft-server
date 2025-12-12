@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
 cat > "$MC_ARGS_FILE" <<EOF
 --port
 ${SERVER_PORT}
