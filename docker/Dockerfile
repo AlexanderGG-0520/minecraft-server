@@ -53,7 +53,7 @@ COPY docker/scripts ./scripts
 RUN chmod +x ./scripts/*.sh
 
 # Base ENV (default values: disabled S3 etc)
-COPY docker/base/base.env /opt/mc/base/base.env
+COPY docker/base/ /opt/mc/base
 
 # Type-specific layers
 COPY docker/fabric   ./fabric
