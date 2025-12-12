@@ -87,7 +87,8 @@ MC_ARGS="$(cat /data/mc.args)"
 
 if [[ -f "/data/fabric-server-launch.jar" ]]; then
   log INFO "Detected Fabric server"
-  exec java ${JVM_ARGS} -jar /data/fabric-server-launch.jar ${MC_ARGS}
+  exec java -Dfabric.gameJarPath=/data/server.jar ${JVM_ARGS} -jar /data/fabric-server-launch.jar ${MC_ARGS}
+
 
 elif [[ -f "/data/quilt-server-launch.jar" ]]; then
   log INFO "Detected Quilt server"
