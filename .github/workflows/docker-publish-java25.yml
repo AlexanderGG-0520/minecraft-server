@@ -1,14 +1,17 @@
-name: Build & Publish Docker Images
+name: Build & Publish Minecraft Server Images
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build:
-    name: Build Multi-Arch Images
+    name: Build CPU / GPU Images
     runs-on: ubuntu-latest
 
     strategy:
@@ -16,16 +19,15 @@ jobs:
         java: [25]
         variant: [cpu, gpu]
 
-    permissions:
-      contents: read
-      packages: write
-
     steps:
+      # ---------------------------------------------------------
+      # 1. Checkout
+      # ---------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # ---------------------------------------------------------
-      # 1. QEMU + Buildx
+      # 2. QEMU + Buildx
       # ---------------------------------------------------------
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -34,7 +36,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       # ---------------------------------------------------------
-      # 2. Login to GHCR
+      # 3. Login to GHCR
       # ---------------------------------------------------------
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -44,7 +46,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # ---------------------------------------------------------
-      # 3. Build & Push (cpu / gpu)
+      # 4. Build & Push (CPU / GPU)
       # ---------------------------------------------------------
       - name: Build and Push Image
         uses: docker/build-push-action@v6
@@ -54,5 +56,6 @@ jobs:
           target: ${{ matrix.variant }}
           platforms: linux/amd64,linux/arm64
           push: true
+          no-cache: true
           tags: |
-            ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}${{ matrix.variant == 'gpu' && '-gpu' || '' }}
+            ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}-${{ matrix.variant }}
