@@ -1,3 +1,6 @@
+# =========================
+# Base
+# =========================
 FROM eclipse-temurin:25-jdk AS base
 
 RUN apt-get update && apt-get install -y \
@@ -26,8 +29,6 @@ VOLUME ["/data"]
 
 ENV JAVA_VERSION=25
 ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
-ENV ENABLE_OPENCL=true
-ENV MC_ACCELERATION=opencl
 
 ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
 
@@ -43,17 +44,17 @@ ENV MC_ACCELERATION=opencl
 # =========================
 # GPU Variant
 # =========================
+FROM base AS gpu
 
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS gpu
+# CUDA ランタイムだけを追加
+COPY --from=nvidia/cuda:12.4.1-runtime-ubuntu22.04 / /cuda-root
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV LD_LIBRARY_PATH=/cuda-root/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
-# OpenCL ICD file を手動で作る
+# OpenCL ICD (NVIDIA)
 RUN mkdir -p /etc/OpenCL/vendors && \
     echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
 LABEL org.opencontainers.image.variant=gpu
 ENV ENABLE_OPENCL=true
 ENV MC_ACCELERATION=opencl
-
-
