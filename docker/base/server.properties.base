@@ -43,3 +43,11 @@ motd=${MOTD}
 white-list=${WHITE_LIST}
 enforce-whitelist=${ENFORCE_WHITELIST}
 enforce-secure-profile=${ENFORCE_SECURE_PROFILE}
+
+# --- RCON Configuration ---
+enable-rcon=${ENABLE_RCON}
+rcon.port=${RCON_PORT}
+rcon.password=${RCON_PASSWORD}
+rcon.max-connections=${RCON_MAX_CONNECTIONS}
+rcon.timeout=${RCON_TIMEOUT}
+
