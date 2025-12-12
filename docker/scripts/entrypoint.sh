@@ -52,7 +52,6 @@ retry() {
 
 source /opt/mc/scripts/sync_s3.sh
 source /opt/mc/scripts/reset_world.sh
-source /opt/mc/base/make_args.sh
 
 DETECT_DL="/opt/mc/scripts/detect_or_download_server.sh"
 
@@ -143,6 +142,17 @@ case "$TYPE" in
   *)
     fatal "Unknown TYPE=${TYPE}" ;;
 esac
+
+# ============================================================
+#  Generate JVM / MC args (call as standalone script)
+# ============================================================
+
+log INFO "Building JVM & MC args..."
+
+bash /opt/mc/base/make_args.sh || fatal "make_args.sh failed"
+
+log INFO "Args generated successfully."
+
 
 # ============================================================
 #  Merge JVM / MC args
