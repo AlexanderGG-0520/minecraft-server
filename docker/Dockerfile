@@ -2,12 +2,12 @@
 # Base Java runtimes
 # ============================================================
 
-FROM eclipse-temurin:25-jre-noble AS java25
-FROM eclipse-temurin:21-jre-noble AS java21
-FROM eclipse-temurin:16-jre-noble AS java16
-FROM eclipse-temurin:17-jre-noble AS java17
-FROM eclipse-temurin:11-jre-noble AS java11
-FROM eclipse-temurin:8-jre-noble AS java8
+FROM eclipse-temurin:25-jdk AS java25
+FROM eclipse-temurin:21-jdk AS java21
+FROM eclipse-temurin:16-jdk AS java16
+FROM eclipse-temurin:17-jdk AS java17
+FROM eclipse-temurin:11-jdk AS java11
+FROM eclipse-temurin:8-jdk AS java8
 
 # ============================================================
 # Runtime Image
