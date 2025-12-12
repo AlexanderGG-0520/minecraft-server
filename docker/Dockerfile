@@ -12,7 +12,7 @@ FROM eclipse-temurin:25-jre AS java25
 # ============================================================
 FROM debian:stable-slim AS runtime
 
-ARG JAVA_VERSION=25
+ARG JAVA_VERSION=21
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ------------------------------------------------------------
