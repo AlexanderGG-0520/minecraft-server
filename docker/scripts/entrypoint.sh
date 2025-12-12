@@ -28,12 +28,9 @@ log START "Minecraft Runtime Booting..."
 log INFO "TYPE=${TYPE_LOWER}, VERSION=${VERSION}"
 log INFO "Java: $(java -version 2>&1 | head -n1)"
 
-log INFO "Rendering server.properties from env"
+log INFO "Rendering server.properties from base.env"
 
 envsubst < /opt/mc/base/server.properties.base > /data/server.properties
-
-grep '^server-port=' /data/server.properties || true
-
 
 # ============================================================
 # Reset world (optional)
