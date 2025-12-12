@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     opencl-headers \
     clinfo \
     gettext-base \
+    uuid-runtime \
  && rm -rf /var/lib/apt/lists/*
 
 # ---- OpenCL ICD (NVIDIA) ----
