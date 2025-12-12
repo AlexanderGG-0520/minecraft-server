@@ -50,11 +50,15 @@ if [[ -f /data/server-settings.yaml ]]; then
 fi
 
 # ============================================================
-# JVM Arguments Generation
+# JVM & MC Arguments Generation
 # ============================================================
 
 log INFO "Generating jvm.args if missing"
 /opt/mc/scripts/generate_jvm_args.sh
+
+log INFO "Generating mc.args if missing"
+/opt/mc/scripts/generate_mc_args.sh
+
 
 # ------------------------------------------------------------
 # Render server.properties from base.env (and overridden values)
