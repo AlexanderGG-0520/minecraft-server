@@ -1,15 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-log() { echo "[make_args] $*"; }
-
-DATA_DIR="/data"
-
-JVM_OUT="${DATA_DIR}/jvm.args"
-MC_OUT="${DATA_DIR}/mc.args"
-
-TYPE_LOWER="$(echo "${TYPE:-vanilla}" | tr '[:upper:]' '[:lower:]')"
-
 # ===========================================
 # Force EULA by env
 # ===========================================
@@ -24,8 +15,14 @@ EOF
   echo "[INFO] EULA accepted via env (EULA=true)"
 fi
 
+log() { echo "[make_args] $*"; }
 
+DATA_DIR="/data"
 
+JVM_OUT="${DATA_DIR}/jvm.args"
+MC_OUT="${DATA_DIR}/mc.args"
+
+TYPE_LOWER="$(echo "${TYPE:-vanilla}" | tr '[:upper:]' '[:lower:]')"
 
 # ------------------------------------------------------------
 # Docker イメージ → JAVA_VERSION 必ず存在させる
