@@ -1,4 +1,3 @@
-# Paper-optimized JVM flags
 -XX:+UseG1GC
 -XX:G1NewSizePercent=20
 -XX:G1MaxNewSizePercent=60

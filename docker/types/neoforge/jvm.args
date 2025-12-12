@@ -1,4 +1,3 @@
-# NeoForge-optimized JVM flags
 -XX:+UseG1GC
 -XX:+AlwaysPreTouch
 --enable-native-access=ALL-UNNAMED

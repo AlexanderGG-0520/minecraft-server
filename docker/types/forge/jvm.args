@@ -1,4 +1,3 @@
-# Forge-specific JVM flags
 -XX:+UseG1GC
 -XX:+UnlockExperimentalVMOptions
 -XX:MaxGCPauseMillis=100
