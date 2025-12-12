@@ -1,28 +1,34 @@
 # ============================================================
-# Base Java Images (official, glibc, multi-arch)
+# Base Java Runtime (multi-arch Temurin)
 # ============================================================
-FROM eclipse-temurin:8-jre AS java8
-FROM eclipse-temurin:11-jre AS java11
-FROM eclipse-temurin:17-jre AS java17
 FROM eclipse-temurin:21-jre AS java21
 FROM eclipse-temurin:25-jre AS java25
 
 # ============================================================
-# Runtime Image (Debian stable-slim)
+# Final Runtime Image — Debian stable-slim
 # ============================================================
 FROM debian:stable-slim AS runtime
 
-ARG JAVA_VERSION=21
-ARG CACHE_BUST=0
+ARG JAVA_VERSION=25
 ENV DEBIAN_FRONTEND=noninteractive
-ENV CACHE_BUST=${CACHE_BUST} 
 
-# Install required tools
+# ------------------------------------------------------------
+# Required Tools
+# ------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash curl wget jq ca-certificates \
+    bash curl wget jq ca-certificates unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Java runtime selection
+# ------------------------------------------------------------
+# Install MinIO Client (mc) inside the image
+# ------------------------------------------------------------
+RUN wget -q https://dl.min.io/client/mc/release/linux-amd64/mc \
+    -O /usr/local/bin/mc && \
+    chmod +x /usr/local/bin/mc
+
+# ------------------------------------------------------------
+# Java Runtimes
+# ------------------------------------------------------------
 COPY --from=java21 /opt/java/openjdk /opt/java21
 COPY --from=java25 /opt/java/openjdk /opt/java25
 
@@ -34,58 +40,41 @@ RUN if [ "$JAVA_VERSION" = "25" ]; then \
 
 ENV PATH="/opt/java/bin:${PATH}"
 
-# ============================================================
-# Install MinIO client (multi-arch)
-# ============================================================
-
-RUN set -eux; \
-    ARCH="$(uname -m)"; \
-    case "$ARCH" in \
-      x86_64) ARCH="amd64" ;; \
-      aarch64) ARCH="arm64" ;; \
-      *) echo "Unsupported arch: $ARCH"; exit 1 ;; \
-    esac; \
-    wget "https://dl.min.io/client/mc/release/linux-${ARCH}/mc" -O /usr/local/bin/mc; \
-    chmod +x /usr/local/bin/mc
-
-
-# ============================================================
-# Minecraft Runtime Layout
-# ============================================================
+# ------------------------------------------------------------
+# Minecraft Runtime Directory Layout
+# ------------------------------------------------------------
 WORKDIR /opt/mc
 
-# ------------------------------------------------------------
-# Scripts（cache-bust により毎回最新になる）
-# ------------------------------------------------------------
+# Scripts
 COPY docker/scripts ./scripts
-RUN chmod -R +x ./scripts
+RUN chmod +x ./scripts/*.sh
 
-# ------------------------------------------------------------
-# Base config layer (ほぼ変わらないのでキャッシュOK)
-# ------------------------------------------------------------
-COPY docker/base ./base
+# Base ENV (default values: disabled S3 etc)
+COPY docker/base/base.env /opt/mc/base/base.env
 
-# Type-specific config layers
+# Type-specific layers
 COPY docker/fabric   ./fabric
 COPY docker/forge    ./forge
 COPY docker/neoforge ./neoforge
 COPY docker/paper    ./paper
 COPY docker/proxy    ./proxy
 
-# Runtime directory
+# Data directory
 RUN mkdir -p /data
 
-# Expose Minecraft ports
-EXPOSE 25565 25575
-
-# Default ENV
+# ------------------------------------------------------------
+# Default Environment Variables
+# ------------------------------------------------------------
 ENV EULA="false" \
-    MEMORY="4G" \
-    LOG_FORMAT="plain" \
     TYPE="fabric" \
     VERSION="latest" \
+    MEMORY="4G" \
+    LOG_FORMAT="plain" \
+    S3_SYNC_ENABLED="false" \
     WORLD_RESET_POLICY="never"
 
 VOLUME ["/data"]
+
+EXPOSE 25565 25575
 
 ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
