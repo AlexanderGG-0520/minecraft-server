@@ -1,3 +1,2 @@
 # Fabric-specific launch args
 --nogui
---disable_watchdog

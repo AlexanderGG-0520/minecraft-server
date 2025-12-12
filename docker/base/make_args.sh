@@ -59,12 +59,12 @@ build_mc_args() {
   echo "--nogui" >> "$MC_OUT"
 
   case "$TYPE_LOWER" in
-    fabric) echo "--launchTarget fabric-server" >> "$MC_OUT" ;;
-    forge) echo "--launchTarget forge" >> "$MC_OUT" ;;
-    neoforge) echo "--launchTarget neoforge" >> "$MC_OUT" ;;
-    paper) echo "--paper" >> "$MC_OUT" ;;
-    purpur) ;;  # Purpur は特別な args なし
-    velocity) ;; # Proxy 系は --nogui のみ
+    fabric) ;;
+    forge) ;;
+    neoforge) ;;
+    paper) ;;
+    purpur) ;;  
+    velocity) ;;
     waterfall) ;;
     bungeecord) ;;
     vanilla) ;;
