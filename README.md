@@ -4,7 +4,7 @@
 ![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Falexandergg--0520%2Fminecraft--server-blue)
 ![Docker Pulls](https://img.shields.io/badge/pulls-private-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Java](https://img.shields.io/badge/java-17%20%7C%2021%20%7C%2025-orange)
+![Java](https://img.shields.io/badge/java-8%20%7C%2011%20%7C%2016%20%7C&2017%20%7C%2021%20%7C%2025-orange)
 ![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue)
 ![Helm](https://img.shields.io/badge/helm-supported-0f1689)
 
