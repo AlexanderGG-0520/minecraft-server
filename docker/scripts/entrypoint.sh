@@ -1,88 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-fetch_uuid() {
-  local name="$1"
-  local uuid
+# ============================================================
+# Logging
+# ============================================================
 
-  uuid=$(curl -fsSL "https://api.mojang.com/users/profiles/minecraft/${name}" | jq -r '.id' 2>/dev/null || true)
-
-  if [[ -z "$uuid" || "$uuid" == "null" ]]; then
-    # fallback: offline UUID（consistent hash）
-    uuid=$(echo -n "OfflinePlayer:${name}" | md5sum | awk '{print $1}')
-  fi
-
-  echo "$uuid"
-}
-
-generate_ops() {
-  [[ -z "${OPS:-}" ]] && return
-
-  log INFO "Generating ops.json from OPS=${OPS}"
-
-  local ops_file="/data/ops.json"
-  local tmp="/data/ops.tmp.json"
-
-  # 現在の ops.json を読み込み（無ければ空配列）
-  [[ -f "$ops_file" ]] || echo "[]" > "$ops_file"
-
-  cp "$ops_file" "$tmp"
-
-  IFS=',' read -ra PLAYERS <<< "$OPS"
-
-  for p in "${PLAYERS[@]}"; do
-    p=$(echo "$p" | xargs)
-
-    uuid=$(fetch_uuid "$p")
-
-    if ! grep -q "\"name\": \"${p}\"" "$tmp"; then
-      log INFO "Adding OP: ${p} (${uuid})"
-      jq ". += [{\"uuid\": \"${uuid}\", \"name\": \"${p}\", \"level\": 4, \"bypassesPlayerLimit\": false}]" "$tmp" > "${tmp}.new"
-      mv "${tmp}.new" "$tmp"
-    fi
-  done
-
-  mv "$tmp" "$ops_file"
-}
-
-generate_whitelist() {
-  [[ -z "${WHITELIST:-}" ]] && return
-
-  log INFO "Generating whitelist.json from WHITELIST=${WHITELIST}"
-
-  local wl_file="/data/whitelist.json"
-  local tmp="/data/whitelist.tmp.json"
-
-  [[ -f "$wl_file" ]] || echo "[]" > "$wl_file"
-
-  cp "$wl_file" "$tmp"
-
-  IFS=',' read -ra PLAYERS <<< "$WHITELIST"
-
-  for p in "${PLAYERS[@]}"; do
-    p=$(echo "$p" | xargs)
-
-    uuid=$(fetch_uuid "$p")
-
-    if ! grep -q "\"name\": \"${p}\"" "$tmp"; then
-      log INFO "Adding whitelist: ${p} (${uuid})"
-      jq ". += [{\"uuid\": \"${uuid}\", \"name\": \"${p}\"}]" "$tmp" > "${tmp}.new"
-      mv "${tmp}.new" "$tmp"
-    fi
-  done
-
-  mv "$tmp" "$wl_file"
-
-  # whitelist を有効化
-  sed -i 's/^white-list=.*/white-list=true/' /data/server.properties
-  sed -i 's/^enforce-whitelist=.*/enforce-whitelist=true/' /data/server.properties
-}
-
-
-
-# ========================================================================
-#  Logging utilities
-# ========================================================================
 timestamp() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
 log() {
@@ -90,221 +12,171 @@ log() {
   local msg="$*"
 
   local RESET="\033[0m"
-  local RED="\033[31m"
   local GREEN="\033[32m"
   local YELLOW="\033[33m"
+  local RED="\033[31m"
   local CYAN="\033[36m"
   local MAGENTA="\033[35m"
 
   case "$level" in
-    INFO)  COLOR="$GREEN" ;;
-    WARN)  COLOR="$YELLOW" ;;
+    INFO) COLOR="$GREEN" ;;
+    WARN) COLOR="$YELLOW" ;;
     ERROR) COLOR="$RED" ;;
     DEBUG) COLOR="$CYAN" ;;
     START) COLOR="$MAGENTA" ;;
-    *)     COLOR="$RESET" ;;
+    *) COLOR="$RESET" ;;
   esac
 
-  echo -e "${COLOR}[$(timestamp)] [$level]${RESET} ${msg}"
+  echo -e "${COLOR}[$(timestamp)] [$level]${RESET} $msg"
 }
 
 fatal() { log ERROR "$1"; exit 1; }
 
 retry() {
-  local attempts="$1"; local delay="$2"
-  shift 2
+  local attempts="$1"; local delay="$2"; shift 2
   local n=0
   until "$@"; do
     n=$((n+1))
-    if [[ "$n" -ge "$attempts" ]]; then
-      fatal "Command failed after ${attempts} attempts: $*"
-    fi
+    [[ $n -ge $attempts ]] && fatal "Command failed: $*"
     log WARN "Retry $n/$attempts: $*"
     sleep "$delay"
   done
 }
 
-# ========================================================================
-#  Import modules
-# ========================================================================
+# ============================================================
+# Imports
+# ============================================================
 
 source /opt/mc/scripts/sync_s3.sh
 source /opt/mc/scripts/reset_world.sh
 source /opt/mc/base/make_args.sh
 
-# detect/download scripts
-DL_VANILLA=/opt/mc/scripts/detect_or_download_vanilla.sh
-DL_FABRIC=/opt/mc/scripts/detect_or_download_fabric.sh
-DL_FORGE=/opt/mc/scripts/detect_or_download_forge.sh
-DL_NEOFORGE=/opt/mc/scripts/detect_or_download_neoforge.sh
-DL_PAPER=/opt/mc/scripts/detect_or_download_paper.sh
-DL_PURPUR=/opt/mc/scripts/detect_or_download_purpur.sh
-DL_VELOCITY=/opt/mc/scripts/detect_or_download_velocity.sh
-DL_WATERFALL=/opt/mc/scripts/detect_or_download_waterfall.sh
-DL_BUNGEECORD=/opt/mc/scripts/detect_or_download_bungeecord.sh
+# type detectors
+DETECT_BASE="/opt/mc/scripts/detect_or_download"
 
-TYPE_LOWER="$(echo "${TYPE:-vanilla}" | tr '[:upper:]' '[:lower:]')"
+# Ensure JAVA_VERSION exists
+JAVA_VERSION="${JAVA_VERSION:?JAVA_VERSION must be embedded in the Docker image}"
 
 
-# ========================================================================
-#  Reset world early
-# ========================================================================
+# ============================================================
+# Early world reset (before configs)
+# ============================================================
 
 if [[ -f "/data/reset-world.flag" ]]; then
-  log WARN "reset-world.flag detected — resetting world"
+  log WARN "Resetting world because reset-world.flag exists"
   retry 3 1 reset_world_main
-  rm -f /data/reset-world.flag || true
-  log INFO "reset-world.flag consumed and removed."
+  rm -f /data/reset-world.flag
+  log INFO "reset-world.flag consumed."
 fi
 
-# ========================================================================
-#  Startup banner
-# ========================================================================
+
+# ============================================================
+# Startup
+# ============================================================
 
 log START "Minecraft Runtime Booting..."
-log INFO "TYPE=${TYPE} (${TYPE_LOWER}), VERSION=${VERSION}, JAVA=$(java -version 2>&1 | head -n1)"
+log INFO "TYPE=${TYPE}, VERSION=${VERSION}, JAVA_VERSION=${JAVA_VERSION}"
+log INFO "Java: $(java -version 2>&1 | head -n1)"
 
-# ========================================================================
-#  Load base.env
-# ========================================================================
+
+# ============================================================
+# Load base.env
+# ============================================================
 
 BASE_ENV="/opt/mc/base/base.env"
-log INFO "Loading base.env (default configs)"
 
 if [[ -f "$BASE_ENV" ]]; then
-  set -a
+  log INFO "Loading base.env"
   source "$BASE_ENV"
-  set +a
 else
-  fatal "Missing base.env: ${BASE_ENV}"
+  fatal "Missing base.env at $BASE_ENV"
 fi
 
-log INFO "base.env loaded."
 
+# ============================================================
+# Apply TYPE directory
+# ============================================================
 
-# ========================================================================
-#  Apply TYPE-specific layer
-# ========================================================================
+TYPE_DIR="/opt/mc/${TYPE}"
 
-TYPE_DIR="/opt/mc/${TYPE_LOWER}"
-
-log INFO "Applying TYPE layer: ${TYPE_LOWER}"
-
-if [[ ! -d "${TYPE_DIR}" ]]; then
-  fatal "TYPE directory missing: ${TYPE_DIR}"
+if [[ ! -d "$TYPE_DIR" ]]; then
+  fatal "Missing TYPE directory: ${TYPE_DIR}"
 fi
 
-retry 3 1 cp -r "${TYPE_DIR}"/* /data
+log INFO "Applying TYPE layer: ${TYPE}"
+
+retry 3 1 cp -r "${TYPE_DIR}/"* /data || true
 
 
-# ========================================================================
-#  S3 Sync
-# ========================================================================
+# ============================================================
+# S3 Sync
+# ============================================================
 
 if [[ "${S3_SYNC_ENABLED:-false}" == "true" ]]; then
-  log INFO "Running S3 synchronization"
-  retry 5 3 sync_s3_main
+  log INFO "Running S3 Sync..."
+  retry 5 2 sync_s3_main
 fi
 
 
-# ========================================================================
-#  Detect or download server.jar
-# ========================================================================
+# ============================================================
+# Detect or download server.jar
+# ============================================================
 
-log INFO "Resolving server implementation..."
+log INFO "Resolving server.jar"
 
-case "$TYPE_LOWER" in
-  vanilla)     bash "$DL_VANILLA"     ;;
-  fabric)      bash "$DL_FABRIC"      ;;
-  forge)       bash "$DL_FORGE"       ;;
-  neoforge)    bash "$DL_NEOFORGE"    ;;
-  paper)       bash "$DL_PAPER"       ;;
-  purpur)      bash "$DL_PURPUR"      ;;
-  velocity)    bash "$DL_VELOCITY"    ;;
-  waterfall)   bash "$DL_WATERFALL"   ;;
-  bungeecord)  bash "$DL_BUNGEECORD"  ;;
-  *)
-    fatal "Unknown TYPE=${TYPE} (normalized: ${TYPE_LOWER})"
-    ;;
+case "${TYPE,,}" in
+  vanilla)    bash "${DETECT_BASE}_vanilla.sh" ;;
+  fabric)     bash "${DETECT_BASE}_fabric.sh" ;;
+  forge)      bash "${DETECT_BASE}_forge.sh" ;;
+  neoforge)   bash "${DETECT_BASE}_neoforge.sh" ;;
+  paper)      bash "${DETECT_BASE}_paper.sh" ;;
+  purpur)     bash "${DETECT_BASE}_purpur.sh" ;;
+  velocity)   bash "${DETECT_BASE}_velocity.sh" ;;
+  waterfall)  bash "${DETECT_BASE}_waterfall.sh" ;;
+  bungeecord) bash "${DETECT_BASE}_bungeecord.sh" ;;
+  *)          fatal "Unknown TYPE=${TYPE}" ;;
 esac
 
-[[ -f /data/server.jar ]] || fatal "server.jar missing after detection/download"
-
-
-# ========================================================================
-#  Prepare JVM / MC args
-# ========================================================================
-
-log INFO "Generating JVM & MC args via make_args.sh..."
-
-retry 3 1 build_jvm_args
-retry 3 1 build_mc_args
-
-log INFO "JVM args ready: $(tr '\n' ' ' < /data/jvm.args)"
-log INFO "MC args ready:  $(tr '\n' ' ' < /data/mc.args)"
-
-
-# ========================================================================
-#  Generate server.properties
-# ========================================================================
-
-log INFO "Generating server.properties..."
-
-SP_BASE="/opt/mc/base/server.properties.base"
-SP_TYPE="/opt/mc/${TYPE_LOWER}/server.properties"
-SP_OUT="/data/server.properties"
-
-cp "$SP_BASE" "$SP_OUT" || fatal "Missing base server.properties.base"
-
-# type overrides
-if [[ -f "$SP_TYPE" ]]; then
-  while IFS='=' read -r key val; do
-    [[ "$key" =~ ^# || -z "$key" ]] && continue
-    sed -i "s|^${key}=.*|${key}=${val}|" "$SP_OUT" || true
-  done < "$SP_TYPE"
-fi
-
-# env overrides
-set_prop() {
-  local key="$1"; local env="$2"
-  local val="${!env:-}"
-  [[ -n "$val" ]] && sed -i "s|^${key}=.*|${key}=${val}|" "$SP_OUT"
-}
-
-set_prop "motd" "MOTD"
-set_prop "difficulty" "DIFFICULTY"
-set_prop "gamemode" "MODE"
-set_prop "max-players" "MAX_PLAYERS"
-set_prop "online-mode" "ONLINE_MODE"
-set_prop "allow-flight" "ALLOW_FLIGHT"
-set_prop "enable-command-block" "ENABLE_COMMAND_BLOCK"
-set_prop "view-distance" "VIEW_DISTANCE"
-set_prop "simulation-distance" "SIMULATION_DISTANCE"
-set_prop "level-type" "LEVEL_TYPE"
-set_prop "level-seed" "SEED"
-set_prop "spawn-protection" "SPAWN_PROTECTION"
-set_prop "resource-pack" "RESOURCE_PACK"
-set_prop "resource-pack-sha1" "RESOURCE_PACK_SHA1"
-set_prop "rate-limit" "RATE_LIMIT"
-set_prop "pvp" "PVP"
-
-log INFO "server.properties generated."
+[[ ! -f /data/server.jar ]] &&
+  fatal "server.jar missing! detect script failed"
 
 
 # ============================================================
-#  Generate OPS / WHITELIST
+# Generate server.properties
 # ============================================================
 
-generate_ops
-generate_whitelist
+bash /opt/mc/base/generate_server_properties.sh
 
 
-# ========================================================================
-#  Launch Minecraft
-# ========================================================================
+# ============================================================
+# Type-specific configuration
+# ============================================================
 
-log START "Launching Minecraft Server..."
+bash /opt/mc/base/generate_type_config.sh
+
+
+# ============================================================
+# JVM / MC args
+# ============================================================
+
+log INFO "Generating JVM / MC args"
+
+retry 3 1 make_args_main
+
+
+# ============================================================
+# OPs / Whitelist auto-add
+# ============================================================
+
+bash /opt/mc/scripts/apply_ops_and_whitelist.sh
+
+
+# ============================================================
+# Launch Minecraft
+# ============================================================
+
+log START "Launching Java..."
 
 exec java $(cat /data/jvm.args) -jar /data/server.jar $(cat /data/mc.args)
 
-fatal "Java exited unexpectedly"
+fatal "Minecraft exited unexpectedly"

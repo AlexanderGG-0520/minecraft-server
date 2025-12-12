@@ -1,88 +1,56 @@
-# ======================================================================
-#  Minecraft Unified Server — Multi TYPE Runtime
-#  (Fabric / Forge / NeoForge / Paper / Purpur / Vanilla / Proxy etc.)
-# ======================================================================
+# ============================================================
+# Base Java runtimes
+# ============================================================
 
-FROM eclipse-temurin:25-jre-noble AS base
+FROM eclipse-temurin:25-jre-noble AS java25
+FROM eclipse-temurin:21-jre-noble AS java21
+FROM eclipse-temurin:17-jre-noble AS java17
+FROM eclipse-temurin:11-jre-noble AS java11
+FROM eclipse-temurin:8-jre-noble AS java8
+
+# ============================================================
+# Runtime Image
+# ============================================================
+
+FROM debian:stable-slim AS runtime
+
+ARG JAVA_VERSION=25
+ENV JAVA_VERSION=${JAVA_VERSION}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# ----------------------------------------------------------
-# Install required utilities
-# ----------------------------------------------------------
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash curl wget unzip jq ca-certificates tar \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    bash curl wget jq unzip ca-certificates tar \
+  && rm -rf /var/lib/apt/lists/*
 
-# ----------------------------------------------------------
-# Install MinIO client (mc)
-# ----------------------------------------------------------
+# Minio CLI
 RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
-    -o /usr/local/bin/mc \
-    && chmod +x /usr/local/bin/mc
+  -o /usr/local/bin/mc && chmod +x /usr/local/bin/mc
 
-# ----------------------------------------------------------
-# Create directories
-# ----------------------------------------------------------
-RUN mkdir -p \
-    /opt/mc/base \
-    /opt/mc/scripts \
-    /opt/mc/vanilla \
-    /opt/mc/fabric \
-    /opt/mc/forge \
-    /opt/mc/neoforge \
-    /opt/mc/paper \
-    /opt/mc/purpur \
-    /opt/mc/velocity \
-    /opt/mc/waterfall \
-    /opt/mc/bungeecord \
-    /data
+# Install Java from selected version
+COPY --from=java25 /opt/java/openjdk /opt/java25
+COPY --from=java21 /opt/java/openjdk /opt/java21
+COPY --from=java17 /opt/java/openjdk /opt/java17
+COPY --from=java11 /opt/java/openjdk /opt/java11
+COPY --from=java8  /opt/java/openjdk /opt/java8
+
+RUN ln -sf /opt/java${JAVA_VERSION} /opt/java \
+  && ln -sf /opt/java/bin/java /usr/local/bin/java
 
 
-# ======================================================================
-#  Copy Project Files
-# ======================================================================
+# ============================================================
+# Runtime layout
+# ============================================================
 
-# entrypoint
-COPY ./scripts/entrypoint.sh /opt/mc/scripts/entrypoint.sh
-RUN chmod +x /opt/mc/scripts/entrypoint.sh
+RUN mkdir -p /opt/mc/{scripts,base,types} /data
 
-# Main modules
-COPY ./scripts/sync_s3.sh                /opt/mc/scripts/sync_s3.sh
-COPY ./scripts/reset_world.sh            /opt/mc/scripts/reset_world.sh
-COPY ./base/make_args.sh                 /opt/mc/base/make_args.sh
+COPY docker/scripts/ /opt/mc/scripts/
+COPY docker/base/ /opt/mc/base/
+COPY docker/types/ /opt/mc/types/
 
-RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/make_args.sh
+RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
 
-# Detect/download scripts（各 TYPE ごと）
-COPY ./scripts/detect_or_download_*.sh   /opt/mc/scripts/
-RUN chmod +x /opt/mc/scripts/detect_or_download_*.sh
+WORKDIR /opt/mc
+VOLUME ["/data"]
 
-# Default base config
-COPY ./base/base.env                     /opt/mc/base/base.env
-COPY ./base/server.properties.base       /opt/mc/base/server.properties.base
-COPY ./base/jvm-common.args                     /opt/mc/base/jvm.args
-COPY ./base/mc-common.args                      /opt/mc/base/mc.args
-
-# TYPE-specific config (empty OK)
-COPY ./types/ /opt/mc/
-
-
-# ======================================================================
-#  Final image configuration
-# ======================================================================
-
-WORKDIR /data
-
-# Allow LD_LIBRARY_PATH overrides (GPU OpenCL など)
-ENV LD_LIBRARY_PATH="/usr/local/opencl:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
-
-# S3 defaults
-ENV S3_TLS_ENABLED=true
-
-# Container runtime
-EXPOSE 25565 25575
-
-ENTRYPOINT [ "/opt/mc/scripts/entrypoint.sh" ]
-CMD []
-# ======================================================================
+ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
