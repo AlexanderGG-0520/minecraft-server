@@ -1,13 +1,9 @@
 # ============================================================
-# GPU Runtime (CUDA + OpenCL)
+# Base Runtime (shared)
 # ============================================================
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM eclipse-temurin:25-jdk AS base
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-# ------------------------------------------------------------
-# Base packages + Java 25
-# ------------------------------------------------------------
+# ---- system tools (required by scripts) ----
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
@@ -18,30 +14,47 @@ RUN apt-get update && apt-get install -y \
     ocl-icd-libopencl1 \
     opencl-headers \
     clinfo \
-    openjdk-25-jdk \
  && rm -rf /var/lib/apt/lists/*
 
-# ------------------------------------------------------------
-# Runtime layout
-# ------------------------------------------------------------
-RUN mkdir -p /opt/mc/{scripts,base,types} /data
+# ---- runtime layout ----
+RUN mkdir -p /opt/mc/{scripts,base,fabric,forge,paper} /data
 
+# ---- copy runtime assets ----
 COPY scripts/ /opt/mc/scripts/
-COPY base/ /opt/mc/base/
-COPY types/ /opt/mc/
+COPY base/    /opt/mc/base/
+COPY types/   /opt/mc/
 
+# ---- permissions ----
 RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
 
-# ------------------------------------------------------------
-# Env
-# ------------------------------------------------------------
-ENV JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64
-ENV PATH="${JAVA_HOME}/bin:${PATH}"
-
-ENV MC_ACCELERATION=opencl
-ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
-
+# ---- runtime defaults ----
 WORKDIR /data
 VOLUME ["/data"]
 
+ENV JAVA_VERSION=25
+ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
+
 ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
+
+
+# ============================================================
+# CPU Variant (default)
+# ============================================================
+FROM base AS cpu
+
+LABEL org.opencontainers.image.variant=cpu
+ENV MC_ACCELERATION=none
+ENV ENABLE_OPENCL=false
+
+# ============================================================
+# GPU Variant (CUDA + OpenCL)
+# ============================================================
+FROM base AS gpu
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+LABEL org.opencontainers.image.variant=gpu
+ENV MC_ACCELERATION=opencl
+ENV ENABLE_OPENCL=true
+
