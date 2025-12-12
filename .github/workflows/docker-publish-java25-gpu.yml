@@ -7,12 +7,12 @@ on:
 
 jobs:
     build:
-        name: Build CPU / GPU Images
+        name: Build GPU Images
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
             matrix:
-                variant: [cpu, gpu]
+                variant: [gpu]
                 java: [25]
 
         permissions:
@@ -54,4 +54,4 @@ jobs:
                     platforms: linux/amd64
                     push: true
                     tags: |
-                        ghcr.io/alexandergg-0520/minecraft-server:java25-gpu
+                        ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}-${{ matrix.variant }}
