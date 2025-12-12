@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${JVM_ARGS:=}"
-: "${MC_ARGS:=}"
-
-[[ -f /data/jvm.args ]] && JVM_ARGS+=" $(< /data/jvm.args)"
-[[ -f /data/mc.args ]] && MC_ARGS+=" $(< /data/mc.args)"
-
-
 fatal() { log ERROR "$1"; exit 1; }
 
 log() {
@@ -55,6 +48,13 @@ if [[ -f /data/server-settings.yaml ]]; then
   # YAML から設定を読み込んで環境変数に設定
   eval $(parse_yaml /data/server-settings.yaml)
 fi
+
+# ============================================================
+# JVM Arguments Generation
+# ============================================================
+
+log INFO "Generating jvm.args if missing"
+/opt/mc/scripts/generate_jvm_args.sh
 
 # ------------------------------------------------------------
 # Render server.properties from base.env (and overridden values)
