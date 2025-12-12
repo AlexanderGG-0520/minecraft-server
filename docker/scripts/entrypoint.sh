@@ -2,12 +2,10 @@
 set -euo pipefail
 
 # ============================================================
-#  Logging (color + timestamp)
+#  Logging
 # ============================================================
 
-timestamp() {
-  date -u +"%Y-%m-%dT%H:%M:%SZ"
-}
+timestamp() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
 log() {
   local level="$1"; shift
@@ -32,16 +30,11 @@ log() {
   echo -e "${COLOR}[$(timestamp)] [$level]${RESET} ${msg}"
 }
 
-fatal() {
-  log ERROR "$1"
-  exit 1
-}
+fatal() { log ERROR "$1"; exit 1; }
 
 retry() {
-  local attempts="$1"
-  local delay="$2"
+  local attempts="$1"; local delay="$2"
   shift 2
-
   local n=0
   until "$@"; do
     n=$((n+1))
@@ -54,19 +47,19 @@ retry() {
 }
 
 # ============================================================
-#  Import scripts (functions only)
+#  Import helper scripts
 # ============================================================
 
-# sync_s3.sh / reset_world.sh は "関数実行" のため source が必要
 source /opt/mc/scripts/sync_s3.sh
 source /opt/mc/scripts/reset_world.sh
+source /opt/mc/base/make_args.sh
+make_args
 
-# detect_or_download_server.sh は関数ではなく本体が実行形式
 DETECT_DL="/opt/mc/scripts/detect_or_download_server.sh"
 
 
 # ============================================================
-#  Startup Banner
+#  Startup banner
 # ============================================================
 
 log START "Minecraft Runtime Booting..."
@@ -74,7 +67,7 @@ log INFO "TYPE=${TYPE}, VERSION=${VERSION}, JAVA=$(java -version 2>&1 | head -n1
 
 
 # ============================================================
-#  Load Base Configuration
+#  Load base.env
 # ============================================================
 
 BASE_ENV="/opt/mc/base/base.env"
@@ -88,7 +81,7 @@ fi
 
 
 # ============================================================
-#  Apply TYPE Layer
+#  Apply TYPE-specific layer
 # ============================================================
 
 TYPE_DIR="/opt/mc/${TYPE}"
@@ -99,12 +92,11 @@ if [[ ! -d "$TYPE_DIR" ]]; then
   fatal "TYPE directory missing: ${TYPE_DIR}"
 fi
 
-# Base → TYPE → /data
 retry 3 1 cp -r "$TYPE_DIR"/* /data
 
 
 # ============================================================
-#  S3 Sync (optional)
+#  Run S3 sync (optional)
 # ============================================================
 
 if [[ "${S3_SYNC_ENABLED:-false}" == "true" ]]; then
@@ -114,54 +106,132 @@ fi
 
 
 # ============================================================
-#  1. Detect or Download server.jar
+#  Detect or download server.jar
 # ============================================================
 
-log INFO "Resolving and downloading server.jar..."
+log INFO "Resolving Minecraft server.jar..."
 
-retry 5 2 bash "$DETECT_DL"
+case "$TYPE" in
+  vanilla)
+    bash /opt/mc/scripts/detect_or_download_vanilla.sh ;;
+  fabric)
+    bash /opt/mc/scripts/detect_or_download_fabric.sh ;;
+  forge)
+    bash /opt/mc/scripts/detect_or_download_forge.sh ;;
+  neoforge)
+    bash /opt/mc/scripts/detect_or_download_neoforge.sh ;;
+  paper)
+    bash /opt/mc/scripts/detect_or_download_paper.sh ;;
+  purpur)
+    bash /opt/mc/scripts/detect_or_download_purpur.sh ;;
+  velocity)
+    bash /opt/mc/scripts/detect_or_download_velocity.sh ;;
+  waterfall)
+    bash /opt/mc/scripts/detect_or_download_waterfall.sh ;;
+  bungeecord)
+    bash /opt/mc/scripts/detect_or_download_bungeecord.sh ;;
+  *)
+    fatal "Unknown TYPE=${TYPE}" ;;
+esac
 
-if [[ ! -f /data/server.jar ]]; then
-  fatal "server.jar missing after download"
-fi
+
 
 
 # ============================================================
-#  2. Reset World (flag-based)
+#  Reset world (flag-based)
 # ============================================================
 
 if [[ -f "/data/reset-world.flag" ]]; then
-  log WARN "reset-world.flag detected — world will be reset"
+  log WARN "reset-world.flag detected — resetting world"
   retry 3 1 reset_world_main
 fi
 
 
 # ============================================================
-#  3. Merge JVM / MC Args
+#  Merge JVM / MC args
 # ============================================================
 
-log INFO "Preparing JVM and Minecraft args..."
+log INFO "Preparing JVM and Minecraft args"
 
-# JVM args
 [[ -f /opt/mc/base/jvm.args ]] && cp /opt/mc/base/jvm.args /data/jvm.args
 [[ -f /opt/mc/${TYPE}/jvm.args ]] && cat /opt/mc/${TYPE}/jvm.args >> /data/jvm.args
 [[ -f /data/jvm.override ]] && cat /data/jvm.override >> /data/jvm.args
 
-# MC args
 [[ -f /opt/mc/base/mc.args ]] && cp /opt/mc/base/mc.args /data/mc.args
 [[ -f /opt/mc/${TYPE}/mc.args ]] && cat /opt/mc/${TYPE}/mc.args >> /data/mc.args
 [[ -f /data/mc.override ]] && cat /data/mc.override >> /data/mc.args
 
-log DEBUG "Merged JVM args: $(tr '\n' ' ' < /data/jvm.args)"
-log DEBUG "Merged MC args: $(tr '\n' ' ' < /data/mc.args)"
+
+# ============================================================
+#  Generate server.properties (FULL version)
+# ============================================================
+
+log INFO "Generating server.properties..."
+
+SP_BASE="/opt/mc/base/server.properties.base"
+SP_TYPE="/opt/mc/${TYPE}/server.properties"
+SP_OUT="/data/server.properties"
+
+tmp_sp="$(mktemp)"
+
+# base load
+cp "$SP_BASE" "$tmp_sp" || fatal "Missing base server.properties"
+
+# TYPE override
+if [[ -f "$SP_TYPE" ]]; then
+  while IFS='=' read -r key val; do
+    [[ "$key" == \#* || -z "$key" ]] && continue
+    sed -i "s|^${key}=.*|${key}=${val}|" "$tmp_sp" || true
+  done < "$SP_TYPE"
+fi
+
+# helper
+set_prop() {
+  local key="$1"; local env="$2"
+  local val="${!env:-}"
+  [[ -n "$val" ]] && sed -i "s|^${key}=.*|${key}=${val}|" "$tmp_sp"
+}
+
+# 全ての server.properties 公式キー
+set_prop "motd"                          "MOTD"
+set_prop "difficulty"                    "DIFFICULTY"
+set_prop "gamemode"                      "MODE"
+set_prop "max-players"                   "MAX_PLAYERS"
+set_prop "online-mode"                   "ONLINE_MODE"
+set_prop "allow-flight"                  "ALLOW_FLIGHT"
+set_prop "enable-command-block"          "ENABLE_COMMAND_BLOCK"
+set_prop "view-distance"                 "VIEW_DISTANCE"
+set_prop "simulation-distance"           "SIMULATION_DISTANCE"
+set_prop "enforce-whitelist"             "ENFORCE_WHITELIST"
+set_prop "white-list"                    "WHITE_LIST"
+set_prop "pvp"                           "PVP"
+set_prop "hardcore"                      "HARDCORE"
+set_prop "level-type"                    "LEVEL_TYPE"
+set_prop "level-seed"                    "SEED"
+set_prop "spawn-protection"              "SPAWN_PROTECTION"
+set_prop "server-port"                   "SERVER_PORT"
+set_prop "sync-chunk-writes"             "SYNC_CHUNK_WRITES"
+set_prop "max-world-size"                "MAX_WORLD_SIZE"
+set_prop "player-idle-timeout"           "IDLE_TIMEOUT"
+set_prop "resource-pack"                 "RESOURCE_PACK_URL"
+set_prop "resource-pack-sha1"            "RESOURCE_PACK_SHA1"
+set_prop "rate-limit"                    "RATE_LIMIT"
+set_prop "network-compression-threshold" "NETWORK_COMPRESSION"
+set_prop "entity-broadcast-range-percentage" "ENTITY_BROADCAST_PCT"
+set_prop "max-chained-neighbor-updates"  "MAX_CHAINED_UPDATES"
+set_prop "hide-online-players"           "HIDE_PLAYERS"
+
+# write
+cp "$tmp_sp" "$SP_OUT"
+log INFO "server.properties generated."
 
 
 # ============================================================
-#  Launch Minecraft Server
+#  Launch Java
 # ============================================================
 
-log START "Launching Java runtime..."
+log START "Launching Minecraft Server..."
 
 exec java $(cat /data/jvm.args) -jar /data/server.jar $(cat /data/mc.args)
 
-fatal "Java process exited unexpectedly"
+fatal "Java exited unexpectedly"
