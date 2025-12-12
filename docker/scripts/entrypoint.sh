@@ -28,17 +28,20 @@ log START "Minecraft Runtime Booting..."
 log INFO "TYPE=${TYPE_LOWER}, VERSION=${VERSION}"
 log INFO "Java: $(java -version 2>&1 | head -n1)"
 
-# ============================================================
-# Render server.properties from base.env
-# ============================================================
+# YAML での設定を上書き
+log INFO "Overriding base.env with YAML values (if any)"
+if [[ -f /data/server-settings.yaml ]]; then
+  log INFO "Reading settings from server-settings.yaml"
+  # YAML から設定を読み込んで環境変数に設定
+  eval $(parse_yaml /data/server-settings.yaml)
+fi
 
-log INFO "Rendering server.properties from base.env"
-
-# 既存の server.properties を削除（もしあれば）
+# Render server.properties from base.env (and overridden values)
+log INFO "Rendering server.properties from base.env and YAML"
 rm -f /data/server.properties
-
-# 新しい server.properties を生成
 envsubst < /opt/mc/base/server.properties.base > /data/server.properties
+
+log INFO "server.properties generated successfully"
 
 # ============================================================
 # Reset world (optional)
