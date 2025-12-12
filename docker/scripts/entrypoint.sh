@@ -7,6 +7,20 @@ log() {
   echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
 }
 
+# ===========================================
+# Force EULA by env
+# ===========================================
+EULA_FILE="/data/eula.txt"
+
+if [[ "${EULA,,}" == "true" ]]; then
+  mkdir -p "$(dirname "$EULA_FILE")"
+  cat > "$EULA_FILE" <<'EOF'
+# Generated automatically
+eula=true
+EOF
+  echo "[INFO] EULA accepted via env (EULA=true)"
+fi
+
 # ------------------------------------------------------------
 # Check and Set Default Values for Missing Variables
 # ------------------------------------------------------------

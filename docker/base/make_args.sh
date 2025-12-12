@@ -1,20 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# ===========================================
-# Force EULA by env
-# ===========================================
-EULA_FILE="/data/eula.txt"
-
-if [[ "${EULA,,}" == "true" ]]; then
-  mkdir -p "$(dirname "$EULA_FILE")"
-  cat > "$EULA_FILE" <<'EOF'
-# Generated automatically
-eula=true
-EOF
-  echo "[INFO] EULA accepted via env (EULA=true)"
-fi
-
 log() { echo "[make_args] $*"; }
 
 DATA_DIR="/data"
