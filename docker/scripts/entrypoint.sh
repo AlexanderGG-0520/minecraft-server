@@ -8,12 +8,13 @@ log() {
   echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
 }
 
-if [[ "${ENABLE_OPENCL:-false}" != "true" ]]; then
-  rm -f /data/mods/c2me-fabric-*.jar || true
+if [[ "${MC_ACCELERATION:-none}" != "opencl" ]]; then
+  rm -f /data/mods/c2me-opts-accel-opencl*.jar || true
   log INFO "OpenCL acceleration disabled (c2me OpenCL module removed)"
 else
   log INFO "OpenCL acceleration enabled"
 fi
+
 
 
 # ============================================================

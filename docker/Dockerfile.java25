@@ -3,37 +3,42 @@
 # ============================================================
 FROM eclipse-temurin:25-jdk AS base
 
-# ---- runtime tools ----
+# ---- system tools (required by scripts) ----
 RUN apt-get update && apt-get install -y \
     curl \
     jq \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# ---- layout ----
+# ---- runtime layout ----
 RUN mkdir -p /opt/mc/{scripts,base,fabric,forge,paper} /data
 
+# ---- copy runtime assets ----
 COPY scripts/ /opt/mc/scripts/
 COPY base/    /opt/mc/base/
 COPY types/   /opt/mc/
 
-RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh 
+# ---- permissions ----
+RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
 
-# 👇 ここは RUN じゃない
+# ---- runtime defaults ----
 WORKDIR /data
 VOLUME ["/data"]
 
+ENV JAVA_VERSION=25
 ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
 
 ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
 
 
 # ============================================================
-# CPU Variant
+# CPU Variant (default)
 # ============================================================
 FROM base AS cpu
+
 LABEL org.opencontainers.image.variant=cpu
 ENV MC_ACCELERATION=none
+ENV ENABLE_OPENCL=false
 
 
 # ============================================================
@@ -41,6 +46,7 @@ ENV MC_ACCELERATION=none
 # ============================================================
 FROM base AS gpu
 
+# ---- OpenCL runtime (userspace only) ----
 RUN apt-get update && apt-get install -y \
     ocl-icd-libopencl1 \
     opencl-headers \
@@ -49,3 +55,4 @@ RUN apt-get update && apt-get install -y \
 
 LABEL org.opencontainers.image.variant=gpu
 ENV MC_ACCELERATION=opencl
+ENV ENABLE_OPENCL=true
