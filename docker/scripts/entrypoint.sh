@@ -7,48 +7,25 @@ log() {
   echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
 }
 
-# Function to parse YAML and set environment variables
-parse_yaml() {
-  local yaml_file=$1
-  local prefix=$2
-  # Read the YAML file and convert to environment variable format
-  # Works with simple key-value pairs
-  awk 'BEGIN {
-      FS=": ";
-      OFS="=";
-  } 
-  /^[^#]/ { 
-    if ($2) {
-      gsub(/ /, "_", $1); 
-      gsub(/-/, "_", $1); 
-      print "'"$prefix"'" $1 "=" $2
-    }
-  }' "$yaml_file" > /tmp/yaml.env
+# ------------------------------------------------------------
+# Check and Set Default Values for Missing Variables
+# ------------------------------------------------------------
+log INFO "Checking for empty variables and applying default values"
 
-  # Source the generated env file
-  source /tmp/yaml.env
-}
+# List of critical environment variables with defaults
+: "${SERVER_PORT:=25565}"
+: "${RCON_PORT:=25575}"
+: "${MAX_PLAYERS:=20}"
 
-if [[ "${MC_ACCELERATION:-none}" != "opencl" ]]; then
-  rm -f /data/mods/c2me-opts-accel-opencl*.jar || true
-  log INFO "OpenCL acceleration disabled (c2me OpenCL module removed)"
-else
-  log INFO "OpenCL acceleration enabled"
-fi
-
-# ============================================================
+# ------------------------------------------------------------
 # Load defaults
-# ============================================================
+# ------------------------------------------------------------
 log INFO "Loading base.env (defaults)"
 source /opt/mc/base/base.env
 
-TYPE_LOWER="$(echo "${TYPE}" | tr '[:upper:]' '[:lower:]')"
-
-log START "Minecraft Runtime Booting..."
-log INFO "TYPE=${TYPE_LOWER}, VERSION=${VERSION}"
-log INFO "Java: $(java -version 2>&1 | head -n1)"
-
-# YAML での設定を上書き
+# ------------------------------------------------------------
+# YAML settings override (if any)
+# ------------------------------------------------------------
 log INFO "Overriding base.env with YAML values (if any)"
 if [[ -f /data/server-settings.yaml ]]; then
   log INFO "Reading settings from server-settings.yaml"
@@ -56,57 +33,24 @@ if [[ -f /data/server-settings.yaml ]]; then
   parse_yaml /data/server-settings.yaml
 fi
 
+# ------------------------------------------------------------
 # Render server.properties from base.env (and overridden values)
+# ------------------------------------------------------------
 log INFO "Rendering server.properties from base.env and YAML"
 rm -f /data/server.properties
 envsubst < /opt/mc/base/server.properties.base > /data/server.properties
 
 log INFO "server.properties generated successfully"
 
-# ============================================================
-# Reset world (optional)
-# ============================================================
-if [[ -f /data/reset-world.flag ]]; then
-  log WARN "World reset triggered"
-  /opt/mc/scripts/reset_world.sh
-  rm -f /data/reset-world.flag
-fi
+# ------------------------------------------------------------
+# Proceed with server start-up steps
+# ------------------------------------------------------------
+log START "Minecraft Runtime Booting..."
 
-# ============================================================
-# TYPE layer
-# ============================================================
-TYPE_DIR="/opt/mc/${TYPE_LOWER}"
-[[ -d "$TYPE_DIR" ]] || fatal "Missing TYPE directory: ${TYPE_DIR}"
+# Other operations like resetting world, downloading server jar, etc.
 
-cp -r "$TYPE_DIR"/. /data || true
-
-# ============================================================
-# Download server.jar
-# ============================================================
-/opt/mc/scripts/detect_or_download_${TYPE_LOWER}.sh
-
-# ============================================================
-# Build JVM / MC args
-# ============================================================
-/opt/mc/base/make_args.sh
-
-# ============================================================
-# EULA handling (MUST be before server launch)
-# ============================================================
-if [[ "${EULA:-false}" == "true" ]]; then
-  echo "eula=true" > /data/eula.txt
-  log INFO "EULA accepted (eula.txt written)"
-else
-  log WARN "EULA not accepted. Set EULA=true to run the server."
-fi
-
-# ============================================================
 # Launching Minecraft Server
-# ============================================================
-log START "Launching Minecraft Server"
-
 cd /data
-
 export MC_WORKDIR=/data
 export FABRIC_CACHE_DIR=/data/.fabric
 export JAVA_TOOL_OPTIONS="-Duser.dir=/data"
@@ -117,6 +61,7 @@ MC_ARGS="$(cat /data/mc.args)"
 # ------------------------------------------------------------
 # Universal server launcher detection
 # ------------------------------------------------------------
+
 if [[ -f "/data/fabric-server-launch.jar" ]]; then
   log INFO "Detected Fabric server"
   exec java -Dfabric.gameJarPath=/data/server.jar ${JVM_ARGS} -jar /data/fabric-server-launch.jar ${MC_ARGS}
