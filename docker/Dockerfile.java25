@@ -1,58 +1,47 @@
 # ============================================================
-# Base Runtime (shared)
+# GPU Runtime (CUDA + OpenCL)
 # ============================================================
-FROM eclipse-temurin:25-jdk AS base
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
-# ---- system tools (required by scripts) ----
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ------------------------------------------------------------
+# Base packages + Java 25
+# ------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
+    ca-certificates \
     curl \
     jq \
-    ca-certificates \
- && rm -rf /var/lib/apt/lists/*
-
-# ---- runtime layout ----
-RUN mkdir -p /opt/mc/{scripts,base,fabric,forge,paper} /data
-
-# ---- copy runtime assets ----
-COPY scripts/ /opt/mc/scripts/
-COPY base/    /opt/mc/base/
-COPY types/   /opt/mc/
-
-# ---- permissions ----
-RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
-
-# ---- runtime defaults ----
-WORKDIR /data
-VOLUME ["/data"]
-
-ENV JAVA_VERSION=25
-ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
-
-ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
-
-
-# ============================================================
-# CPU Variant (default)
-# ============================================================
-FROM base AS cpu
-
-LABEL org.opencontainers.image.variant=cpu
-ENV MC_ACCELERATION=none
-ENV ENABLE_OPENCL=false
-
-
-# ============================================================
-# GPU Variant (OpenCL enabled)
-# ============================================================
-FROM base AS gpu
-
-# ---- OpenCL runtime (userspace only) ----
-RUN apt-get update && apt-get install -y \
+    bash \
+    unzip \
+    git \
     ocl-icd-libopencl1 \
     opencl-headers \
     clinfo \
+    openjdk-25-jdk \
  && rm -rf /var/lib/apt/lists/*
 
-LABEL org.opencontainers.image.variant=gpu
+# ------------------------------------------------------------
+# Runtime layout
+# ------------------------------------------------------------
+RUN mkdir -p /opt/mc/{scripts,base,types} /data
+
+COPY scripts/ /opt/mc/scripts/
+COPY base/ /opt/mc/base/
+COPY types/ /opt/mc/
+
+RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
+
+# ------------------------------------------------------------
+# Env
+# ------------------------------------------------------------
+ENV JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
 ENV MC_ACCELERATION=opencl
-ENV ENABLE_OPENCL=true
+ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
+
+WORKDIR /data
+VOLUME ["/data"]
+
+ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]

@@ -1,13 +1,9 @@
-name: Build & Publish Minecraft Server Images
+name: Build & Publish Minecraft Images
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
-
-permissions:
-  contents: read
-  packages: write
 
 jobs:
   build:
@@ -15,40 +11,42 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
-        java: [25]
         variant: [cpu, gpu]
+        java: [25]
+
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      # ---------------------------------------------------------
-      # 1. Checkout
-      # ---------------------------------------------------------
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # ---------------------------------------------------------
-      # 2. QEMU + Buildx
-      # ---------------------------------------------------------
+      # ----------------------------------------
+      # QEMU / Buildx
+      # ----------------------------------------
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # ---------------------------------------------------------
-      # 3. Login to GHCR
-      # ---------------------------------------------------------
-      - name: Login to GitHub Container Registry
+      # ----------------------------------------
+      # Login GHCR
+      # ----------------------------------------
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ---------------------------------------------------------
-      # 4. Build & Push (CPU / GPU)
-      # ---------------------------------------------------------
-      - name: Build and Push Image
+      # ----------------------------------------
+      # Build & Push
+      # ----------------------------------------
+      - name: Build and Push (${{ matrix.variant }})
         uses: docker/build-push-action@v6
         with:
           context: ./docker
@@ -56,6 +54,8 @@ jobs:
           target: ${{ matrix.variant }}
           platforms: linux/amd64,linux/arm64
           push: true
-          no-cache: true
+          build-args: |
+            JAVA_VERSION=${{ matrix.java }}
           tags: |
             ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}-${{ matrix.variant }}
+            ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}-${{ matrix.variant }}-${{ github.run_number }}
