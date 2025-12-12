@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+: "${JVM_ARGS:=}"
+: "${MC_ARGS:=}"
+
+[[ -f /data/jvm.args ]] && JVM_ARGS+=" $(< /data/jvm.args)"
+[[ -f /data/mc.args ]] && MC_ARGS+=" $(< /data/mc.args)"
+
+
 fatal() { log ERROR "$1"; exit 1; }
 
 log() {
