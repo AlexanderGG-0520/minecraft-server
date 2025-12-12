@@ -11,7 +11,7 @@ listeners:
     priorities:
       - {{LOBBY_NAME}}
     bind_local_address: true
-    host: {{HOST}}:{{PORT}}
+    host: "${HOST}:${PORT}"
     max_players: {{MAX_PLAYERS}}
     tab_size: 60
     force_default_server: {{LOBBY_FORCED}}

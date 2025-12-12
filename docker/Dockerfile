@@ -65,15 +65,8 @@ COPY ./base/jvm.args                     /opt/mc/base/jvm.args
 COPY ./base/mc.args                      /opt/mc/base/mc.args
 
 # TYPE-specific config (empty OK)
-COPY ./types/vanilla/     /opt/mc/vanilla/
-COPY ./types/fabric/      /opt/mc/fabric/
-COPY ./types/forge/       /opt/mc/forge/
-COPY ./types/neoforge/    /opt/mc/neoforge/
-COPY ./types/paper/       /opt/mc/paper/
-COPY ./types/purpur/      /opt/mc/purpur/
-COPY ./types/velocity/    /opt/mc/velocity/
-COPY ./types/waterfall/   /opt/mc/waterfall/
-COPY ./types/bungeecord/  /opt/mc/bungeecord/
+COPY ./types/ /opt/mc/
+
 
 # ======================================================================
 #  Final image configuration
