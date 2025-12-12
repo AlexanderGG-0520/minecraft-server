@@ -1,24 +1,51 @@
 #!/bin/bash
 set -euo pipefail
 
-DATA=/data
-
-IFS=',' read -ra OPS_ARR <<< "${OPS:-}"
-IFS=',' read -ra WL_ARR  <<< "${WHITELIST:-}"
-
-add_player() {
-  local name="$1" file="$2"
-  jq --arg n "$name" '. + [{"uuid":"00000000-0000-0000-0000-000000000000","name":$n}]' \
-    "$file" > /tmp/t.json && mv /tmp/t.json "$file"
+# ------------------------------------------------------------
+# Log function to track script execution
+# ------------------------------------------------------------
+log() {
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
 }
 
-[[ ! -f "$DATA/ops.json" ]] && echo "[]" > "$DATA/ops.json"
-[[ ! -f "$DATA/whitelist.json" ]] && echo "[]" > "$DATA/whitelist.json"
+# ------------------------------------------------------------
+# Add players to ops.json and whitelist.json based on environment variables
+# ------------------------------------------------------------
+add_players() {
+  local json_file=$1
+  local player_list=$2
+  local permission_level=$3
 
-for p in "${OPS_ARR[@]}"; do
-  add_player "$p" "$DATA/ops.json"
-done
+  log INFO "Adding players to $json_file"
 
-for p in "${WL_ARR[@]}"; do
-  add_player "$p" "$DATA/whitelist.json"
-done
+  # If the file doesn't exist, create it
+  if [[ ! -f "$json_file" ]]; then
+    echo "[]" > "$json_file"
+  fi
+
+  for player in $(echo "$player_list" | tr "," "\n"); do
+    # Check if player already exists in the JSON
+    if ! jq -e ".[] | select(.name == \"$player\")" "$json_file" > /dev/null; then
+      log INFO "Adding player $player to $json_file with permission level $permission_level"
+      jq ". += [{\"name\": \"$player\", \"uuid\": \"$(uuidgen)\", \"level\": \"$permission_level\", \"banned\": false}]" "$json_file" > temp.json && mv temp.json "$json_file"
+    else
+      log INFO "Player $player already exists in $json_file"
+    fi
+  done
+}
+
+# ------------------------------------------------------------
+# Add OPS if OPS variable is set
+# ------------------------------------------------------------
+if [[ -n "${OPS:-}" ]]; then
+  add_players "/data/ops.json" "$OPS" "4"
+fi
+
+# ------------------------------------------------------------
+# Add players to whitelist if WHITELIST variable is set
+# ------------------------------------------------------------
+if [[ -n "${WHITELIST:-}" ]]; then
+  add_players "/data/whitelist.json" "$WHITELIST" "4"
+fi
+
+log INFO "Player addition completed"
