@@ -1,4 +1,6 @@
-# --- Network ---
+# =========================
+# Network and Server Properties
+# =========================
 server-port=${SERVER_PORT}
 server-ip=${SERVER_IP}
 online-mode=${ONLINE_MODE}
@@ -8,10 +10,12 @@ enable-status=${ENABLE_STATUS}
 enable-query=${ENABLE_QUERY}
 query.port=${QUERY_PORT}
 
-# --- RCON ---
+# --- RCON Configuration ---
 enable-rcon=${ENABLE_RCON}
 rcon.port=${RCON_PORT}
 rcon.password=${RCON_PASSWORD}
+rcon.max-connections=${RCON_MAX_CONNECTIONS}
+rcon.timeout=${RCON_TIMEOUT}
 
 # --- Gameplay ---
 max-players=${MAX_PLAYERS}
@@ -25,7 +29,7 @@ spawn-protection=${SPAWN_PROTECTION}
 
 # --- World ---
 level-name=${LEVEL}
-level-seed=${SEED}
+level-seed=${LEVEL_SEED}
 level-type=${LEVEL_TYPE}
 generate-structures=${GENERATE_STRUCTURES}
 allow-nether=${ALLOW_NETHER}
@@ -38,16 +42,15 @@ entity-broadcast-range-percentage=${ENTITY_BROADCAST_RANGE_PERCENTAGE}
 network-compression-threshold=${NETWORK_COMPRESSION_THRESHOLD}
 sync-chunk-writes=${SYNC_CHUNK_WRITES}
 
-# --- Chat / Security ---
+# --- Chat ---
 motd=${MOTD}
 white-list=${WHITE_LIST}
 enforce-whitelist=${ENFORCE_WHITELIST}
 enforce-secure-profile=${ENFORCE_SECURE_PROFILE}
 
-# --- RCON Configuration ---
+# --- RCON ---
 enable-rcon=${ENABLE_RCON}
 rcon.port=${RCON_PORT}
 rcon.password=${RCON_PASSWORD}
 rcon.max-connections=${RCON_MAX_CONNECTIONS}
 rcon.timeout=${RCON_TIMEOUT}
-
