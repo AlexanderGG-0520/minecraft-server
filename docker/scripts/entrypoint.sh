@@ -76,16 +76,17 @@ if [[ "$ENABLE_WHITELIST" == "true" && -n "$WHITELIST" ]]; then
 fi
 
 # ============================================================
-# EULA handling
+# EULA handling (BEFORE server launch)
 # ============================================================
 
 if [[ "${EULA:-false}" == "true" ]]; then
-  echo "eula=true" > /data/eula.txt
-  log INFO "EULA accepted (eula.txt written)"
+  if [[ ! -f /data/eula.txt ]]; then
+    echo "eula=true" > /data/eula.txt
+    log INFO "EULA accepted (eula.txt written)"
+  fi
 else
   log WARN "EULA not accepted. Set EULA=true to run the server."
 fi
-
 
 # ============================================================
 # Launching Minecraft Server
