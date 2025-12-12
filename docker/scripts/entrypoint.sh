@@ -126,3 +126,10 @@ elif [[ -f "/data/server.jar" ]]; then
 else
   fatal "No supported Minecraft server launcher found in /data"
 fi
+
+# ============================================================
+# Healthcheck script
+# ============================================================
+log INFO "Setting up healthcheck script"
+
+/opt/mc/scripts/scripthealthcheck.sh
