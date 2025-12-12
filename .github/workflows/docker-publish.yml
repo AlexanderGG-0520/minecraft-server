@@ -57,5 +57,6 @@ jobs:
             tags: |
                 ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}
 
-            cache-from: type=gha
-            cache-to: type=gha,mode=max
+            cache-from: type=gha,scope=minecraft-${{ github.sha }}
+            cache-to: type=gha,scope=minecraft-${{ github.sha }},mode=max
+
