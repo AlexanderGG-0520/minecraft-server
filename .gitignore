@@ -39,3 +39,14 @@ env/
 .git/
 *.jar
 !server.jar
+docker/mkcert.exe
+docker/buildctl.exe
+docker/rootCA-key.pem
+docker/rootCA.pem
+docker/ビルド手順.md
+docker/client/ca.pem
+docker/client/cert.pem
+docker/client/key.pem
+docker/daemon/ca.pem
+docker/daemon/cert.pem
+docker/daemon/key.pem
