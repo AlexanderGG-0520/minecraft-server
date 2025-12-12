@@ -21,6 +21,10 @@ get_uuid() {
     log ERROR "Failed to fetch UUID for player: $player_name"
     exit 1
   fi
+
+  # Add hyphens to the UUID if missing
+  uuid=$(echo "$uuid" | sed -E 's/^([a-f0-9]{8})([a-f0-9]{4})([a-f0-9]{4})([a-f0-9]{4})([a-f0-9]{12})$/\1-\2-\3-\4-\5/')
+  
   echo "$uuid"
 }
 
