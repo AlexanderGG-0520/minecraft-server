@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-timestamp() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(timestamp)] [$1] ${*:2}"; }
 fatal() { log ERROR "$1"; exit 1; }
+
+log() {
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
+}
+
+if [[ "${ENABLE_OPENCL:-false}" != "true" ]]; then
+  rm -f /data/mods/c2me-fabric-*.jar || true
+  log INFO "OpenCL acceleration disabled (c2me OpenCL module removed)"
+else
+  log INFO "OpenCL acceleration enabled"
+fi
+
 
 # ============================================================
 # Load defaults

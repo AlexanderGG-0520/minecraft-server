@@ -26,3 +26,8 @@ resources:
   limits:
     memory: 8Gi
     cpu: "4"
+
+performance:
+  opencl:
+    enabled: false
+

@@ -120,6 +120,22 @@ Most `server.properties` options are supported via environment variables
 
 ---
 
+## ⚡ GPU Acceleration (Experimental)
+
+This chart supports **experimental GPU acceleration** using  
+**C2ME OpenCL optimizations**.
+
+> ⚠️ Disabled by default  
+> Requires OpenCL runtime and compatible GPU drivers
+
+### Enable OpenCL acceleration
+
+```bash
+helm install mc mc/minecraft \
+  --set performance.opencl.enabled=true
+
+---
+
 ## 🔁 GitOps / ArgoCD
 
 This chart is designed to work perfectly with ArgoCD.

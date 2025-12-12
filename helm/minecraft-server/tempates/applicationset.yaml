@@ -35,6 +35,8 @@ spec:
               MAX_MEMORY: "{{`{{memory}}`}}"
               OPS: "{{`{{ops}}`}}"
               WHITELIST: "{{`{{whitelist}}`}}"
+              - name: ENABLE_OPENCL
+                value: "{{ .Values.performance.opencl.enabled | quote }}"
 
             resources:
               limits:
