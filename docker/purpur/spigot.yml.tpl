@@ -1,0 +1,2 @@
+settings:
+  bungeecord: false
