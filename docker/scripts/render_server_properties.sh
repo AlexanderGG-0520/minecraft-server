@@ -20,7 +20,7 @@ add_player_to_json() {
     echo "Adding $player_name ($player_uuid) to $json_file"
     
     # ops.jsonまたはwhitelist.jsonにプレイヤーを追加
-    jq ". += [{\"uuid\": \"$player_uuid\", \"name\": \"$player_name\", \"level\": 4}]" "$json_file" > temp.json && mv temp.json "$json_file"
+    jq ". += [{\"id\": \"$player_uuid\", \"name\": \"$player_name\"}]" "$json_file" > temp.json && mv temp.json "$json_file"
 }
 
 # OPSのプレイヤーをops.jsonに追加
