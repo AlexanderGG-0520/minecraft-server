@@ -2,7 +2,6 @@
 # Base Java runtimes
 # ============================================================
 
-FROM eclipse-temurin:25-jdk AS java25
 FROM eclipse-temurin:21-jdk AS java21
 FROM eclipse-temurin:16-jdk AS java16
 FROM eclipse-temurin:17-jdk AS java17
@@ -29,7 +28,6 @@ RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
   -o /usr/local/bin/mc && chmod +x /usr/local/bin/mc
 
 # Install Java from selected version
-COPY --from=java25 /opt/java/openjdk /opt/java25
 COPY --from=java21 /opt/java/openjdk /opt/java21
 COPY --from=java17 /opt/java/openjdk /opt/java17
 COPY --from=java16 /opt/java/openjdk /opt/java16

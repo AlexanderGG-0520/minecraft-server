@@ -136,6 +136,32 @@ helm install mc mc/minecraft \
 
 ---
 
+## 🎮 CPU vs GPU (c2me-gpu)
+
+This chart supports **CPU and GPU optimized images**.
+
+| Variant | Image Tag        | Acceleration | Requirements |
+| ------ | ---------------- | ------------ | ------------ |
+| CPU    | `java25-cpu`     | ❌ None       | Any node |
+| GPU    | `java25-gpu`     | ✅ OpenCL     | GPU + OpenCL |
+
+### GPU Notes
+
+- GPU acceleration is **opt-in**
+- Requires OpenCL-compatible drivers
+- Designed for `c2me-opts-accel-opencl`
+- CPU nodes will **not crash** (separate image)
+
+### Example (GPU)
+
+```bash
+helm install mc-gpu mc/minecraft \
+  --set image.variant=gpu \
+  --set performance.opencl.enabled=true \
+  --set nodeSelector."nvidia\.com/gpu.present"="true"
+
+---
+
 ## 🔁 GitOps / ArgoCD
 
 This chart is designed to work perfectly with ArgoCD.
