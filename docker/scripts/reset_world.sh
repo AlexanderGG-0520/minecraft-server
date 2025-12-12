@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-log() { echo "[reset_world] $*"; }
-
 cd /data
 
 log "World reset triggered."

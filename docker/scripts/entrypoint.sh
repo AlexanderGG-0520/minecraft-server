@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# 強制的に環境変数 TYPE を優先する
+export TYPE="${TYPE:-vanilla}"
+log INFO "TYPE forced from ENV: $TYPE"
+
+
 # ============================================================
 #  Logging
 # ============================================================
@@ -47,15 +52,6 @@ retry() {
 }
 
 # ============================================================
-#  Import helper scripts
-# ============================================================
-
-source /opt/mc/scripts/sync_s3.sh
-source /opt/mc/scripts/reset_world.sh
-
-DETECT_DL="/opt/mc/scripts/detect_or_download_server.sh"
-
-# ============================================================
 #  Reset world early (before data population)
 # ============================================================
 
@@ -68,6 +64,12 @@ if [[ -f "/data/reset-world.flag" ]]; then
   log INFO "reset-world.flag consumed and removed."
 fi
 
+# ============================================================
+#  Import helper scripts
+# ============================================================
+
+source /opt/mc/scripts/sync_s3.sh
+source /opt/mc/scripts/reset_world.sh
 
 # ============================================================
 #  Startup banner
