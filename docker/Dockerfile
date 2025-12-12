@@ -20,7 +20,15 @@ ENV JAVA_VERSION=${JAVA_VERSION}
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
-    bash curl wget jq unzip ca-certificates tar \
+    bash \
+    curl \
+    wget \
+    jq \
+    unzip \
+    ca-certificates \
+    tar \
+    gettext-base \
+    git \
   && rm -rf /var/lib/apt/lists/*
 
 # Minio CLI

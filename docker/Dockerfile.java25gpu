@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
     ocl-icd-libopencl1 \
     opencl-headers \
     clinfo \
+    gettext-base \
  && rm -rf /var/lib/apt/lists/*
 
 # ---- OpenCL ICD (NVIDIA) ----
