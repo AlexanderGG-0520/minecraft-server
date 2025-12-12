@@ -1,58 +1,40 @@
 #!/bin/bash
-set -euo pipefail
 
-# ------------------------------------------------------------
-# Log function to track script execution
-# ------------------------------------------------------------
-log() {
-  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
-}
+# プレイヤー名を環境変数から取得（OPSまたはWHITELIST）
+OPS=${OPS:-}
+WHITELIST=${WHITELIST:-}
 
-# ------------------------------------------------------------
-# UUID generator (alternative to uuidgen)
-# ------------------------------------------------------------
-uuidgen() {
-  echo $(cat /proc/sys/kernel/random/uuid)
-}
+add_player_to_json() {
+    local player_name=$1
+    local json_file=$2
 
-# ------------------------------------------------------------
-# Add players to ops.json and whitelist.json based on environment variables
-# ------------------------------------------------------------
-add_players() {
-  local json_file=$1
-  local player_list=$2
-  local permission_level=$3
+    # Mojang APIを使ってプレイヤーのUUIDを取得
+    player_uuid=$(curl -s "https://api.mojang.com/users/profiles/minecraft/$player_name" | jq -r '.id')
 
-  log INFO "Adding players to $json_file"
-
-  # If the file doesn't exist, create it
-  if [[ ! -f "$json_file" ]]; then
-    echo "[]" > "$json_file"
-  fi
-
-  for player in $(echo "$player_list" | tr "," "\n"); do
-    # Check if player already exists in the JSON
-    if ! jq -e ".[] | select(.name == \"$player\")" "$json_file" > /dev/null; then
-      log INFO "Adding player $player to $json_file with permission level $permission_level"
-      jq ". += [{\"name\": \"$player\", \"uuid\": \"$(uuidgen)\", \"level\": \"$permission_level\", \"banned\": false}]" "$json_file" > temp.json && mv temp.json "$json_file"
-    else
-      log INFO "Player $player already exists in $json_file"
+    if [ "$player_uuid" == "null" ]; then
+        echo "Error: Could not find UUID for player $player_name"
+        return 1
     fi
-  done
+
+    # プレイヤーをops.jsonまたはwhitelist.jsonに追加
+    echo "Adding $player_name ($player_uuid) to $json_file"
+    
+    # ops.jsonまたはwhitelist.jsonにプレイヤーを追加
+    jq ". += [{\"uuid\": \"$player_uuid\", \"name\": \"$player_name\", \"level\": 4}]" "$json_file" > temp.json && mv temp.json "$json_file"
 }
 
-# ------------------------------------------------------------
-# Add OPS if OPS variable is set
-# ------------------------------------------------------------
-if [[ -n "${OPS:-}" ]]; then
-  add_players "/data/ops.json" "$OPS" "4"
+# OPSのプレイヤーをops.jsonに追加
+if [ -n "$OPS" ]; then
+    for player in $(echo "$OPS" | tr "," "\n"); do
+        add_player_to_json "$player" "/data/ops.json"
+    done
 fi
 
-# ------------------------------------------------------------
-# Add players to whitelist if WHITELIST variable is set
-# ------------------------------------------------------------
-if [[ -n "${WHITELIST:-}" ]]; then
-  add_players "/data/whitelist.json" "$WHITELIST" "4"
+# WHITELISTのプレイヤーをwhitelist.jsonに追加
+if [ -n "$WHITELIST" ]; then
+    for player in $(echo "$WHITELIST" | tr "," "\n"); do
+        add_player_to_json "$player" "/data/whitelist.json"
+    done
 fi
 
-log INFO "Player addition completed"
+echo "OPS and WHITELIST processing completed"
