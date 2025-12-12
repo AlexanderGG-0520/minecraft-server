@@ -49,4 +49,14 @@ docker/client/cert.pem
 docker/client/key.pem
 docker/daemon/ca.pem
 docker/daemon/cert.pem
-docker/daemon/key.pem
+buildctl.exe
+mkcert.exe
+rootCA-key.pem
+rootCA.pem
+ビルド手順.md
+client/ca.pem
+client/cert.pem
+client/key.pem
+daemon/ca.pem
+daemon/cert.pem
+daemon/key.pem
