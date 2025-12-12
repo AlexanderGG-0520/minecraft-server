@@ -1,17 +1,31 @@
 # ============================================================
 # Base Runtime (shared)
 # ============================================================
-FROM eclipse-temurin:25-jdk AS java25
+FROM eclipse-temurin:25-jdk AS base
 
-RUN mkdir -p /opt/mc/{scripts,base,types} /data
+# ---- runtime tools (重要) ----
+RUN apt-get update && apt-get install -y \
+    curl \
+    jq \
+    ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---- layout ----
+RUN mkdir -p /opt/mc/{scripts,base,fabric,forge,paper} /data
 
 COPY scripts/ /opt/mc/scripts/
-COPY base/ /opt/mc/base/
-COPY types/ /opt/mc/
+COPY base/    /opt/mc/base/
+COPY types/fabric/ /opt/mc/fabric/
+COPY types/forge/  /opt/mc/forge/
+COPY types/paper/  /opt/mc/paper/
 
-RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
+RUN chmod +x \
+  /opt/mc/scripts/*.sh \
+  /opt/mc/base/*.sh \
+  /opt/mc/fabric/*.sh \
+  /opt/mc/forge/*.sh \
+  /opt/mc/paper/*.sh
 
-WORKDIR /opt/mc
 WORKDIR /data
 VOLUME ["/data"]
 
@@ -21,7 +35,7 @@ ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
 
 
 # ============================================================
-# CPU Variant (default)
+# CPU Variant
 # ============================================================
 FROM base AS cpu
 LABEL org.opencontainers.image.variant=cpu
@@ -33,7 +47,6 @@ ENV MC_ACCELERATION=none
 # ============================================================
 FROM base AS gpu
 
-# OpenCL runtime
 RUN apt-get update && apt-get install -y \
     ocl-icd-libopencl1 \
     opencl-headers \
