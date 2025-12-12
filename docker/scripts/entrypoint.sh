@@ -122,7 +122,7 @@ fi
 # ============================================================
 
 log INFO "Resolving and downloading server.jar..."
-retry 5 2 server_download_main
+retry 5 2 detect_or_download_server_main
 
 if [[ ! -f /data/server.jar ]]; then
   fatal "server.jar missing after download"
