@@ -174,6 +174,101 @@ source:
 
 ---
 
+## 🚀 **Unique GPU Acceleration for Minecraft**
+
+### **Experience Lightning Fast Performance with C2ME OpenCL Optimizations**
+
+- **GPU-Accelerated Performance**: Unlock superior performance with experimental GPU acceleration using **C2ME OpenCL optimizations**. Ideal for high-performance servers running Minecraft at scale!
+
+- **Opt-In for OpenCL**: Easy-to-enable GPU acceleration with no need for a CPU-intensive setup. Simply set `performance.opencl.enabled=true` to boost your server with compatible GPU drivers.
+
+- **CPU & GPU Optimized**: Choose between a **CPU-only** or **GPU-accelerated** server setup depending on your hardware needs. Great for servers running on both GPU and non-GPU nodes without any crashes.
+
+---
+
+## 💡 **Why GPU-Optimized Minecraft Servers?**
+
+### **Game-Changing Performance**
+
+By using a GPU to accelerate the server, you can handle more intensive calculations, such as chunk loading and world generation, **offloading work from the CPU**. This leads to smoother gameplay, faster world generation, and reduced lag during heavy load times.
+
+- **OpenCL-Compatible GPUs**: With **OpenCL** support, you can take advantage of modern NVIDIA or AMD GPUs for server-side calculations. Get ready for a **reliable performance boost** and **faster server response times**.
+
+- **No Downtime for Non-GPU Nodes**: The architecture is designed to work seamlessly whether you are using **GPU nodes** or **CPU-only** nodes. No crashing issues when switching between the two.
+
+---
+
+## 🖥️ **Easy to Set Up with Kubernetes**
+
+This **Helm Chart** provides a quick and simple way to deploy your Minecraft server to Kubernetes, with support for both **GPU and CPU variants**. Here's how:
+
+1. **Deploy GPU-Optimized Server**:
+
+   ```bash
+   helm install mc-gpu mc/minecraft \
+     --set image.variant=gpu \
+     --set performance.opencl.enabled=true \
+     --set nodeSelector."nvidia\.com/gpu.present"="true"
+   ```
+
+2. **CPU-Only Server Setup**:
+
+   ```bash
+   helm install mc mc/minecraft \
+     --set server.eula=true \
+     --set server.type=FABRIC \
+     --set server.version=1.21.10 \
+     --set java.maxMemory=6G
+   ```
+
+Whether you want **GPU acceleration** or **classic CPU performance**, this chart makes it easy to get started!
+
+---
+
+## 🌐 **Mod/Plugin Sync & S3 Integration**
+
+- Seamlessly sync **mods** and **plugins** across your Minecraft server with built-in **S3 support** for Fabric, Forge, and Paper.
+- Automatically sync with **remote repositories** and eliminate manual file updates.
+
+---
+
+## 🎮 **Streamlined for Game Performance**
+
+This Docker image is designed to meet the performance needs of **high-traffic servers**. By offloading the **heavy lifting to GPUs**, you ensure a **stable, lag-free gaming experience** for players.
+
+---
+
+## 🔄 **Fully Compatible with ArgoCD for GitOps**
+
+- Designed with **GitOps** in mind, you can integrate this server with **ArgoCD** for **automated deployments** and **version-controlled configurations**.
+
+```yaml
+source:
+  repoURL: https://alexandergg-0520.github.io/minecraft-server
+  chart: minecraft
+```
+
+---
+
+### **Get Started Quickly with Kubernetes & Helm**
+
+Deploying a **Minecraft server with GPU support** has never been easier. Just follow the quick start steps, and you'll have your server up and running on **Kubernetes** in no time.
+
+---
+
+## 💬 **Join the Conversation**
+
+Get support, report issues, and contribute to the project on GitHub:
+[**Minecraft Server Docker on GitHub**](https://github.com/alexandergg-0520/minecraft-server)
+
+---
+
+### 💡 **Make Your Minecraft Server Faster and Smarter with GPU Acceleration**
+
+This isn't just another Minecraft Docker image. It’s a **performance powerhouse**, designed for those who want the absolute best in server speed and scalability. Get your **GPU-ready server** today!
+
+---
+
 ## 📜 License
 
 This project is licensed under the **MIT License**.
