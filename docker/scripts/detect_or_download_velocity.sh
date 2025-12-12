@@ -1,13 +1,26 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-OUT=/data/server.jar
-[[ -f "$OUT" ]] && exit 0
+DATA_DIR=/data
+JAR="${DATA_DIR}/velocity.jar"
 
-VER="$(curl -fsSL https://api.papermc.io/v2/projects/velocity \
-  | jq -r '.versions[-1]')"
-BUILD="$(curl -fsSL https://api.papermc.io/v2/projects/velocity/versions/${VER} \
-  | jq -r '.builds[-1]')"
+log() {
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [velocity] $*"
+}
 
-curl -fL "https://api.papermc.io/v2/projects/velocity/versions/${VER}/builds/${BUILD}/downloads/velocity-${VER}-${BUILD}.jar" \
-  -o "$OUT"
+[[ -f "$JAR" ]] && {
+  log "velocity.jar already exists"
+  exit 0
+}
+
+VERSION="${VELOCITY_VERSION:-latest}"
+
+log "Downloading Velocity ${VERSION}"
+
+curl -fL https://api.papermc.io/v2/projects/velocity/versions \
+  | jq -r '.versions[-1]' \
+  | xargs -I{} curl -fL \
+    "https://api.papermc.io/v2/projects/velocity/versions/{}/builds/$(curl -fsSL https://api.papermc.io/v2/projects/velocity/versions/{}/builds | jq -r '.builds[-1]')/downloads/velocity-{}-$(curl -fsSL https://api.papermc.io/v2/projects/velocity/versions/{}/builds | jq -r '.builds[-1]').jar" \
+  -o "$JAR"
+
+log "Velocity ready"

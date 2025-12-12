@@ -13,20 +13,15 @@ log() {
   exit 0
 }
 
-VERSION="${VERSION:-latest}"
+VERSION="${VERSION:?VERSION is required}"
 
-log "Downloading Vanilla server ${VERSION}"
+log "Downloading Vanilla Minecraft ${VERSION}"
 
-if [[ "$VERSION" == "latest" ]]; then
-  META_URL="https://launchermeta.mojang.com/mc/game/version_manifest.json"
-  VERSION="$(curl -fsSL "$META_URL" | jq -r '.latest.release')"
-fi
+META=$(curl -fsSL https://piston-meta.mojang.com/mc/game/version_manifest.json)
+URL=$(echo "$META" | jq -r ".versions[] | select(.id==\"$VERSION\") | .url")
 
-VERSION_JSON="$(curl -fsSL https://launchermeta.mojang.com/mc/game/version_manifest.json \
-  | jq -r ".versions[] | select(.id==\"${VERSION}\") | .url")"
-
-SERVER_URL="$(curl -fsSL "$VERSION_JSON" | jq -r '.downloads.server.url')"
+SERVER_URL=$(curl -fsSL "$URL" | jq -r ".downloads.server.url")
 
 curl -fL "$SERVER_URL" -o "$SERVER_JAR"
 
-log "Vanilla server.jar downloaded"
+log "Vanilla server.jar ready"

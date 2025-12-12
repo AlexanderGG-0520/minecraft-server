@@ -5,7 +5,7 @@ DATA_DIR=/data
 SERVER_JAR="${DATA_DIR}/server.jar"
 
 log() {
-  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [paper] $*"
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [purpur] $*"
 }
 
 [[ -f "$SERVER_JAR" ]] && {
@@ -13,15 +13,15 @@ log() {
   exit 0
 }
 
-VERSION="${VERSION:?VERSION required}"
+VERSION="${VERSION:?VERSION is required}"
 
-log "Downloading Paper ${VERSION}"
+log "Downloading Purpur ${VERSION}"
 
-BUILD=$(curl -fsSL https://api.purpurmc.org/v2/purpur/${MC} \
-  | jq -r '.builds[-1]')
+# 最新 build を取得
+BUILD=$(curl -fsSL "https://api.purpurmc.org/v2/purpur/${VERSION}" | jq -r '.builds.latest')
 
-URL="https://api.purpurmc.org/v2/purpur/${MC}/${BUILD}/download"
+curl -fL \
+  "https://api.purpurmc.org/v2/purpur/${VERSION}/${BUILD}/download" \
+  -o "$SERVER_JAR"
 
-curl -fL "$URL" -o "$SERVER_JAR"
-
-log "Paper server.jar downloaded"
+log "Purpur server.jar ready"

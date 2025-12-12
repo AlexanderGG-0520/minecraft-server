@@ -78,4 +78,35 @@ export MC_WORKDIR=/data
 export FABRIC_CACHE_DIR=/data/.fabric
 export JAVA_TOOL_OPTIONS="-Duser.dir=/data"
 
-exec java $(cat /data/jvm.args) -jar /data/server.jar $(cat /data/mc.args)
+JVM_ARGS="$(cat /data/jvm.args)"
+MC_ARGS="$(cat /data/mc.args)"
+
+# ------------------------------------------------------------
+# Universal server launcher detection
+# ------------------------------------------------------------
+
+if [[ -f "/data/fabric-server-launch.jar" ]]; then
+  log INFO "Detected Fabric server"
+  exec java ${JVM_ARGS} -jar /data/fabric-server-launch.jar ${MC_ARGS}
+
+elif [[ -f "/data/quilt-server-launch.jar" ]]; then
+  log INFO "Detected Quilt server"
+  exec java ${JVM_ARGS} -jar /data/quilt-server-launch.jar ${MC_ARGS}
+
+elif ls /data/forge-*-server.jar >/dev/null 2>&1; then
+  FORGE_JAR=$(ls /data/forge-*-server.jar | head -n1)
+  log INFO "Detected Forge server: ${FORGE_JAR}"
+  exec java ${JVM_ARGS} -jar "${FORGE_JAR}" ${MC_ARGS}
+
+elif [[ -f "/data/run.sh" ]]; then
+  log INFO "Detected Forge run.sh"
+  chmod +x /data/run.sh
+  exec /data/run.sh
+
+elif [[ -f "/data/server.jar" ]]; then
+  log INFO "Detected Vanilla/Paper server"
+  exec java ${JVM_ARGS} -jar /data/server.jar ${MC_ARGS}
+
+else
+  fatal "No supported Minecraft server launcher found in /data"
+fi

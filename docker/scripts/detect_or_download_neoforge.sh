@@ -2,28 +2,29 @@
 set -euo pipefail
 
 DATA_DIR=/data
-SERVER_JAR="${DATA_DIR}/server.jar"
 
 log() {
-  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [forge] $*"
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [neoforge] $*"
 }
 
-[[ -f "$SERVER_JAR" ]] && {
-  log "server.jar already exists"
+# NeoForge は run.sh を生成するのが正
+[[ -f "${DATA_DIR}/run.sh" ]] && {
+  log "NeoForge already installed"
   exit 0
 }
 
-FORGE_VERSION="${FORGE_VERSION:?FORGE_VERSION required}"
+VERSION="${VERSION:?VERSION is required}"                 # 例: 1.21.1
+NEOFORGE_VERSION="${NEOFORGE_VERSION:?NEOFORGE_VERSION is required}"  # 例: 21.1.12
 
-log "Installing Forge ${FORGE_VERSION}"
+log "Installing NeoForge ${VERSION}-${NEOFORGE_VERSION}"
 
-INSTALLER="forge-${FORGE_VERSION}-installer.jar"
-URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${VER}/"
+INSTALLER="neoforge-${VERSION}-${NEOFORGE_VERSION}-installer.jar"
+URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/${VERSION}-${NEOFORGE_VERSION}/${INSTALLER}"
 
-curl -fL "$URL" -o /neoforge-${VER}-installer.jar
+curl -fL "$URL" -o /tmp/neoforge-installer.jar
 
-java -jar /neoforge-${VER}-installer.jar --installServer "$DATA_DIR"
+java -jar /tmp/neoforge-installer.jar --installServer "$DATA_DIR"
 
-mv "$DATA_DIR/neoforge-*-server.jar" "$SERVER_JAR"
+chmod +x "${DATA_DIR}/run.sh"
 
-log "Forge server.jar ready"
+log "NeoForge server ready"

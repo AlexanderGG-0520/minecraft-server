@@ -13,15 +13,15 @@ log() {
   exit 0
 }
 
-VERSION="${VERSION:?VERSION required}"
+VERSION="${VERSION:?VERSION is required}"
 
 log "Downloading Paper ${VERSION}"
 
 BUILD=$(curl -fsSL https://api.papermc.io/v2/projects/paper/versions/${VERSION} \
   | jq -r '.builds[-1]')
 
-URL="https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/paper-${VERSION}-${BUILD}.jar"
+curl -fL \
+  "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/paper-${VERSION}-${BUILD}.jar" \
+  -o "$SERVER_JAR"
 
-curl -fL "$URL" -o "$SERVER_JAR"
-
-log "Paper server.jar downloaded"
+log "Paper server.jar ready"
