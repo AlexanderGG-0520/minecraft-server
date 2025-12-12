@@ -61,8 +61,8 @@ RUN chmod +x /opt/mc/scripts/detect_or_download_*.sh
 # Default base config
 COPY ./base/base.env                     /opt/mc/base/base.env
 COPY ./base/server.properties.base       /opt/mc/base/server.properties.base
-COPY ./base/jvm.args                     /opt/mc/base/jvm.args
-COPY ./base/mc.args                      /opt/mc/base/mc.args
+COPY ./base/jvm-common.args                     /opt/mc/base/jvm.args
+COPY ./base/mc-common.args                      /opt/mc/base/mc.args
 
 # TYPE-specific config (empty OK)
 COPY ./types/ /opt/mc/
