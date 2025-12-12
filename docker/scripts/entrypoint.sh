@@ -29,6 +29,18 @@ log INFO "TYPE=${TYPE_LOWER}, VERSION=${VERSION}"
 log INFO "Java: $(java -version 2>&1 | head -n1)"
 
 # ============================================================
+# Render server.properties from base.env
+# ============================================================
+
+log INFO "Rendering server.properties from base.env"
+
+# 既存の server.properties を削除（もしあれば）
+rm -f /data/server.properties
+
+# 新しい server.properties を生成
+envsubst < /opt/mc/base/server.properties.base > /data/server.properties
+
+# ============================================================
 # Reset world (optional)
 # ============================================================
 if [[ -f /data/reset-world.flag ]]; then
@@ -66,18 +78,6 @@ if [[ "${EULA:-false}" == "true" ]]; then
 else
   log WARN "EULA not accepted. Set EULA=true to run the server."
 fi
-
-# ============================================================
-# Render server.properties from base.env
-# ============================================================
-
-log INFO "Rendering server.properties from base.env"
-
-# 既存の server.properties を削除（もしあれば）
-rm -f /data/server.properties
-
-# 新しい server.properties を生成
-envsubst < /opt/mc/base/server.properties.base > /data/server.properties
 
 # ============================================================
 # Launching Minecraft Server
