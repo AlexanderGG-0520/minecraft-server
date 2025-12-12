@@ -1,0 +1,40 @@
+# ============================================================
+# CPU Variant (Fabric + C2ME + OpenCL via POCL)
+# ============================================================
+FROM eclipse-temurin:25-jdk AS java25-cpu
+
+# ---- system tools ----
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    jq \
+    bash \
+    unzip \
+    git \
+    ocl-icd-libopencl1 \
+    opencl-headers \
+    pocl-opencl-icd \
+    clinfo \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---- runtime layout ----
+RUN mkdir -p /opt/mc/{scripts,base,fabric,forge,paper} /data
+
+# ---- copy runtime assets ----
+COPY scripts/ /opt/mc/scripts/
+COPY base/    /opt/mc/base/
+COPY types/   /opt/mc/
+
+# ---- permissions ----
+RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
+
+# ---- runtime defaults ----
+WORKDIR /data
+VOLUME ["/data"]
+
+ENV JAVA_VERSION=25
+ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
+ENV ENABLE_OPENCL=true
+ENV MC_ACCELERATION=opencl
+
+ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
