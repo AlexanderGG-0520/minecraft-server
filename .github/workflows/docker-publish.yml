@@ -58,10 +58,3 @@ jobs:
                     ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}
                 cache-from: type=gha,scope=minecraft-${{ github.sha }}
                 cache-to: type=gha,scope=minecraft-${{ github.sha }},mode=max
-        -   name: Debug image contents
-            run: |
-                docker run --rm ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }} ls -l /opt/mc/scripts
-                echo "----- entrypoint.sh -----"
-                docker run --rm ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }} cat /opt/mc/scripts/entrypoint.sh
-
-

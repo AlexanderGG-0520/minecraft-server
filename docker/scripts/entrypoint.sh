@@ -64,7 +64,7 @@ retry() {
 #  Import Subscripts
 # ============================================================
 
-source /opt/mc/scripts/detect_or_server_download.sh
+source /opt/mc/scripts/detect_or_download_server.sh
 source /opt/mc/scripts/sync_s3.sh
 source /opt/mc/scripts/world_reset.sh
 
