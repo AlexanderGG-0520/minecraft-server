@@ -51,8 +51,38 @@ chmod +x "$SCRIPT"
 # ------------------------------------------------------------
 # Post-check: ensure something exists
 # ------------------------------------------------------------
-if ! ls /data/*.jar /data/run.sh >/dev/null 2>&1; then
-  fatal "Server binary preparation finished, but no launchable files found in /data"
-fi
+case "$TYPE_LOWER" in
+  fabric)
+    [[ -f /data/fabric-server-launch.jar ]] \
+      || fatal "Fabric launcher not found"
+    ;;
+  quilt)
+    [[ -f /data/quilt-server-launch.jar ]] \
+      || fatal "Quilt launcher not found"
+    ;;
+  forge|neoforge)
+    ls /data/forge-*-server.jar /data/run.sh >/dev/null 2>&1 \
+      || fatal "Forge/NeoForge server not found"
+    ;;
+  vanilla|paper|purpur)
+    [[ -f /data/server.jar ]] \
+      || fatal "server.jar not found"
+    ;;
+  velocity)
+    [[ -f /data/velocity.jar ]] \
+      || fatal "velocity.jar not found"
+    ;;
+  bungeecord)
+    [[ -f /data/bungeecord.jar ]] \
+      || fatal "bungeecord.jar not found"
+    ;;
+  waterfall)
+    [[ -f /data/waterfall.jar ]] \
+      || fatal "waterfall.jar not found"
+    ;;
+  *)
+    fatal "Unhandled TYPE post-check: $TYPE_LOWER"
+    ;;
+esac
 
 log INFO "Server binary preparation completed successfully"
