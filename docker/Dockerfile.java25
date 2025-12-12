@@ -1,7 +1,7 @@
 # ============================================================
 # Base Runtime (shared)
 # ============================================================
-FROM eclipse-temurin:25-jdk AS base
+FROM eclipse-temurin:25-jdk AS java25
 
 RUN mkdir -p /opt/mc/{scripts,base,types} /data
 
