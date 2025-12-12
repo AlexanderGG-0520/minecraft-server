@@ -21,6 +21,34 @@ EOF
   echo "[INFO] EULA accepted via env (EULA=true)"
 fi
 
+# ============================================================
+# C2ME OpenCL Acceleration Toggle on First Boot
+# ============================================================
+
+DATA_DIR="/data"
+MODS_DIR="$DATA_DIR/mods"
+DISABLED_DIR="$DATA_DIR/mods-disabled"
+FLAG_FILE="$DATA_DIR/.first-boot-done"
+
+mkdir -p "$DISABLED_DIR"
+
+if [[ ! -f "$FLAG_FILE" ]]; then
+  echo "[INFO] First boot detected: disabling C2ME OpenCL acceleration"
+
+  shopt -s nullglob
+  for jar in "$MODS_DIR"/c2me-opts-accel-opencl-*.jar; do
+    mv "$jar" "$DISABLED_DIR"/
+  done
+else
+  echo "[INFO] Subsequent boot detected: enabling C2ME OpenCL acceleration"
+
+  shopt -s nullglob
+  for jar in "$DISABLED_DIR"/c2me-opts-accel-opencl-*.jar; do
+    mv "$jar" "$MODS_DIR"/
+  done
+fi
+
+
 # ------------------------------------------------------------
 # Check and Set Default Values for Missing Variables
 # ------------------------------------------------------------
@@ -148,3 +176,20 @@ fi
 log INFO "Setting up healthcheck script"
 
 /opt/mc/scripts/scripthealthcheck.sh
+
+
+# ============================================================
+# First Boot Detection
+# ============================================================
+FLAG_FILE="/data/.first-boot-done"
+
+if [[ ! -f "$FLAG_FILE" ]]; then
+  echo "[INFO] Waiting for server to start listening..."
+
+  while ! (exec 3<>/dev/tcp/127.0.0.1/25569) 2>/dev/null; do
+    sleep 5
+  done
+
+  echo "[INFO] Server is listening, marking first boot as done"
+  touch "$FLAG_FILE"
+fi
