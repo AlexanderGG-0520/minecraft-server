@@ -54,3 +54,5 @@ rcon.port=${RCON_PORT}
 rcon.password=${RCON_PASSWORD}
 rcon.max-connections=${RCON_MAX_CONNECTIONS}
 rcon.timeout=${RCON_TIMEOUT}
+
+pause-when-empty-seconds=-1
