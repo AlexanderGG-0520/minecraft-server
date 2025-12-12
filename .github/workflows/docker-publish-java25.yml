@@ -3,7 +3,7 @@ name: Build & Publish Docker Images
 on:
   push:
     branches:
-        - main
+      - main
   workflow_dispatch:
 
 jobs:
@@ -12,48 +12,48 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-        matrix:
-            java: [25]
+      matrix:
+        java: [25]
+        variant: [cpu, gpu]
 
     permissions:
       contents: read
       packages: write
 
     steps:
-        -   name: Checkout repository
-            uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-        # ---------------------------------------------------------
-        # 1. QEMU + Buildx Setup
-        # ---------------------------------------------------------
-        -   name: Set up QEMU
-            uses: docker/setup-qemu-action@v3
+      # ---------------------------------------------------------
+      # 1. QEMU + Buildx
+      # ---------------------------------------------------------
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-        -   name: Set up Docker Buildx
-            uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-        # ---------------------------------------------------------
-        # 2. Login to GHCR
-        # ---------------------------------------------------------
-        -   name: Login to GitHub Container Registry
-            uses: docker/login-action@v3
-            with:
-                registry: ghcr.io
-                username: ${{ github.actor }}
-                password: ${{ secrets.GITHUB_TOKEN }}
+      # ---------------------------------------------------------
+      # 2. Login to GHCR
+      # ---------------------------------------------------------
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-        # ---------------------------------------------------------
-        # 3. Docker Build & Push (Multi-Arch + Java Matrix)
-        # ---------------------------------------------------------
-        -   name: Build and Push Image
-            uses: docker/build-push-action@v6
-            with:
-                context: ./docker
-                file: ./docker/Dockerfile.java25
-                platforms: linux/amd64,linux/arm64
-                push: true
-                build-args: |
-                    JAVA_VERSION=${{ matrix.java }}
-                tags: |
-                    ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}
-                no-cache: true
+      # ---------------------------------------------------------
+      # 3. Build & Push (cpu / gpu)
+      # ---------------------------------------------------------
+      - name: Build and Push Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./docker
+          file: ./docker/Dockerfile.java25
+          target: ${{ matrix.variant }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/alexandergg-0520/minecraft-server:java${{ matrix.java }}${{ matrix.variant == 'gpu' && '-gpu' || '' }}
+            no-cache: true
