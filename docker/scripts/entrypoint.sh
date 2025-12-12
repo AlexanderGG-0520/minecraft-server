@@ -53,9 +53,21 @@ retry() {
 source /opt/mc/scripts/sync_s3.sh
 source /opt/mc/scripts/reset_world.sh
 source /opt/mc/base/make_args.sh
-make_args
 
 DETECT_DL="/opt/mc/scripts/detect_or_download_server.sh"
+
+# ============================================================
+#  Reset world early (before data population)
+# ============================================================
+
+if [[ -f "/data/reset-world.flag" ]]; then
+  log WARN "reset-world.flag detected — resetting world"
+  retry 3 1 reset_world_main
+
+  # flagはここで削除しておかないと永遠にリセットされ続ける
+  rm -f /data/reset-world.flag
+  log INFO "reset-world.flag consumed and removed."
+fi
 
 
 # ============================================================
@@ -94,7 +106,6 @@ fi
 
 retry 3 1 cp -r "$TYPE_DIR"/* /data
 
-
 # ============================================================
 #  Run S3 sync (optional)
 # ============================================================
@@ -103,7 +114,6 @@ if [[ "${S3_SYNC_ENABLED:-false}" == "true" ]]; then
   log INFO "Running S3 synchronization..."
   retry 5 3 sync_s3_main
 fi
-
 
 # ============================================================
 #  Detect or download server.jar
@@ -134,19 +144,6 @@ case "$TYPE" in
     fatal "Unknown TYPE=${TYPE}" ;;
 esac
 
-
-
-
-# ============================================================
-#  Reset world (flag-based)
-# ============================================================
-
-if [[ -f "/data/reset-world.flag" ]]; then
-  log WARN "reset-world.flag detected — resetting world"
-  retry 3 1 reset_world_main
-fi
-
-
 # ============================================================
 #  Merge JVM / MC args
 # ============================================================
@@ -160,7 +157,6 @@ log INFO "Preparing JVM and Minecraft args"
 [[ -f /opt/mc/base/mc.args ]] && cp /opt/mc/base/mc.args /data/mc.args
 [[ -f /opt/mc/${TYPE}/mc.args ]] && cat /opt/mc/${TYPE}/mc.args >> /data/mc.args
 [[ -f /data/mc.override ]] && cat /data/mc.override >> /data/mc.args
-
 
 # ============================================================
 #  Generate server.properties (FULL version)
@@ -224,7 +220,6 @@ set_prop "hide-online-players"           "HIDE_PLAYERS"
 # write
 cp "$tmp_sp" "$SP_OUT"
 log INFO "server.properties generated."
-
 
 # ============================================================
 #  Launch Java
