@@ -53,7 +53,10 @@ COPY types/   /opt/mc/
 RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
 
 WORKDIR /opt/mc
+WORKDIR /data
 VOLUME ["/data"]
+
+ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
 
 ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
 
