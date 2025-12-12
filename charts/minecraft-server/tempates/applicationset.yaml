@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: {{ .Values.appset.name }}
+  namespace: {{ .Values.appset.namespace }}
+spec:
+  generators:
+    - list:
+        elements:
+          {{ toYaml .Values.servers | nindent 10 }}
+
+  template:
+    metadata:
+      name: "{{`{{name}}`}}"
+    spec:
+      project: {{ .Values.appset.project }}
+
+      source:
+        repoURL: {{ .Values.repo.url }}
+        targetRevision: {{ .Values.repo.revision }}
+        path: {{ .Values.repo.chartPath }}
+        helm:
+          values: |
+            image:
+              repository: ghcr.io/alexandergg-0520/minecraft-server
+              tag: "{{`{{imageTag}}`}}"
+              pullPolicy: Always
+
+            server:
+              type: "{{`{{type}}`}}"
+              minecraftVersion: "{{`{{version}}`}}"
+
+            env:
+              EULA: "TRUE"
+              MAX_MEMORY: "{{`{{memory}}`}}"
+              OPS: "{{`{{ops}}`}}"
+              WHITELIST: "{{`{{whitelist}}`}}"
+
+            resources:
+              limits:
+                memory: "{{`{{memory}}`}}"
+                {{ "{{ if gpu }}" }}
+                nvidia.com/gpu: 1
+                {{ "{{ end }}" }}
+
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{`{{namespace}}`}}"
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
