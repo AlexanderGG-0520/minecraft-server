@@ -67,4 +67,11 @@ fi
 # Launch
 # =========================
 log START "Launching Minecraft Server"
+
+cd /data
+
+export MC_WORKDIR=/data
+export FABRIC_CACHE_DIR=/data/.fabric
+export JAVA_TOOL_OPTIONS="-Duser.dir=/data"
+
 exec java $(cat /data/jvm.args) -jar /data/server.jar $(cat /data/mc.args)
