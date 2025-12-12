@@ -7,14 +7,34 @@ log() {
   echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
 }
 
+# Function to parse YAML and set environment variables
+parse_yaml() {
+  local yaml_file=$1
+  local prefix=$2
+  # Read the YAML file and convert to environment variable format
+  # Works with simple key-value pairs
+  awk 'BEGIN {
+      FS=": ";
+      OFS="=";
+  } 
+  /^[^#]/ { 
+    if ($2) {
+      gsub(/ /, "_", $1); 
+      gsub(/-/, "_", $1); 
+      print "'"$prefix"'" $1 "=" $2
+    }
+  }' "$yaml_file" > /tmp/yaml.env
+
+  # Source the generated env file
+  source /tmp/yaml.env
+}
+
 if [[ "${MC_ACCELERATION:-none}" != "opencl" ]]; then
   rm -f /data/mods/c2me-opts-accel-opencl*.jar || true
   log INFO "OpenCL acceleration disabled (c2me OpenCL module removed)"
 else
   log INFO "OpenCL acceleration enabled"
 fi
-
-
 
 # ============================================================
 # Load defaults
@@ -33,7 +53,7 @@ log INFO "Overriding base.env with YAML values (if any)"
 if [[ -f /data/server-settings.yaml ]]; then
   log INFO "Reading settings from server-settings.yaml"
   # YAML から設定を読み込んで環境変数に設定
-  eval $(parse_yaml /data/server-settings.yaml)
+  parse_yaml /data/server-settings.yaml
 fi
 
 # Render server.properties from base.env (and overridden values)
@@ -63,7 +83,6 @@ cp -r "$TYPE_DIR"/. /data || true
 # ============================================================
 # Download server.jar
 # ============================================================
-
 /opt/mc/scripts/detect_or_download_${TYPE_LOWER}.sh
 
 # ============================================================
@@ -74,7 +93,6 @@ cp -r "$TYPE_DIR"/. /data || true
 # ============================================================
 # EULA handling (MUST be before server launch)
 # ============================================================
-
 if [[ "${EULA:-false}" == "true" ]]; then
   echo "eula=true" > /data/eula.txt
   log INFO "EULA accepted (eula.txt written)"
@@ -99,30 +117,23 @@ MC_ARGS="$(cat /data/mc.args)"
 # ------------------------------------------------------------
 # Universal server launcher detection
 # ------------------------------------------------------------
-
 if [[ -f "/data/fabric-server-launch.jar" ]]; then
   log INFO "Detected Fabric server"
   exec java -Dfabric.gameJarPath=/data/server.jar ${JVM_ARGS} -jar /data/fabric-server-launch.jar ${MC_ARGS}
-
-
 elif [[ -f "/data/quilt-server-launch.jar" ]]; then
   log INFO "Detected Quilt server"
   exec java ${JVM_ARGS} -jar /data/quilt-server-launch.jar ${MC_ARGS}
-
 elif ls /data/forge-*-server.jar >/dev/null 2>&1; then
   FORGE_JAR=$(ls /data/forge-*-server.jar | head -n1)
   log INFO "Detected Forge server: ${FORGE_JAR}"
   exec java ${JVM_ARGS} -jar "${FORGE_JAR}" ${MC_ARGS}
-
 elif [[ -f "/data/run.sh" ]]; then
   log INFO "Detected Forge run.sh"
   chmod +x /data/run.sh
   exec /data/run.sh
-
 elif [[ -f "/data/server.jar" ]]; then
   log INFO "Detected Vanilla/Paper server"
   exec java ${JVM_ARGS} -jar /data/server.jar ${MC_ARGS}
-
 else
   fatal "No supported Minecraft server launcher found in /data"
 fi
