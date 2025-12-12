@@ -103,6 +103,10 @@ MC_ARGS="$(cat /data/mc.args)"
 # Universal server launcher detection
 # ------------------------------------------------------------
 
+JVM_ARGS="$(grep -v '^\s*#' /data/jvm.args | grep -v '^\s*$' | xargs)"
+MC_ARGS="$(grep -v '^\s*#' /data/mc.args  | grep -v '^\s*$' | xargs)"
+
+
 if [[ -f "/data/fabric-server-launch.jar" ]]; then
   log INFO "Detected Fabric server"
   exec java -Dfabric.gameJarPath=/data/server.jar ${JVM_ARGS} -jar /data/fabric-server-launch.jar ${MC_ARGS}
