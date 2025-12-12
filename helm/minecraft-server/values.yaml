@@ -1,33 +1,62 @@
+# ============================================================
+# Image
+# ============================================================
 image:
   repository: ghcr.io/alexandergg-0520/minecraft-server
-  tag: java21
+  tag: java25
+  variant: cpu        # cpu | gpu
   pullPolicy: Always
 
+# ============================================================
+# Server Core
+# ============================================================
+server:
+  type: fabric        # vanilla | fabric | forge | paper | purpur
+  version: "1.21.10"
+  fabricLoader: "0.18.2"
+
+# ============================================================
+# EULA (string固定！)
+# ============================================================
 env:
-  TYPE: vanilla
-  VERSION: "1.21.11"
-  EULA: "true"
+  EULA: "true"        # ← boolean禁止
+  MAX_MEMORY: "6G"
 
-  MAX_MEMORY: 6G
-  INIT_MEMORY: 6G
+# ============================================================
+# Operators
+# ============================================================
+ops:
+  - AlecJP02
 
-  OPS: "your-username-here"
-  ENABLE_WHITELIST: "true"
-  WHITELIST: "PlayerA,PlayerB"
-
-  VIEW_DISTANCE: "12"
-  SIMULATION_DISTANCE: "12"
-
-persistence:
-  enabled: true
-  size: 20Gi
-
-resources:
-  limits:
-    memory: 8Gi
-    cpu: "4"
-
+# ============================================================
+# Performance
+# ============================================================
 performance:
   opencl:
-    enabled: false
+    enabled: true     # ← Helm内部で string に変換
 
+# ============================================================
+# Resources
+# ============================================================
+resources:
+  requests:
+    cpu: "2"
+    memory: "5Gi"
+  limits:
+    cpu: "4"
+    memory: "7Gi"
+    nvidia.com/gpu: 1   # GPU時のみ有効
+
+# ============================================================
+# Node scheduling
+# ============================================================
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# GPU ノード用（gpu variant時に上書き）
+gpu:
+  enabled: false
+  runtimeClassName: nvidia
+  nodeSelector:
+    nvidia.com/gpu.present: "true"
