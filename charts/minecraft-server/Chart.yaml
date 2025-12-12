@@ -1,0 +1,22 @@
+apiVersion: v2
+name: minecraft-server
+description: Fully configurable Minecraft Server (Vanilla / Fabric / Forge / Paper / Proxy)
+type: application
+
+version: 0.1.0
+appVersion: "1.21"
+
+keywords:
+  - minecraft
+  - fabric
+  - forge
+  - paper
+  - kubernetes
+  - argocd
+
+home: https://github.com/AlexanderGG-0520/minecraft-server
+sources:
+  - https://github.com/AlexanderGG-0520/minecraft-server
+
+maintainers:
+  - name: AlexanderGG-0520

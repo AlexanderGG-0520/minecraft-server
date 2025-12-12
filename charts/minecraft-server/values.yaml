@@ -1,0 +1,182 @@
+# ============================================================
+# Minecraft Server Helm Values (FINAL)
+# ============================================================
+
+# ------------------------------------------------------------
+# 1. Server Identity（最重要・導入時に決める）
+# ------------------------------------------------------------
+server:
+  # サーバー種別
+  # vanilla | fabric | forge | neoforge | paper | purpur
+  # velocity | waterfall | bungeecord
+  type: vanilla
+
+  # Minecraft 本体バージョン
+  minecraftVersion: "1.21.11"
+
+  # ---- Loader / Server-specific ----
+  fabric:
+    loaderVersion: ""   # 空なら自動検出
+
+  forge:
+    loaderVersion: ""          # 空なら自動検出
+
+  neoforge:
+    loaderVersion: ""
+
+  paper:
+    build: "latest"
+
+  purpur:
+    build: "latest"
+  
+  velocity:
+    build: "latest"
+
+  waterfall:
+    build: "latest"
+
+  bungeecord:
+    build: "latest"
+
+
+# ------------------------------------------------------------
+# 2. Image / Java（実行基盤）
+# ------------------------------------------------------------
+image:
+  repository: ghcr.io/alexandergg-0520/minecraft-server
+
+  # Java はイメージタグで選択（envでは渡さない）
+  java: 21
+  tag: "java21"
+
+  pullPolicy: Always
+
+
+# ------------------------------------------------------------
+# 3. Resources
+# ------------------------------------------------------------
+resources:
+  requests:
+    cpu: "2"
+    memory: "5Gi"
+  limits:
+    cpu: "4"
+    memory: "7Gi"
+    # nvidia.com/gpu: 1   # GPU不要なら削除
+
+
+# ------------------------------------------------------------
+# 4. Persistence
+# ------------------------------------------------------------
+persistence:
+  enabled: true
+
+  data:
+    size: 10Gi
+    storageClass: longhorn
+
+  mods:
+    size: 2Gi
+    storageClass: longhorn
+
+  config:
+    size: 1Gi
+    storageClass: longhorn
+
+
+# ------------------------------------------------------------
+# 5. Service / Network
+# ------------------------------------------------------------
+service:
+  type: NodePort
+  port: 25565
+  nodePort: 30065
+
+proxy:
+  enabled: false   # velocity / waterfall / bungeecord 用
+
+
+# ------------------------------------------------------------
+# 6. JVM / Runtime
+# ------------------------------------------------------------
+jvm:
+  maxMemory: 6G
+  useAikarFlags: true
+  extraArgs: []
+
+
+# ------------------------------------------------------------
+# 7. Minecraft server.properties（公式準拠）
+# ------------------------------------------------------------
+minecraft:
+  eula: true
+
+  motd: "§aMinecraft Server"
+  difficulty: easy
+  gamemode: survival
+
+  maxPlayers: 20
+  onlineMode: true
+  allowFlight: false
+  pvp: true
+  hardcore: false
+
+  viewDistance: 10
+  simulationDistance: 10
+
+  levelSeed: ""
+  levelType: minecraft:default
+
+  spawnProtection: 0
+  enableCommandBlock: false
+
+
+# ------------------------------------------------------------
+# 8. Ops / Whitelist（超重要）
+# ------------------------------------------------------------
+players:
+  ops:
+    - "your-username-here"
+
+  whitelist:
+    enabled: false
+    users: []
+
+
+# ------------------------------------------------------------
+# 9. RCON
+# ------------------------------------------------------------
+rcon:
+  enabled: true
+  port: 25575
+  password: "change-me"
+
+
+# ------------------------------------------------------------
+# 10. S3 / MinIO Sync（必要な時だけON）
+# ------------------------------------------------------------
+s3:
+  enabled: false
+
+  endpoint: ""
+  bucket: ""
+  accessKey: ""
+  secretKey: ""
+  region: ""
+  tls: true
+
+
+# ------------------------------------------------------------
+# 11. World Control
+# ------------------------------------------------------------
+world:
+  resetOnStart: false
+  resetPlayerData: false
+
+
+# ------------------------------------------------------------
+# 12. Advanced / Debug
+# ------------------------------------------------------------
+debug:
+  enabled: false

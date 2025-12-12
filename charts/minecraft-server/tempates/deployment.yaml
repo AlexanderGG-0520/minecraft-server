@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mc.fullname" . }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ include "mc.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "mc.name" . }}
+    spec:
+      containers:
+        - name: minecraft
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.service.port }}
+
+          envFrom:
+            - configMapRef:
+                name: '{{ include "mc.fullname" . }}-env'
+            - secretRef:
+                name: '{{ include "mc.fullname" . }}-rcon'
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: players
+              mountPath: /opt/mc/players
+
+          resources:
+            requests:
+              memory: "1024Mi"
+              cpu: "500m"
+            limits:
+              memory: "2048Mi"
+              cpu: "1000m"
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: '{{ include "mc.fullname" . }}-data'
+        - name: players
+          configMap:
+            name: '{{ include "mc.fullname" . }}-players'
