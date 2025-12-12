@@ -89,29 +89,26 @@ log INFO "TYPE=${TYPE}, VERSION=${VERSION}, JAVA=$(java -version 2>&1 | head -n1
 
 
 # ============================================================
-#  Load base.env (defaults)
+# Load base.env without overwriting existing environment
 # ============================================================
 
 BASE_ENV="/opt/mc/base/base.env"
 log INFO "Loading base.env (default configs)"
 
 if [[ -f "$BASE_ENV" ]]; then
-  # load defaults
-  set -a
-  source "$BASE_ENV"
-  set +a
+  # Read line-by-line, but DO NOT override existing env vars
+  while IFS='=' read -r key val; do
+    [[ -z "$key" || "$key" == \#* ]] && continue
+
+    # すでに環境変数がセットされていないときだけ代入
+    if [[ -z "${!key:-}" ]]; then
+      export "${key}=${val}"
+    fi
+  done < "$BASE_ENV"
 else
   fatal "Missing base.env at $BASE_ENV"
 fi
 
-# ------------------------------------------------------------
-# At this point, Kubernetes envs will override base.env
-# because environment variables defined in Docker/K8s overwrite
-# ones loaded via `source` ONLY IF we explicitly re-export all.
-# ------------------------------------------------------------
-
-# export everything again so that K8s envs take priority
-export $(env | cut -d= -f1)
 
 
 
