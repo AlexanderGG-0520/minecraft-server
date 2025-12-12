@@ -28,6 +28,11 @@ log START "Minecraft Runtime Booting..."
 log INFO "TYPE=${TYPE_LOWER}, VERSION=${VERSION}"
 log INFO "Java: $(java -version 2>&1 | head -n1)"
 
+# itzg 互換（あれば上書き）
+if [[ -f /opt/mc/base/env_compat_itzg.sh ]]; then
+  source /opt/mc/base/env_compat_itzg.sh
+fi
+
 # ============================================================
 # Reset world (optional)
 # ============================================================
