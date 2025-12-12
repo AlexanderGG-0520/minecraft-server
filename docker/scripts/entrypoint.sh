@@ -59,6 +59,20 @@ cp -r "$TYPE_DIR"/. /data || true
 /opt/mc/base/make_args.sh
 
 # ============================================================
+# EULA handling (MUST be before server launch)
+# ============================================================
+
+if [[ "${EULA:-false}" == "true" ]]; then
+  if [[ ! -f /data/eula.txt ]]; then
+    echo "eula=true" > /data/eula.txt
+    log INFO "EULA accepted (eula.txt written)"
+  fi
+else
+  log WARN "EULA not accepted. Set EULA=true to run the server."
+fi
+
+
+# ============================================================
 # OPS / WHITELIST
 # ============================================================
 if [[ -n "$OPS" ]]; then
@@ -73,19 +87,6 @@ if [[ "$ENABLE_WHITELIST" == "true" && -n "$WHITELIST" ]]; then
   for w in "${wl[@]}"; do
     echo "$w" >> /data/whitelist.json
   done
-fi
-
-# ============================================================
-# EULA handling (BEFORE server launch)
-# ============================================================
-
-if [[ "${EULA:-false}" == "true" ]]; then
-  if [[ ! -f /data/eula.txt ]]; then
-    echo "eula=true" > /data/eula.txt
-    log INFO "EULA accepted (eula.txt written)"
-  fi
-else
-  log WARN "EULA not accepted. Set EULA=true to run the server."
 fi
 
 # ============================================================
