@@ -35,6 +35,21 @@ RUN if [ "$JAVA_VERSION" = "25" ]; then \
 ENV PATH="/opt/java/bin:${PATH}"
 
 # ============================================================
+# Install MinIO client (multi-arch)
+# ============================================================
+
+RUN set -eux; \
+    ARCH="$(uname -m)"; \
+    case "$ARCH" in \
+      x86_64) ARCH="amd64" ;; \
+      aarch64) ARCH="arm64" ;; \
+      *) echo "Unsupported arch: $ARCH"; exit 1 ;; \
+    esac; \
+    wget "https://dl.min.io/client/mc/release/linux-${ARCH}/mc" -O /usr/local/bin/mc; \
+    chmod +x /usr/local/bin/mc
+
+
+# ============================================================
 # Minecraft Runtime Layout
 # ============================================================
 WORKDIR /opt/mc
