@@ -1,9 +1,14 @@
 # ============================================================
 # CPU Variant (Fabric + C2ME + OpenCL via POCL)
 # ============================================================
+
 FROM eclipse-temurin:25-jdk AS java25-cpu
 
-# ---- system tools ----
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ------------------------------------------------------------
+# System tools & OpenCL (CPU / POCL)
+# ------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
@@ -11,26 +16,33 @@ RUN apt-get update && apt-get install -y \
     bash \
     unzip \
     git \
+    gettext-base \
+    uuid-runtime \
+    procps \
+    tini \
     ocl-icd-libopencl1 \
     opencl-headers \
     pocl-opencl-icd \
     clinfo \
-    gettext-base \
-    uuid-runtime \
  && rm -rf /var/lib/apt/lists/*
 
-# ---- runtime layout ----
+# ------------------------------------------------------------
+# Runtime layout
+# ------------------------------------------------------------
 RUN mkdir -p /opt/mc/{scripts,base,fabric,forge,paper} /data
 
-# ---- copy runtime assets ----
+# ------------------------------------------------------------
+# Copy runtime assets
+# ------------------------------------------------------------
 COPY scripts/ /opt/mc/scripts/
 COPY base/    /opt/mc/base/
 COPY types/   /opt/mc/
 
-# ---- permissions ----
 RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
 
-# ---- runtime defaults ----
+# ------------------------------------------------------------
+# Runtime defaults
+# ------------------------------------------------------------
 WORKDIR /data
 VOLUME ["/data"]
 
@@ -39,4 +51,9 @@ ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
 ENV ENABLE_OPENCL=true
 ENV MC_ACCELERATION=opencl
 
-ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
+STOPSIGNAL SIGTERM
+
+# ------------------------------------------------------------
+# ENTRYPOINT (PID 1 = tini)
+# ------------------------------------------------------------
+ENTRYPOINT ["/usr/bin/tini", "--", "bash", "/opt/mc/scripts/entrypoint.sh"]

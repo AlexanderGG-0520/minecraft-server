@@ -1,195 +1,182 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-fatal() { log ERROR "$1"; exit 1; }
+# ============================================================
+# Utilities
+# ============================================================
 
 log() {
   echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
 }
 
-# ===========================================
-# Force EULA by env
-# ===========================================
-EULA_FILE="/data/eula.txt"
-
-if [[ "${EULA,,}" == "true" ]]; then
-  mkdir -p "$(dirname "$EULA_FILE")"
-  cat > "$EULA_FILE" <<'EOF'
-# Generated automatically
-eula=true
-EOF
-  echo "[INFO] EULA accepted via env (EULA=true)"
-fi
+fatal() {
+  log FATAL "$1"
+  exit 1
+}
 
 # ============================================================
-# C2ME OpenCL Acceleration Toggle on First Boot
+# Paths
 # ============================================================
 
 DATA_DIR="/data"
-MODS_DIR="$DATA_DIR/mods"
-DISABLED_DIR="$DATA_DIR/mods-disabled"
-FLAG_FILE="$DATA_DIR/.first-boot-done"
+MC_DIR="/opt/mc"
+SCRIPTS_DIR="${MC_DIR}/scripts"
+BASE_DIR="${MC_DIR}/base"
 
-mkdir -p "$DISABLED_DIR"
+EULA_FILE="${DATA_DIR}/eula.txt"
+JVM_ARGS_FILE="${DATA_DIR}/jvm.args"
+MC_ARGS_FILE="${DATA_DIR}/mc.args"
+SERVER_PROPERTIES="${DATA_DIR}/server.properties"
 
-if [[ ! -f "$FLAG_FILE" ]]; then
-  echo "[INFO] First boot detected: disabling C2ME OpenCL acceleration"
+# ============================================================
+# Defaults (safe)
+# ============================================================
 
-  shopt -s nullglob
-  for jar in "$MODS_DIR"/c2me-opts-accel-opencl-*.jar; do
-    mv "$jar" "$DISABLED_DIR"/
-  done
+: "${EULA:=false}"
+: "${ENABLE_GUI:=false}"
+: "${STOP_SERVER_ANNOUNCE_DELAY:=0}"
+
+# ============================================================
+# 1. EULA handling (pre-generate)
+# ============================================================
+
+if [[ "${EULA}" == "true" ]]; then
+  echo "eula=true" > "${EULA_FILE}"
+  log INFO "EULA accepted via env (EULA=true)"
 else
-  echo "[INFO] Subsequent boot detected: enabling C2ME OpenCL acceleration"
-
-  shopt -s nullglob
-  for jar in "$DISABLED_DIR"/c2me-opts-accel-opencl-*.jar; do
-    mv "$jar" "$MODS_DIR"/
-  done
+  [[ -f "${EULA_FILE}" ]] || fatal "EULA is not accepted. Set EULA=true"
 fi
 
+# ============================================================
+# 2. Load base.env (defaults)
+# ============================================================
 
-# ------------------------------------------------------------
-# Check and Set Default Values for Missing Variables
-# ------------------------------------------------------------
 log INFO "Checking for empty variables and applying default values"
 
-# List of critical environment variables with defaults
-: "${SERVER_PORT:=25565}"
-: "${RCON_PORT:=25575}"
-: "${MAX_PLAYERS:=20}"
-: "${SERVER_IP:=""}"
-: "${ONLINE_MODE:=true}"
-: "${ENABLE_RCON:=false}"
-: "${RCON_PASSWORD:="change_this_password"}"
-: "${RCON_MAX_CONNECTIONS:=5}"
-: "${RCON_TIMEOUT:=60}"
-
-# ------------------------------------------------------------
-# Load defaults
-# ------------------------------------------------------------
-log INFO "Loading base.env (defaults)"
-source /opt/mc/base/base.env
-
-# ------------------------------------------------------------
-# Reset world if RESET_FLAG is true
-# ------------------------------------------------------------
-if [[ "${RESET_FLAG:-false}" == "true" ]]; then
-  log INFO "RESET_FLAG is true, resetting world data..."
-  /opt/mc/scripts/reset_world.sh
-  rm -f /data/RESET_FLAG
-  log INFO "World data reset completed."
-fi
-
-# ------------------------------------------------------------
-# YAML settings override (if any)
-# ------------------------------------------------------------
-log INFO "Overriding base.env with YAML values (if any)"
-if [[ -f /data/server-settings.yaml ]]; then
-  log INFO "Reading settings from server-settings.yaml"
-  # YAML から設定を読み込んで環境変数に設定
-  eval $(parse_yaml /data/server-settings.yaml)
+if [[ -f "${BASE_DIR}/base.env" ]]; then
+  log INFO "Loading base.env (defaults)"
+  set -a
+  source "${BASE_DIR}/base.env"
+  set +a
 fi
 
 # ============================================================
-# Server Binary Detection / Download
-# ============================================================
-log INFO "Preparing server binaries"
-/opt/mc/scripts/detect_or_download_dispatcher.sh
-log INFO "Server binaries are ready"
-
-
-# ============================================================
-# JVM & MC Arguments Generation
+# 3. Generate jvm.args (only once)
 # ============================================================
 
-log INFO "Generating jvm.args if missing"
-/opt/mc/scripts/generate_jvm_args.sh
+if [[ ! -f "${JVM_ARGS_FILE}" ]]; then
+  log INFO "Generating jvm.args"
+  cat > "${JVM_ARGS_FILE}" <<EOF
+-Xms${MIN_MEMORY:-2G}
+-Xmx${MAX_MEMORY:-2G}
 
-log INFO "Generating mc.args if missing"
-/opt/mc/scripts/generate_mc_args.sh
+-Dfile.encoding=UTF-8
+-Dsun.stdout.encoding=UTF-8
+-Dsun.stderr.encoding=UTF-8
 
-
-# ------------------------------------------------------------
-# Render server.properties from base.env (and overridden values)
-# ------------------------------------------------------------
-log INFO "Rendering server.properties from base.env and YAML"
-/opt/mc/scripts/render_server_properties.sh
-log INFO "server.properties generated successfully"
+-XX:+UseG1GC
+-XX:+ParallelRefProcEnabled
+-XX:MaxGCPauseMillis=200
+EOF
+else
+  log INFO "jvm.args already exists, skipping auto-generation"
+fi
 
 # ============================================================
-# OPS and WHITELIST Application
+# 4. Generate mc.args (NO PORT HERE)
 # ============================================================
-log INFO "Applying OPS and WHITELIST settings"
-/opt/mc/scripts/apply_ops_and_whitelist.sh
-log INFO "OPS and WHITELIST settings applied successfully"
 
-# ------------------------------------------------------------
-# Proceed with server start-up steps
-# ------------------------------------------------------------
+if [[ ! -f "${MC_ARGS_FILE}" ]]; then
+  log INFO "Generating mc.args"
+  touch "${MC_ARGS_FILE}"
+  if [[ "${ENABLE_GUI}" == "false" ]]; then
+    echo "nogui" >> "${MC_ARGS_FILE}"
+  fi
+fi
+
+# ============================================================
+# 5. server.properties render
+# ============================================================
+
+if [[ ! -f "${SERVER_PROPERTIES}" ]]; then
+  log INFO "Rendering server.properties from environment variables"
+  envsubst < "${BASE_DIR}/server.properties.tpl" > "${SERVER_PROPERTIES}"
+  log INFO "server.properties generated successfully at ${SERVER_PROPERTIES}"
+fi
+
+# ============================================================
+# 6. OPS / WHITELIST
+# ============================================================
+
+if [[ -n "${OPS:-}" ]]; then
+  log INFO "Applying OPS settings"
+  "${SCRIPTS_DIR}/apply_ops.sh"
+fi
+
+if [[ -n "${WHITELIST:-}" ]]; then
+  log INFO "Applying WHITELIST settings"
+  "${SCRIPTS_DIR}/apply_whitelist.sh"
+fi
+
+# ============================================================
+# 7. Optional RCON delayed STOP announce
+# ============================================================
+
+if [[ "${STOP_SERVER_ANNOUNCE_DELAY}" != "0" ]]; then
+  log INFO "RCON STOP announce delay enabled (${STOP_SERVER_ANNOUNCE_DELAY}s)"
+  "${SCRIPTS_DIR}/rcon_delayed_stop.sh" &
+fi
+
+# ============================================================
+# 7. Reset World FLAGS (non-fatal)
+# ============================================================
+if [[ "${RESET_WORLD_FLAGS:-false}" == "true" ]]; then
+  log INFO "Resetting world flags (non-fatal)"
+  "${SCRIPTS_DIR}/reset_world.sh" || log WARN "Failed to reset world flags (non-fatal)"
+  rm -f "${DATA_DIR}/RESET_WORLD_FLAGS"
+fi
+
+# ============================================================
+# 8. OpenCL diagnostics (non-fatal)
+# ============================================================
+
+if [[ "${ENABLE_OPENCL:-false}" == "true" ]]; then
+  log INFO "OpenCL enabled, checking devices"
+  clinfo >/dev/null 2>&1 || log WARN "clinfo failed (non-fatal)"
+fi
+
+# ============================================================
+# 9. Launch Minecraft (single exec)
+# ============================================================
+
 log START "Minecraft Runtime Booting..."
 
-# Other operations like resetting world, downloading server jar, etc.
+JVM_ARGS="$(grep -v '^\s*#' "${JVM_ARGS_FILE}" | grep -v '^\s*$' | xargs)"
+MC_ARGS="$(grep -v '^\s*#' "${MC_ARGS_FILE}"  | grep -v '^\s*$' | xargs)"
 
-# Launching Minecraft Server
-cd /data
-export MC_WORKDIR=/data
-export FABRIC_CACHE_DIR=/data/.fabric
-export JAVA_TOOL_OPTIONS="-Duser.dir=/data"
-
-JVM_ARGS="$(cat /data/jvm.args)"
-MC_ARGS="$(cat /data/mc.args)"
-
-
-# ------------------------------------------------------------
-# Universal server launcher detection
-# ------------------------------------------------------------
-
-JVM_ARGS="$(grep -v '^\s*#' /data/jvm.args | grep -v '^\s*$' | xargs)"
-MC_ARGS="$(grep -v '^\s*#' /data/mc.args  | grep -v '^\s*$' | xargs)"
-
-
-if [[ -f "/data/fabric-server-launch.jar" ]]; then
+if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
   log INFO "Detected Fabric server"
-  exec java -Dfabric.gameJarPath=/data/server.jar ${JVM_ARGS} -jar /data/fabric-server-launch.jar ${MC_ARGS}
-elif [[ -f "/data/quilt-server-launch.jar" ]]; then
+  exec java -Dfabric.gameJarPath=${DATA_DIR}/server.jar ${JVM_ARGS} \
+    -jar ${DATA_DIR}/fabric-server-launch.jar ${MC_ARGS}
+
+elif [[ -f "${DATA_DIR}/quilt-server-launch.jar" ]]; then
   log INFO "Detected Quilt server"
-  exec java ${JVM_ARGS} -jar /data/quilt-server-launch.jar ${MC_ARGS}
-elif ls /data/forge-*-server.jar >/dev/null 2>&1; then
-  FORGE_JAR=$(ls /data/forge-*-server.jar | head -n1)
+  exec java ${JVM_ARGS} -jar ${DATA_DIR}/quilt-server-launch.jar ${MC_ARGS}
+
+elif ls ${DATA_DIR}/forge-*-server.jar >/dev/null 2>&1; then
+  FORGE_JAR=$(ls ${DATA_DIR}/forge-*-server.jar | head -n1)
   log INFO "Detected Forge server: ${FORGE_JAR}"
   exec java ${JVM_ARGS} -jar "${FORGE_JAR}" ${MC_ARGS}
-elif [[ -f "/data/run.sh" ]]; then
+
+elif [[ -f "${DATA_DIR}/run.sh" ]]; then
   log INFO "Detected Forge run.sh"
-  chmod +x /data/run.sh
-  exec /data/run.sh
-elif [[ -f "/data/server.jar" ]]; then
+  chmod +x ${DATA_DIR}/run.sh
+  exec ${DATA_DIR}/run.sh
+
+elif [[ -f "${DATA_DIR}/server.jar" ]]; then
   log INFO "Detected Vanilla/Paper server"
-  exec java ${JVM_ARGS} -jar /data/server.jar ${MC_ARGS}
+  exec java ${JVM_ARGS} -jar ${DATA_DIR}/server.jar ${MC_ARGS}
+
 else
   fatal "No supported Minecraft server launcher found in /data"
-fi
-
-# ============================================================
-# Healthcheck script
-# ============================================================
-log INFO "Setting up healthcheck script"
-
-/opt/mc/scripts/scripthealthcheck.sh
-
-
-# ============================================================
-# First Boot Detection
-# ============================================================
-FLAG_FILE="/data/.first-boot-done"
-
-if [[ ! -f "$FLAG_FILE" ]]; then
-  echo "[INFO] Waiting for server to start listening..."
-
-  while ! (exec 3<>/dev/tcp/127.0.0.1/25569) 2>/dev/null; do
-    sleep 5
-  done
-
-  echo "[INFO] Server is listening, marking first boot as done"
-  touch "$FLAG_FILE"
 fi

@@ -1,11 +1,14 @@
 # ============================================================
 # GPU Variant (NVIDIA CUDA + OpenCL)
 # ============================================================
+
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS java25-gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# ---- Java & tools ----
+# ------------------------------------------------------------
+# Java & system tools
+# ------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
     openjdk-25-jdk \
     ca-certificates \
@@ -14,29 +17,38 @@ RUN apt-get update && apt-get install -y \
     bash \
     unzip \
     git \
+    gettext-base \
+    uuid-runtime \
+    procps \
+    tini \
     ocl-icd-libopencl1 \
     opencl-headers \
     clinfo \
-    gettext-base \
-    uuid-runtime \
  && rm -rf /var/lib/apt/lists/*
 
-# ---- OpenCL ICD (NVIDIA) ----
-RUN mkdir -p /etc/OpenCL/vendors && \
-    echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
+# ------------------------------------------------------------
+# OpenCL ICD (NVIDIA)
+# ------------------------------------------------------------
+RUN mkdir -p /etc/OpenCL/vendors \
+ && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
-# ---- runtime layout ----
+# ------------------------------------------------------------
+# Runtime layout
+# ------------------------------------------------------------
 RUN mkdir -p /opt/mc/{scripts,base,fabric,forge,paper} /data
 
-# ---- copy runtime assets ----
+# ------------------------------------------------------------
+# Copy runtime assets
+# ------------------------------------------------------------
 COPY scripts/ /opt/mc/scripts/
 COPY base/    /opt/mc/base/
 COPY types/   /opt/mc/
 
-# ---- permissions ----
 RUN chmod +x /opt/mc/scripts/*.sh /opt/mc/base/*.sh
 
-# ---- runtime defaults ----
+# ------------------------------------------------------------
+# Runtime defaults
+# ------------------------------------------------------------
 WORKDIR /data
 VOLUME ["/data"]
 
@@ -45,4 +57,9 @@ ENV JAVA_TOOL_OPTIONS="-Duser.dir=/data"
 ENV ENABLE_OPENCL=true
 ENV MC_ACCELERATION=opencl
 
-ENTRYPOINT ["bash", "/opt/mc/scripts/entrypoint.sh"]
+STOPSIGNAL SIGTERM
+
+# ------------------------------------------------------------
+# ENTRYPOINT (PID 1 = tini)
+# ------------------------------------------------------------
+ENTRYPOINT ["/usr/bin/tini", "--", "bash", "/opt/mc/scripts/entrypoint.sh"]
