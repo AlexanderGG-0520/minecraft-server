@@ -34,6 +34,10 @@ WORLD_NAME="${WORLD_NAME:-world}"
 : "${RCON_PASSWORD:=changeme}"
 : "${STOP_SERVER_ANNOUNCE_DELAY:=10}"
 
+# Vanilla/Paper系で「Server empty for 60 seconds, pausing」を止めたい場合
+# (このプロパティが存在する実装でのみ有効)
+: "${PAUSE_WHEN_EMPTY_SECONDS:=-1}"
+
 # ============================================================
 # Cache dirs (C2ME / OpenCL 永続)
 # ============================================================
@@ -43,7 +47,6 @@ export CUDA_CACHE_PATH="${DATA_DIR}/.nv/ComputeCache"
 export CUDA_CACHE_MAXSIZE="${CUDA_CACHE_MAXSIZE:-2147483648}"
 
 mkdir -p "${DATA_DIR}/logs" "${XDG_CACHE_HOME}" "${DATA_DIR}/.nv"
-
 rm -f "${READY_FILE}"
 
 # ============================================================
@@ -53,28 +56,18 @@ if [[ "${EULA}" == "true" ]]; then
   echo "eula=true" > "${DATA_DIR}/eula.txt"
   log INFO "EULA accepted via env"
 else
-  [[ -f "${DATA_DIR}/eula.txt" ]] || die "EULA not accepted"
+  [[ -f "${DATA_DIR}/eula.txt" ]] || die "EULA not accepted (set EULA=true)"
 fi
 
 # ============================================================
 # Hardcore World Reset
 # ============================================================
 maybe_reset_world() {
-  if [[ "${HARDCORE}" != "true" ]]; then
-    return
-  fi
+  [[ "${HARDCORE}" == "true" ]] || return 0
+  [[ "${RESET_WORLD_ON_DEATH}" == "true" ]] || return 0
+  [[ -f "${RESET_FLAG}" ]] || return 0
 
-  if [[ "${RESET_WORLD_ON_DEATH}" != "true" ]]; then
-    return
-  fi
-
-  if [[ ! -f "${RESET_FLAG}" ]]; then
-    return
-  fi
-
-  if [[ "${RESET_WORLD_CONFIRM}" != "true" ]]; then
-    die "reset-world.flag present but RESET_WORLD_CONFIRM!=true (safety stop)"
-  fi
+  [[ "${RESET_WORLD_CONFIRM}" == "true" ]] || die "reset-world.flag present but RESET_WORLD_CONFIRM!=true (safety stop)"
 
   log WARN "Hardcore world reset triggered"
 
@@ -92,7 +85,6 @@ maybe_reset_world() {
   rm -f "${RESET_FLAG}"
   log INFO "World reset completed"
 }
-
 maybe_reset_world
 
 # ============================================================
@@ -103,42 +95,73 @@ if [[ ! -f "${DATA_DIR}/server.properties" ]]; then
 server-port=${SERVER_PORT}
 online-mode=${ONLINE_MODE}
 hardcore=${HARDCORE}
+
+# Prevent "Server empty for 60 seconds, pausing" if supported
+pause-when-empty-seconds=${PAUSE_WHEN_EMPTY_SECONDS}
 EOF
+else
+  # 既存がある場合も、pause-when-empty-secondsだけは上書きしたいならここで追記/置換してもOK
+  if grep -q '^pause-when-empty-seconds=' "${DATA_DIR}/server.properties"; then
+    sed -i "s/^pause-when-empty-seconds=.*/pause-when-empty-seconds=${PAUSE_WHEN_EMPTY_SECONDS}/" "${DATA_DIR}/server.properties" || true
+  else
+    echo "pause-when-empty-seconds=${PAUSE_WHEN_EMPTY_SECONDS}" >> "${DATA_DIR}/server.properties"
+  fi
 fi
 
 # ============================================================
 # JVM / MC args
 # ============================================================
-JVM_ARGS="$(grep -v '^\s*#' "${DATA_DIR}/jvm.args" 2>/dev/null | xargs || true)"
-MC_ARGS="$(grep -v '^\s*#' "${DATA_DIR}/mc.args" 2>/dev/null | xargs || true)"
+JVM_ARGS="$(grep -v '^\s*#' "${DATA_DIR}/jvm.args" 2>/dev/null | grep -v '^\s*$' | xargs || true)"
+MC_ARGS="$(grep -v '^\s*#' "${DATA_DIR}/mc.args" 2>/dev/null | grep -v '^\s*$' | xargs || true)"
 
 # ============================================================
 # Readiness watcher (log-based)
 # ============================================================
 readiness_watcher() {
   until [[ -f "${LOG_FILE}" ]]; do sleep 1; done
+
+  # 「Done (..)! For help, type "help"」が出たらready
   tail -Fn0 "${LOG_FILE}" | while read -r line; do
-    if echo "$line" | grep -q 'Done (.*)! For help, type "help"'; then
+    if [[ "$line" == *'Done ('*'For help, type "help"'* ]]; then
       touch "${READY_FILE}"
-      log INFO "Server READY"
+      log INFO "Server READY (ready-file created: ${READY_FILE})"
       break
     fi
   done
 }
+
 readiness_watcher &
 
 # ============================================================
-# Shutdown (RCON)
+# RCON helper
 # ============================================================
+rcon_send() {
+  local cmd="$1"
+  # rcon-cli が入ってる前提。無い場合は黙ってスキップ。
+  command -v rcon-cli >/dev/null 2>&1 || return 0
+  timeout 3 rcon-cli --host 127.0.0.1 --port "${RCON_PORT}" --password "${RCON_PASSWORD}" <<<"${cmd}" >/dev/null 2>&1 || true
+}
+
+# ============================================================
+# Shutdown (RCON) - works because we DON'T exec java
+# ============================================================
+MC_PID=""
+
 shutdown() {
-  log INFO "Shutdown requested"
+  log INFO "Shutdown requested (signal received)"
+
   if [[ "${ENABLE_RCON}" == "true" ]]; then
-    echo "say Server shutting down in ${STOP_SERVER_ANNOUNCE_DELAY}s" | \
-      timeout 3 rcon-cli --host 127.0.0.1 --port "${RCON_PORT}" --password "${RCON_PASSWORD}" || true
+    rcon_send "say Server shutting down in ${STOP_SERVER_ANNOUNCE_DELAY}s"
     sleep "${STOP_SERVER_ANNOUNCE_DELAY}"
-    echo "stop" | \
-      timeout 3 rcon-cli --host 127.0.0.1 --port "${RCON_PORT}" --password "${RCON_PASSWORD}" || true
+    rcon_send "stop"
   fi
+
+  # javaプロセスを落とす保険（RCON stop が効かなかった場合）
+  if [[ -n "${MC_PID}" ]] && kill -0 "${MC_PID}" 2>/dev/null; then
+    log WARN "Killing MC process as fallback (pid=${MC_PID})"
+    kill -TERM "${MC_PID}" 2>/dev/null || true
+  fi
+
   exit 0
 }
 trap shutdown SIGTERM SIGINT
@@ -146,12 +169,27 @@ trap shutdown SIGTERM SIGINT
 # ============================================================
 # Launch
 # ============================================================
-log INFO "Launching Minecraft server (hardcore=${HARDCORE})"
+log INFO "Launching Minecraft server (hardcore=${HARDCORE}, port=${SERVER_PORT})"
 
 if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
-  exec java ${JVM_ARGS} -jar "${DATA_DIR}/fabric-server-launch.jar" ${MC_ARGS}
+  # Fabricは gameJarPath が必要な環境がある
+  if [[ -f "${DATA_DIR}/server.jar" ]]; then
+    java -Dfabric.gameJarPath="${DATA_DIR}/server.jar" ${JVM_ARGS} -jar "${DATA_DIR}/fabric-server-launch.jar" ${MC_ARGS} &
+  else
+    java ${JVM_ARGS} -jar "${DATA_DIR}/fabric-server-launch.jar" ${MC_ARGS} &
+  fi
 elif [[ -f "${DATA_DIR}/server.jar" ]]; then
-  exec java ${JVM_ARGS} -jar "${DATA_DIR}/server.jar" ${MC_ARGS}
+  java ${JVM_ARGS} -jar "${DATA_DIR}/server.jar" ${MC_ARGS} &
 else
-  die "No server jar found"
+  die "No server jar found in ${DATA_DIR}"
 fi
+
+MC_PID=$!
+log INFO "Minecraft started (pid=${MC_PID})"
+
+# 子プロセス終了まで待つ
+wait "${MC_PID}"
+exit_code=$?
+
+log WARN "Minecraft exited (code=${exit_code})"
+exit "${exit_code}"

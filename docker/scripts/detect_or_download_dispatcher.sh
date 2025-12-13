@@ -1,40 +1,48 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-log() {
-  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
-}
+ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+log() { echo "[$(ts)] [$1] $2"; }
 
-SERVER_PID=""
+DATA_DIR=/data
+LOG_FILE="${DATA_DIR}/logs/latest.log"
+READY_FILE="${DATA_DIR}/.ready"
 
-start_server() {
-  log INFO "Starting Minecraft server"
-  java ${JVM_ARGS} -jar server.jar &
-  SERVER_PID=$!
-}
+JVM_ARGS="${JVM_ARGS:-}"
+MC_ARGS="${MC_ARGS:-}"
 
-shutdown_server() {
-  log INFO "Shutting down server"
-  rcon stop || true
-  wait "$SERVER_PID" || true
+mkdir -p "${DATA_DIR}/logs"
+rm -f "${READY_FILE}"
+
+# ------------------------------------------------------------
+# Readiness watcher (log-based)
+# ------------------------------------------------------------
+(
+  until [[ -f "${LOG_FILE}" ]]; do sleep 1; done
+  tail -Fn0 "${LOG_FILE}" | while read -r line; do
+    if echo "$line" | grep -q 'Done (.*)! For help, type "help"'; then
+      log INFO "Server READY"
+      touch "${READY_FILE}"
+      break
+    fi
+  done
+) &
+
+# ------------------------------------------------------------
+# Shutdown hook (PID1)
+# ------------------------------------------------------------
+shutdown() {
+  log INFO "Shutdown signal received"
+  if command -v rcon-cli >/dev/null 2>&1; then
+    rcon-cli stop || true
+  fi
   exit 0
 }
+trap shutdown SIGTERM SIGINT
 
-trap shutdown_server SIGTERM SIGINT
+# ------------------------------------------------------------
+# Launch (PID1 = java)
+# ------------------------------------------------------------
+log INFO "Launching Minecraft (PID1)"
 
-start_server
-
-# dispatcher main loop (PID1)
-while true; do
-  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-    log ERROR "Minecraft process exited"
-    exit 1
-  fi
-
-  # ready判定
-  if grep -q "Done (" /data/logs/latest.log; then
-    touch /data/.ready
-  fi
-
-  sleep 1
-done
+exec java ${JVM_ARGS} -jar server.jar ${MC_ARGS}
