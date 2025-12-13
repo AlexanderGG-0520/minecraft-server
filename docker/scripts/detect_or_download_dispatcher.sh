@@ -1,88 +1,40 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 log() {
   echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] [$1] $2"
 }
 
-fatal() {
-  log ERROR "$1"
-  exit 1
+SERVER_PID=""
+
+start_server() {
+  log INFO "Starting Minecraft server"
+  java ${JVM_ARGS} -jar server.jar &
+  SERVER_PID=$!
 }
 
-# ------------------------------------------------------------
-# Normalize TYPE
-# ------------------------------------------------------------
-TYPE_LOWER="$(echo "${TYPE:-}" | tr '[:upper:]' '[:lower:]')"
+shutdown_server() {
+  log INFO "Shutting down server"
+  rcon stop || true
+  wait "$SERVER_PID" || true
+  exit 0
+}
 
-[[ -n "$TYPE_LOWER" ]] || fatal "TYPE is not set"
+trap shutdown_server SIGTERM SIGINT
 
-# ------------------------------------------------------------
-# Supported server types
-# ------------------------------------------------------------
-SUPPORTED_TYPES=(
-  vanilla
-  fabric
-  forge
-  neoforge
-  paper
-  purpur
-  velocity
-  bungeecord
-  waterfall
-)
+start_server
 
-if ! printf '%s\n' "${SUPPORTED_TYPES[@]}" | grep -qx "$TYPE_LOWER"; then
-  fatal "Unsupported server TYPE: $TYPE_LOWER"
-fi
+# dispatcher main loop (PID1)
+while true; do
+  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    log ERROR "Minecraft process exited"
+    exit 1
+  fi
 
-# ------------------------------------------------------------
-# Resolve script path
-# ------------------------------------------------------------
-SCRIPT="/opt/mc/scripts/detect_or_download_${TYPE_LOWER}.sh"
+  # ready判定
+  if grep -q "Done (" /data/logs/latest.log; then
+    touch /data/.ready
+  fi
 
-[[ -f "$SCRIPT" ]] || fatal "Missing detect script: $SCRIPT"
-
-log INFO "Running server binary preparation for TYPE=$TYPE_LOWER"
-
-chmod +x "$SCRIPT"
-"$SCRIPT"
-
-# ------------------------------------------------------------
-# Post-check: ensure something exists
-# ------------------------------------------------------------
-case "$TYPE_LOWER" in
-  fabric)
-    [[ -f /data/fabric-server-launch.jar ]] \
-      || fatal "Fabric launcher not found"
-    ;;
-  quilt)
-    [[ -f /data/quilt-server-launch.jar ]] \
-      || fatal "Quilt launcher not found"
-    ;;
-  forge|neoforge)
-    ls /data/forge-*-server.jar /data/run.sh >/dev/null 2>&1 \
-      || fatal "Forge/NeoForge server not found"
-    ;;
-  vanilla|paper|purpur)
-    [[ -f /data/server.jar ]] \
-      || fatal "server.jar not found"
-    ;;
-  velocity)
-    [[ -f /data/velocity.jar ]] \
-      || fatal "velocity.jar not found"
-    ;;
-  bungeecord)
-    [[ -f /data/bungeecord.jar ]] \
-      || fatal "bungeecord.jar not found"
-    ;;
-  waterfall)
-    [[ -f /data/waterfall.jar ]] \
-      || fatal "waterfall.jar not found"
-    ;;
-  *)
-    fatal "Unhandled TYPE post-check: $TYPE_LOWER"
-    ;;
-esac
-
-log INFO "Server binary preparation completed successfully"
+  sleep 1
+done
