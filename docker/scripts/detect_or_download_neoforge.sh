@@ -25,6 +25,4 @@ curl -fL "$URL" -o /tmp/neoforge-installer.jar
 
 java -jar /tmp/neoforge-installer.jar --installServer "$DATA_DIR"
 
-chmod +x "${DATA_DIR}/run.sh"
-
 log "NeoForge server ready"

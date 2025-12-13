@@ -23,6 +23,4 @@ curl -fL \
 
 java -jar /tmp/forge-installer.jar --installServer "$DATA_DIR"
 
-chmod +x "$DATA_DIR/run.sh"
-
 log "Forge server ready"

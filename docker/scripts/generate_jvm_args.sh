@@ -50,5 +50,4 @@ if [[ "$JAVA_VERSION" -ge 21 ]]; then
   echo "-XX:+UseStringDeduplication" >> "$JVM_ARGS_FILE"
 fi
 
-chmod 644 "$JVM_ARGS_FILE"
 log INFO "jvm.args generated successfully"
