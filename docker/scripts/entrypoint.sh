@@ -2,205 +2,156 @@
 set -Eeuo pipefail
 
 # ============================================================
-# 🧠 Common
+# Logging
 # ============================================================
-
-LOG_PREFIX="[MC-ENTRYPOINT]"
-log() {
-  echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') ${LOG_PREFIX} [$1] $2"
-}
-
-fatal() {
-  log FATAL "$1"
-  exit 1
-}
+ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+log() { echo "[$(ts)] [$1] $2"; }
+die() { log ERROR "$1"; exit 1; }
 
 # ============================================================
-# 📁 Paths
+# Paths
 # ============================================================
+DATA_DIR="${DATA_DIR:-/data}"
+READY_FILE="${DATA_DIR}/.server-ready"
+RESET_FLAG="${DATA_DIR}/reset-world.flag"
+LOG_FILE="${DATA_DIR}/logs/latest.log"
 
-DATA_DIR="/data"
-READY_FILE="${DATA_DIR}/ready"
-STARTED_FILE="${DATA_DIR}/started"
-
-JVM_ARGS_FILE="${DATA_DIR}/jvm.args"
-MC_ARGS_FILE="${DATA_DIR}/mc.args"
-SERVER_PROPERTIES="${DATA_DIR}/server.properties"
+WORLD_NAME="${WORLD_NAME:-world}"
 
 # ============================================================
-# 🌍 Defaults（envを減らさない思想）
+# Env defaults (減らさない)
 # ============================================================
-
 : "${EULA:=false}"
-: "${TYPE:=fabric}"
-: "${VERSION:=latest}"
-: "${JAVA_VERSION:=25}"
+: "${SERVER_PORT:=25569}"
+: "${ONLINE_MODE:=true}"
 
-: "${SERVER_PORT:=25565}"
-: "${ENABLE_GUI:=false}"
-
-: "${MAX_MEMORY:=2G}"
-: "${MIN_MEMORY:=${MAX_MEMORY}}"
-
-: "${ENABLE_OPENCL:=false}"
-: "${MC_ACCELERATION:=none}"
-: "${C2ME_ENABLED:=false}"
+: "${HARDCORE:=false}"
+: "${RESET_WORLD_ON_DEATH:=false}"
+: "${RESET_WORLD_CONFIRM:=false}"
 
 : "${ENABLE_RCON:=false}"
 : "${RCON_PORT:=25575}"
-: "${RCON_PASSWORD:=}"
-
-: "${STOP_SERVER_ANNOUNCE_DELAY:=30}"
-: "${STOP_SERVER_MESSAGE:=Server shutting down in 30 seconds}"
-
-: "${LOG_LEVEL:=INFO}"
-: "${DEBUG:=false}"
+: "${RCON_PASSWORD:=changeme}"
+: "${STOP_SERVER_ANNOUNCE_DELAY:=10}"
 
 # ============================================================
-# 📜 EULA
+# Cache dirs (C2ME / OpenCL 永続)
 # ============================================================
+export HOME="${DATA_DIR}"
+export XDG_CACHE_HOME="${DATA_DIR}/.cache"
+export CUDA_CACHE_PATH="${DATA_DIR}/.nv/ComputeCache"
+export CUDA_CACHE_MAXSIZE="${CUDA_CACHE_MAXSIZE:-2147483648}"
 
-if [[ "${EULA}" != "true" ]]; then
-  fatal "You must accept the EULA by setting EULA=true"
-fi
+mkdir -p "${DATA_DIR}/logs" "${XDG_CACHE_HOME}" "${DATA_DIR}/.nv"
 
-log INFO "EULA accepted via env (EULA=true)"
-
-echo "eula=true" > "${DATA_DIR}/eula.txt"
-
-# ============================================================
-# ⚙️ JVM args
-# ============================================================
-
-if [[ ! -f "${JVM_ARGS_FILE}" ]]; then
-  log INFO "Generating default jvm.args"
-
-  cat > "${JVM_ARGS_FILE}" <<EOF
--Xms${MIN_MEMORY}
--Xmx${MAX_MEMORY}
-
--XX:+UseG1GC
--XX:+ParallelRefProcEnabled
--XX:MaxGCPauseMillis=200
-
--Dfile.encoding=UTF-8
--Dsun.stdout.encoding=UTF-8
--Dsun.stderr.encoding=UTF-8
-EOF
-fi
-
-JVM_ARGS="$(grep -v '^\s*#' "${JVM_ARGS_FILE}" | grep -v '^\s*$' | xargs)"
+rm -f "${READY_FILE}"
 
 # ============================================================
-# ⚙️ MC args
+# EULA
 # ============================================================
-
-if [[ ! -f "${MC_ARGS_FILE}" ]]; then
-  log INFO "Generating default mc.args"
-  echo "nogui" > "${MC_ARGS_FILE}"
-fi
-
-MC_ARGS="$(grep -v '^\s*#' "${MC_ARGS_FILE}" | grep -v '^\s*$' | xargs)"
-
-# ============================================================
-# 🧾 server.properties
-# ============================================================
-
-log INFO "Rendering server.properties"
-
-cat > "${SERVER_PROPERTIES}" <<EOF
-server-port=${SERVER_PORT}
-enable-rcon=${ENABLE_RCON}
-rcon.port=${RCON_PORT}
-rcon.password=${RCON_PASSWORD}
-online-mode=${ONLINE_MODE:-true}
-difficulty=${DIFFICULTY:-normal}
-view-distance=${VIEW_DISTANCE:-10}
-simulation-distance=${SIMULATION_DISTANCE:-10}
-enable-command-block=${ENABLE_COMMAND_BLOCK:-false}
-spawn-protection=${SPAWN_PROTECTION:-0}
-EOF
-
-# ============================================================
-# 🗑️ Reset World
-# ============================================================
-if [[ "${RESET_WORLD_FLAG:-false}" == "true" ]]; then
-  log INFO "RESET_WORLD is true, resetting world data..."
-  /opt/mc/scripts/reset_world.sh
-  rm -f "${RESET_WORLD_FLAG}"
-  log INFO "World reset completed."
+if [[ "${EULA}" == "true" ]]; then
+  echo "eula=true" > "${DATA_DIR}/eula.txt"
+  log INFO "EULA accepted via env"
+else
+  [[ -f "${DATA_DIR}/eula.txt" ]] || die "EULA not accepted"
 fi
 
 # ============================================================
-# 🚦 Graceful Shutdown (RCON)
+# Hardcore World Reset
 # ============================================================
-
-graceful_shutdown() {
-  log INFO "Received termination signal"
-
-  if [[ "${ENABLE_RCON}" == "true" && -n "${RCON_PASSWORD}" ]]; then
-    log INFO "Sending RCON shutdown announcement"
-
-    echo "say ${STOP_SERVER_MESSAGE}" | \
-      timeout 5 mc-rcon -H 127.0.0.1 -P "${RCON_PORT}" -p "${RCON_PASSWORD}" || true
-
-    sleep "${STOP_SERVER_ANNOUNCE_DELAY}"
-
-    echo "stop" | \
-      timeout 5 mc-rcon -H 127.0.0.1 -P "${RCON_PORT}" -p "${RCON_PASSWORD}" || true
+maybe_reset_world() {
+  if [[ "${HARDCORE}" != "true" ]]; then
+    return
   fi
 
-  log INFO "Shutdown sequence completed"
-  exit 0
+  if [[ "${RESET_WORLD_ON_DEATH}" != "true" ]]; then
+    return
+  fi
+
+  if [[ ! -f "${RESET_FLAG}" ]]; then
+    return
+  fi
+
+  if [[ "${RESET_WORLD_CONFIRM}" != "true" ]]; then
+    die "reset-world.flag present but RESET_WORLD_CONFIRM!=true (safety stop)"
+  fi
+
+  log WARN "Hardcore world reset triggered"
+
+  for w in \
+    "${DATA_DIR}/${WORLD_NAME}" \
+    "${DATA_DIR}/${WORLD_NAME}_nether" \
+    "${DATA_DIR}/${WORLD_NAME}_the_end"
+  do
+    if [[ -d "$w" ]]; then
+      log WARN "Removing world directory: $w"
+      rm -rf "$w"
+    fi
+  done
+
+  rm -f "${RESET_FLAG}"
+  log INFO "World reset completed"
 }
 
-trap graceful_shutdown SIGTERM SIGINT
+maybe_reset_world
 
 # ============================================================
-# 🧠 Acceleration info
+# server.properties
 # ============================================================
-
-if [[ "${ENABLE_OPENCL}" == "true" ]]; then
-  log INFO "OpenCL acceleration enabled"
+if [[ ! -f "${DATA_DIR}/server.properties" ]]; then
+  cat > "${DATA_DIR}/server.properties" <<EOF
+server-port=${SERVER_PORT}
+online-mode=${ONLINE_MODE}
+hardcore=${HARDCORE}
+EOF
 fi
 
-if [[ "${C2ME_ENABLED}" == "true" ]]; then
-  log INFO "C2ME optimizations enabled"
-fi
+# ============================================================
+# JVM / MC args
+# ============================================================
+JVM_ARGS="$(grep -v '^\s*#' "${DATA_DIR}/jvm.args" 2>/dev/null | xargs || true)"
+MC_ARGS="$(grep -v '^\s*#' "${DATA_DIR}/mc.args" 2>/dev/null | xargs || true)"
 
 # ============================================================
-# 🚀 Server launcher detection
+# Readiness watcher (log-based)
 # ============================================================
+readiness_watcher() {
+  until [[ -f "${LOG_FILE}" ]]; do sleep 1; done
+  tail -Fn0 "${LOG_FILE}" | while read -r line; do
+    if echo "$line" | grep -q 'Done (.*)! For help, type "help"'; then
+      touch "${READY_FILE}"
+      log INFO "Server READY"
+      break
+    fi
+  done
+}
+readiness_watcher &
 
-touch "${STARTED_FILE}"
-log INFO "Minecraft Runtime Booting..."
+# ============================================================
+# Shutdown (RCON)
+# ============================================================
+shutdown() {
+  log INFO "Shutdown requested"
+  if [[ "${ENABLE_RCON}" == "true" ]]; then
+    echo "say Server shutting down in ${STOP_SERVER_ANNOUNCE_DELAY}s" | \
+      timeout 3 rcon-cli --host 127.0.0.1 --port "${RCON_PORT}" --password "${RCON_PASSWORD}" || true
+    sleep "${STOP_SERVER_ANNOUNCE_DELAY}"
+    echo "stop" | \
+      timeout 3 rcon-cli --host 127.0.0.1 --port "${RCON_PORT}" --password "${RCON_PASSWORD}" || true
+  fi
+  exit 0
+}
+trap shutdown SIGTERM SIGINT
+
+# ============================================================
+# Launch
+# ============================================================
+log INFO "Launching Minecraft server (hardcore=${HARDCORE})"
 
 if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
-  log INFO "Detected Fabric server"
-  exec java \
-    ${JVM_ARGS} \
-    -Dfabric.gameJarPath="${DATA_DIR}/server.jar" \
-    -jar "${DATA_DIR}/fabric-server-launch.jar" \
-    ${MC_ARGS}
-
-elif [[ -f "${DATA_DIR}/quilt-server-launch.jar" ]]; then
-  log INFO "Detected Quilt server"
-  exec java ${JVM_ARGS} -jar "${DATA_DIR}/quilt-server-launch.jar" ${MC_ARGS}
-
-elif ls "${DATA_DIR}"/forge-*-server.jar >/dev/null 2>&1; then
-  FORGE_JAR="$(ls "${DATA_DIR}"/forge-*-server.jar | head -n1)"
-  log INFO "Detected Forge server: ${FORGE_JAR}"
-  exec java ${JVM_ARGS} -jar "${FORGE_JAR}" ${MC_ARGS}
-
-elif [[ -f "${DATA_DIR}/run.sh" ]]; then
-  log INFO "Detected Forge run.sh"
-  chmod +x "${DATA_DIR}/run.sh"
-  exec "${DATA_DIR}/run.sh"
-
+  exec java ${JVM_ARGS} -jar "${DATA_DIR}/fabric-server-launch.jar" ${MC_ARGS}
 elif [[ -f "${DATA_DIR}/server.jar" ]]; then
-  log INFO "Detected Vanilla/Paper server"
   exec java ${JVM_ARGS} -jar "${DATA_DIR}/server.jar" ${MC_ARGS}
-
 else
-  fatal "No supported Minecraft server launcher found in /data"
+  die "No server jar found"
 fi
