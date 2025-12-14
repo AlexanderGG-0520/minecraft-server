@@ -58,5 +58,5 @@ jobs:
                     file: ${{ matrix.dockerfile }}
                     push: true
                     tags: |
-                            ghcr.io/${{ github.repository }}/minecraft-server:${{ matrix.tag }}
+                        ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.tag }}
                     platforms: linux/amd64
