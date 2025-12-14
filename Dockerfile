@@ -16,6 +16,8 @@ RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/
  && mc --version
 
 
+ENV HOME=/data
+
 WORKDIR /app
 
 COPY entrypoint.sh /entrypoint.sh
@@ -69,6 +71,9 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc \
  && chmod +x /usr/local/bin/mc \
  && mc --version
+
+ENV HOME=/data
+
 
 # --- Java 25 ---
 COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
