@@ -19,10 +19,14 @@ RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
  && chmod +x /usr/local/bin/mc
 
 # ----------------------------
-# Non-root user
+# Non-root user (safe)
 # ----------------------------
-RUN groupadd -g 1000 mc \
- && useradd -u 1000 -g 1000 -m -s /bin/bash mc
+RUN if ! getent group 1000 >/dev/null; then \
+      groupadd -g 1000 mc; \
+    fi \
+ && if ! id -u 1000 >/dev/null 2>&1; then \
+      useradd -u 1000 -g 1000 -m -s /bin/bash mc; \
+    fi
 
 # ----------------------------
 # Runtime directories
