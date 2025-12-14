@@ -1041,33 +1041,17 @@ opt_install_links() {
 }
 
 detect_opencl_gpu() {
-  log INFO "Detecting OpenCL GPU availability..."
-
-  # 1. NVIDIA device file check
-  if ! ls /dev/nvidia* >/dev/null 2>&1; then
-    log WARN "No NVIDIA device files found"
-    return 1
+  # NVIDIA device が見えてるか
+  if ls /dev/nvidia0 >/dev/null 2>&1; then
+    return 0
   fi
 
-  # 2. OpenCL library check
-  if ! ldconfig -p 2>/dev/null | grep -q libOpenCL.so; then
-    log WARN "libOpenCL.so not found in ldconfig"
-    return 1
+  # OpenCL ICD が存在するか
+  if ldconfig -p | grep -q libOpenCL.so; then
+    return 0
   fi
 
-  # 3. clinfo GPU enumeration check
-  if ! command -v clinfo >/dev/null 2>&1; then
-    log WARN "clinfo not installed"
-    return 1
-  fi
-
-  if ! clinfo 2>/dev/null | grep -q "Device Type.*GPU"; then
-    log WARN "OpenCL GPU device not detected by clinfo"
-    return 1
-  fi
-
-  log INFO "OpenCL GPU detected successfully"
-  return 0
+  return 1
 }
 
 configure_c2me_opencl() {
