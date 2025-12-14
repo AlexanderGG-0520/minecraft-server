@@ -555,8 +555,33 @@ install_server_properties() {
   fi
 }
 
+sync_from_s3_rsync() {
+  local NAME="$1"
+  local S3_PREFIX="$2"
+  local DEST_DIR="$3"
+
+  local TMP_DIR="/tmp/sync-${NAME}"
+
+  log INFO "Syncing ${NAME} from S3 using rsync strategy"
+
+  mkdir -p "${TMP_DIR}" "${DEST_DIR}"
+
+  mc mirror \
+    --overwrite \
+    "s3/${S3_BUCKET}/${S3_PREFIX}" \
+    "${TMP_DIR}" \
+    || die "Failed to mirror ${NAME} from S3"
+
+  rsync -av \
+    "${TMP_DIR}/" \
+    "${DEST_DIR}/" \
+    || die "Failed to rsync ${NAME}"
+
+  log INFO "${NAME} synced successfully"
+}
+
 install_mods() {
-  log INFO "Install mods (MinIO only)"
+  log INFO "Install mods (rsync mode)"
 
   [[ "${MODS_ENABLED:-true}" == "true" ]] || {
     log INFO "Mods disabled"
@@ -569,39 +594,12 @@ install_mods() {
   }
 
   : "${MODS_S3_PREFIX:=fabric/hardcore/mods}"
-  : "${MODS_SYNC_ONCE:=true}"
-  : "${MODS_REMOVE_EXTRA:=true}"
 
-  MODS_DIR="${DATA_DIR}/mods"
-  mkdir -p "${MODS_DIR}"
-
-  if [[ "${MODS_SYNC_ONCE}" == "true" ]] && ls "${MODS_DIR}"/*.jar >/dev/null 2>&1; then
-    log INFO "Mods already present, skipping sync"
-    return
-  fi
-
-  log INFO "Configuring MinIO client"
-  mc alias set s3 \
-    "${S3_ENDPOINT}" \
-    "${S3_ACCESS_KEY}" \
-    "${S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client"
-
-  REMOVE_FLAG=""
-  [[ "${MODS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
-
-  log INFO "Syncing mods from s3://${MODS_S3_BUCKET}/${MODS_S3_PREFIX}"
-
-  mc mirror \
-    --overwrite \
-    ${REMOVE_FLAG} \
-    "s3/${MODS_S3_BUCKET}/${MODS_S3_PREFIX}" \
-    "${MODS_DIR}" \
-    || die "Failed to sync mods from MinIO"
-
-  log INFO "Mods installed: $(ls "${MODS_DIR}"/*.jar | wc -l)"
+  sync_from_s3_rsync \
+    "mods" \
+    "${MODS_S3_PREFIX}" \
+    "${DATA_DIR}/mods"
 }
-
 
 detect_optimize_mod() {
   local name="$1"
@@ -679,216 +677,72 @@ install_c2me_jvm_args() {
 }
 
 install_configs() {
-  log INFO "Install configs (MinIO only)"
-
-  [[ "${CONFIGS_ENABLED:-true}" == "true" ]] || {
-    log INFO "Configs disabled"
-    return
-  }
+  log INFO "Install configs (rsync mode)"
 
   [[ -n "${CONFIGS_S3_BUCKET:-}" ]] || {
     log INFO "CONFIGS_S3_BUCKET not set, skipping configs"
     return
   }
 
-  : "${CONFIGS_S3_PREFIX:=configs/latest}"
-  : "${CONFIGS_SYNC_ONCE:=true}"
-  : "${CONFIGS_REMOVE_EXTRA:=true}"
+  : "${CONFIGS_S3_PREFIX:=fabric/hardcore/config}"
 
-  CONFIG_DIR="${DATA_DIR}/config"
-  mkdir -p "${CONFIG_DIR}"
-
-  # すでに config が存在し、1回同期モードなら何もしない
-  if [[ "${CONFIGS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${CONFIG_DIR}")" ]]; then
-    log INFO "Configs already present, skipping sync"
-    return
-  fi
-
-  log INFO "Configuring MinIO client for configs"
-  mc alias set s3 \
-    "${S3_ENDPOINT}" \
-    "${S3_ACCESS_KEY}" \
-    "${S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client"
-
-
-  REMOVE_FLAG=""
-  [[ "${CONFIGS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
-
-  log INFO "Syncing configs from s3://${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}"
-
-  mc mirror \
-    --overwrite \
-    ${REMOVE_FLAG} \
-    "s3/${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}" \
-    "${CONFIG_DIR}" \
-    || die "Failed to sync configs from MinIO"
-
-  log INFO "Configs installed successfully"
+  sync_from_s3_rsync \
+    "configs" \
+    "${CONFIGS_S3_PREFIX}" \
+    "${DATA_DIR}/config"
 }
 
 install_plugins() {
-  log INFO "Install plugins (Paper only)"
-
-  [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || {
-    log INFO "Plugins disabled"
+  [[ "${TYPE}" == "paper" ]] || {
+    log INFO "TYPE=${TYPE}, skipping plugins"
     return
   }
 
-  # Paper 以外では無効
-  if [[ "${TYPE:-auto}" != "paper" ]]; then
-    log INFO "TYPE=${TYPE}, skipping plugins"
-    return
-  fi
+  log INFO "Install plugins (rsync mode)"
 
   [[ -n "${PLUGINS_S3_BUCKET:-}" ]] || {
     log INFO "PLUGINS_S3_BUCKET not set, skipping plugins"
     return
   }
 
-  : "${PLUGINS_S3_PREFIX:=plugins/latest}"
-  : "${PLUGINS_SYNC_ONCE:=true}"
-  : "${PLUGINS_REMOVE_EXTRA:=true}"
+  : "${PLUGINS_S3_PREFIX:=paper/plugins}"
 
-  PLUGINS_DIR="${DATA_DIR}/plugins"
-  mkdir -p "${PLUGINS_DIR}"
-
-  # 既に plugins があり、1回同期モードなら何もしない
-  if [[ "${PLUGINS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${PLUGINS_DIR}")" ]]; then
-    log INFO "Plugins already present, skipping sync"
-    return
-  fi
-
-  log INFO "Configuring MinIO client for plugins"
-  mc alias set s3 \
-    "${S3_ENDPOINT}" \
-    "${S3_ACCESS_KEY}" \
-    "${S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client"
-
-
-  REMOVE_FLAG=""
-  [[ "${PLUGINS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
-
-  log INFO "Syncing plugins from s3://${PLUGINS_S3_BUCKET}/${PLUGINS_S3_PREFIX}"
-
-mc mirror \
-  --overwrite \
-  ${REMOVE_FLAG} \
-  "s3/${PLUGINS_S3_BUCKET}/${PLUGINS_S3_PREFIX}" \
-  "${PLUGINS_DIR}" \
-    || die "Failed to sync plugins from MinIO"
-
-  log INFO "Plugins installed successfully"
+  sync_from_s3_rsync \
+    "plugins" \
+    "${PLUGINS_S3_PREFIX}" \
+    "${DATA_DIR}/plugins"
 }
 
 install_datapacks() {
-  log INFO "Install datapacks"
-
-  [[ "${DATAPACKS_ENABLED:-true}" == "true" ]] || {
-    log INFO "Datapacks disabled"
-    return
-  }
+  log INFO "Install datapacks (rsync mode)"
 
   [[ -n "${DATAPACKS_S3_BUCKET:-}" ]] || {
     log INFO "DATAPACKS_S3_BUCKET not set, skipping datapacks"
     return
   }
 
-  : "${DATAPACKS_S3_PREFIX:=datapacks/latest}"
-  : "${DATAPACKS_SYNC_ONCE:=true}"
-  : "${DATAPACKS_REMOVE_EXTRA:=true}"
+  : "${DATAPACKS_S3_PREFIX:=fabric/hardcore/datapacks}"
 
-  DATAPACKS_DIR="${DATA_DIR}/world/datapacks"
-  mkdir -p "${DATAPACKS_DIR}"
-
-  # 既に datapacks があり、1回同期モードならスキップ
-  if [[ "${DATAPACKS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${DATAPACKS_DIR}")" ]]; then
-    log INFO "Datapacks already present, skipping sync"
-    return
-  fi
-
-  log INFO "Configuring MinIO client for datapacks"
-  mc alias set s3 \
-    "${S3_ENDPOINT}" \
-    "${S3_ACCESS_KEY}" \
-    "${S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client"
-
-  REMOVE_FLAG=""
-  [[ "${DATAPACKS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
-
-  log INFO "Syncing datapacks from s3://${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}"
-
-  mc mirror \
-    --overwrite \
-    ${REMOVE_FLAG} \
-    "s3/${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}" \
-    "${DATAPACKS_DIR}" \
-    || die "Failed to sync datapacks"
-
-  log INFO "Datapacks installed successfully"
+  sync_from_s3_rsync \
+    "datapacks" \
+    "${DATAPACKS_S3_PREFIX}" \
+    "${DATA_DIR}/world/datapacks"
 }
 
 install_resourcepacks() {
-  log INFO "Install resourcepacks"
-
-  [[ "${RESOURCEPACKS_ENABLED:-true}" == "true" ]] || {
-    log INFO "Resourcepacks disabled"
-    return
-  }
+  log INFO "Install resourcepacks (rsync mode)"
 
   [[ -n "${RESOURCEPACKS_S3_BUCKET:-}" ]] || {
     log INFO "RESOURCEPACKS_S3_BUCKET not set, skipping resourcepacks"
     return
   }
 
-  : "${RESOURCEPACKS_S3_PREFIX:=resourcepacks/latest}"
-  : "${RESOURCEPACKS_SYNC_ONCE:=true}"
-  : "${RESOURCEPACKS_REMOVE_EXTRA:=true}"
-  : "${RESOURCEPACKS_AUTO_APPLY:=true}"
-  : "${RESOURCEPACK_REQUIRED:=false}"
+  : "${RESOURCEPACKS_S3_PREFIX:=fabric/hardcore/resourcepacks}"
 
-  RP_DIR="${DATA_DIR}/resourcepacks"
-  mkdir -p "${RP_DIR}"
-
-  # 既に存在し、1回同期ならスキップ
-  if [[ "${RESOURCEPACKS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${RP_DIR}")" ]]; then
-    log INFO "Resourcepacks already present, skipping sync"
-  else
-    log INFO "Configuring MinIO client for resourcepacks"
-    mc alias set s3 \
-      "${S3_ENDPOINT}" \
-      "${S3_ACCESS_KEY}" \
-      "${S3_SECRET_KEY}" \
-      || die "Failed to configure MinIO client"
-
-    REMOVE_FLAG=""
-    [[ "${RESOURCEPACKS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
-
-    log INFO "Syncing resourcepacks from s3://${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}"
-    mc mirror \
-      --overwrite \
-      ${REMOVE_FLAG} \
-      "s3/${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}" \
-      "${RP_DIR}" \
-      || die "Failed to sync resourcepacks"
-  fi
-
-  # ---- server.properties 連動（任意） ----
-  if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]]; then
-    log INFO "Applying resource-pack settings to server.properties"
-
-    : "${RESOURCEPACK_SHA1:=}"
-
-    sed -i \
-      -e "s|^resource-pack=.*|resource-pack=${RESOURCEPACK_URL}|" \
-      -e "s|^resource-pack-sha1=.*|resource-pack-sha1=${RESOURCEPACK_SHA1}|" \
-      -e "s|^require-resource-pack=.*|require-resource-pack=${RESOURCEPACK_REQUIRED}|" \
-      ${DATA_DIR}/server.properties || true
-  fi
-
-  log INFO "Resourcepacks installed successfully"
+  sync_from_s3_rsync \
+    "resourcepacks" \
+    "${RESOURCEPACKS_S3_PREFIX}" \
+    "${DATA_DIR}/resourcepacks"
 }
 
 reset_world() {
