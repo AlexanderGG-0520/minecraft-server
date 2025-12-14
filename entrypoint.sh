@@ -568,15 +568,14 @@ install_mods() {
     return
   }
 
-  : "${MODS_S3_PREFIX:=mods/latest}"
+  : "${MODS_S3_PREFIX:=fabric/hardcore/mods}"
   : "${MODS_SYNC_ONCE:=true}"
   : "${MODS_REMOVE_EXTRA:=true}"
 
   MODS_DIR="${DATA_DIR}/mods"
   mkdir -p "${MODS_DIR}"
 
-  # すでに mods が存在し、1回同期モードなら何もしない
-  if [[ "${MODS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${MODS_DIR}")" ]]; then
+  if [[ "${MODS_SYNC_ONCE}" == "true" ]] && ls "${MODS_DIR}"/*.jar >/dev/null 2>&1; then
     log INFO "Mods already present, skipping sync"
     return
   fi
@@ -600,8 +599,9 @@ install_mods() {
     "${MODS_DIR}" \
     || die "Failed to sync mods from MinIO"
 
-  log INFO "Mods installed successfully"
+  log INFO "Mods installed: $(ls "${MODS_DIR}"/*.jar | wc -l)"
 }
+
 
 detect_optimize_mod() {
   local name="$1"
