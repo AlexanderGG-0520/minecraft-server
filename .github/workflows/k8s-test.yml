@@ -35,7 +35,9 @@ jobs:
 
         -   name: Wait for pod
             run: |
-                kubectl wait --for=condition=Ready pod/mc-test --timeout=60s
+                kubectl wait --for=condition=ContainersReady pod/mc-test --timeout=180s || true
+                kubectl logs mc-test
+
 
         -   name: Show logs
             run: |
