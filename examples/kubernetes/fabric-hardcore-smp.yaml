@@ -37,14 +37,6 @@ spec:
             - name: MODS_S3_PREFIX
               value: fabric/hardcore/mods
 
-            # --- Optimize Mods (F-1) ---
-            - name: OPTIMIZE_MODE
-              value: force
-            - name: OPTIMIZE_S3_BUCKET
-              value: minecraft-assets
-            - name: OPTIMIZE_S3_PREFIX
-              value: optimize/fabric
-
             # --- Configs ---
             - name: CONFIGS_ENABLED
               value: "true"
