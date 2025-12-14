@@ -11,7 +11,7 @@ ENV LANG=C.UTF-8
 # ============================================================
 FROM ${BASE_IMAGE} AS runtime
 
-ARG JAVA_MAJOR=${JAVA_VERSION}
+ARG JAVA_MAJOR=21
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 
@@ -40,10 +40,10 @@ RUN apt-get update && apt-get install -y \
 # Java (Eclipse Temurin)
 # ------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
-    temurin-${JAVA_MAJOR}-jre \
+    openjdk-${JAVA_MAJOR}-jre-headless \
  && rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_HOME=/usr/lib/jvm/temurin-${JAVA_MAJOR}-jre-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-${JAVA_MAJOR}-openjdk-amd64
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # ------------------------------------------------------------
