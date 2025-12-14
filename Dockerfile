@@ -1,17 +1,11 @@
 # ============================================================
 # Stage 0: base selector
 # ============================================================
-ARG BASE_FLAVOR=cpu
-ARG DEBIAN_VERSION=12
-ARG CUDA_VERSION=13.0.0
+ARG BASE_IMAGE=debian:stable-slim
+FROM ${BASE_IMAGE}
 
-# --- CPU base ---
-FROM debian:stable-slim AS cpu-base
-
-# --- GPU base ---
-FROM nvidia/cuda:${CUDA_VERSION}-runtime-debian${DEBIAN_VERSION} AS gpu-base
-
-
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
 # ============================================================
 # Stage 1: runtime base
 # ============================================================

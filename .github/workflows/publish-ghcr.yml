@@ -17,29 +17,33 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                -   java: 8
-                    tag: jre8
-                    base-flavor: cpu
+                -   tag: jre8
+                    base_image: debian:stable-slim
+                    java: 8
+                    opencl: false
 
-                -   java: 11
-                    tag: jre11
-                    base-flavor: cpu
+                -   tag: jre11
+                    base_image: debian:stable-slim
+                    java: 11
+                    opencl: false
 
-                -   java: 17
-                    tag: jre17
-                    base-flavor: cpu
+                -   tag: jre17
+                    base_image: debian:stable-slim
+                    java: 17
+                    opencl: false
 
-                -   java: 21
-                    tag: jre21
-                    base-flavor: cpu
+                -   tag: jre21
+                    opencl: false
 
-                -   java: 25
-                    tag: jre25
-                    base-flavor: cpu
+                -   tag: jre25
+                    base_image: debian:stable-slim
+                    java: 25
+                    opencl: false
 
-                -   java: 25
-                    tag: jre25-gpu
-                    base-flavor: gpu
+                -   tag: jre25-gpu
+                    base_image: nvidia/cuda:13.0.0-runtime-debian12
+                    java: 25
+                    opencl: true
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
