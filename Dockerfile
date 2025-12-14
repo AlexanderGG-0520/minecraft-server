@@ -10,6 +10,12 @@ RUN apt-get update && apt-get install -y \
     pciutils ocl-icd-libopencl1 \
  && rm -rf /var/lib/apt/lists/*
 
+ # --- MinIO client (mc) ---
+RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc \
+ && chmod +x /usr/local/bin/mc \
+ && mc --version
+
+
 WORKDIR /app
 
 COPY entrypoint.sh /entrypoint.sh
@@ -58,6 +64,11 @@ RUN apt-get update && apt-get install -y \
     bash ca-certificates curl tini procps \
     pciutils ocl-icd-libopencl1 clinfo \
  && rm -rf /var/lib/apt/lists/*
+
+# --- MinIO client (mc) ---
+RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc \
+ && chmod +x /usr/local/bin/mc \
+ && mc --version
 
 # --- Java 25 ---
 COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
