@@ -14,7 +14,6 @@ jobs:
             java:
                 -   { tag: java8, dockerfile: Dockerfile.jdk8 }
                 -   { tag: java11, dockerfile: Dockerfile.jdk11 }
-                -   { tag: java16, dockerfile: Dockerfile.jdk16 }
                 -   { tag: java17, dockerfile: Dockerfile.jdk17 }
                 -   { tag: java21, dockerfile: Dockerfile.jdk21 }
                 -   { tag: java25-experimental, dockerfile: Dockerfile.jdk25 }
