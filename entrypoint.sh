@@ -378,6 +378,62 @@ install_server() {
       log INFO "NeoForge server.jar ready"
       ;;
 
+    paper)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for paper"
+
+      if [[ -f /data/server.jar ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      BUILD="${PAPER_BUILD:-latest}"
+
+      log INFO "Installing Paper server (MC=${VERSION}, build=${BUILD})"
+
+      if [[ "${BUILD}" == "latest" ]]; then
+        BUILD="$(curl -fsSL \
+          "https://api.papermc.io/v2/projects/paper/versions/${VERSION}" \
+          | jq -r '.builds[-1]')" || die "Failed to resolve Paper build"
+      fi
+
+      JAR_NAME="paper-${VERSION}-${BUILD}.jar"
+
+      curl -fL \
+        "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/${JAR_NAME}" \
+        -o /data/server.jar \
+        || die "Failed to download Paper server.jar"
+
+      log INFO "Paper server.jar ready"
+      ;;
+    
+    purpur)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for purpur"
+
+      if [[ -f /data/server.jar ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      BUILD="${PURPUR_BUILD:-latest}"
+
+      log INFO "Installing Purpur server (MC=${VERSION}, build=${BUILD})"
+
+      if [[ "${BUILD}" == "latest" ]]; then
+        BUILD="$(curl -fsSL \
+          "https://api.purpurmc.org/v2/purpur/${VERSION}" \
+          | jq -r '.builds.latest')" || die "Failed to resolve Purpur build"
+      fi
+
+      JAR_NAME="purpur-${VERSION}-${BUILD}.jar"
+
+      curl -fL \
+        "https://api.purpurmc.org/v2/purpur/${VERSION}/${BUILD}/download" \
+        -o /data/server.jar \
+        || die "Failed to download Purpur server.jar"
+
+      log INFO "Purpur server.jar ready"
+      ;;
+
     *)
       die "install_server: TYPE=${TYPE} not implemented yet"
       ;;
