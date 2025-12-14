@@ -102,11 +102,56 @@ install_server() {
   esac
 }
 
+install_jvm_args() {
+  log INFO "Generating JVM args"
+
+  JVM_ARGS_FILE="/data/jvm.args"
+
+  # 既にあれば尊重（ユーザー上書き可能）
+  if [[ -f "${JVM_ARGS_FILE}" ]]; then
+    log INFO "jvm.args already exists, skipping generation"
+    return
+  fi
+
+  : "${JVM_XMS:=512M}"
+  : "${JVM_XMX:=512M}"
+  : "${JVM_GC:=G1}"
+  : "${JVM_EXTRA_ARGS:=}"
+
+  {
+    echo "-Xms${JVM_XMS}"
+    echo "-Xmx${JVM_XMX}"
+
+    case "${JVM_GC}" in
+      G1)
+        echo "-XX:+UseG1GC"
+        ;;
+      ZGC)
+        echo "-XX:+UseZGC"
+        ;;
+      *)
+        die "Invalid JVM_GC: ${JVM_GC}"
+        ;;
+    esac
+
+    if [[ "${JVM_USE_CONTAINER_SUPPORT:-true}" == "true" ]]; then
+      echo "-XX:+UseContainerSupport"
+    fi
+
+    if [[ -n "${JVM_EXTRA_ARGS}" ]]; then
+      echo "${JVM_EXTRA_ARGS}"
+    fi
+  } > "${JVM_ARGS_FILE}"
+
+  log INFO "jvm.args generated"
+}
+
 install() {
   log INFO "Install phase start"
   install_dirs
   install_eula
   install_server
+  install_jvm_args
   log INFO "Install phase completed (partial)"
 }
 
@@ -118,9 +163,12 @@ runtime() {
   # 起動直前は ready を消す（再起動安全）
   rm -f /data/.ready
 
-  # Java をバックグラウンドで起動
-  java -Xms512M -Xmx512M -jar /data/server.jar nogui &
+  # ここで exec して PID1 を Java に置き換える
+  exec java \
+  @"${JVM_ARGS_FILE}" \
+  -jar /data/server.jar nogui &
   MC_PID=$!
+  log INFO "Minecraft server started with PID ${MC_PID}"
 
   # JVMが生きていることを軽く確認（数秒）
   sleep 5
