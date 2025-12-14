@@ -1040,17 +1040,27 @@ opt_install_links() {
   [[ $found -eq 1 ]] && return 0 || return 1
 }
 
-detect_opencl_gpu() {
-  # NVIDIA device が見えてるか
-  if ls /dev/nvidia0 >/dev/null 2>&1; then
-    return 0
+detect_gpu() {
+  log INFO "Detecting OpenCL GPU availability..."
+
+  if [ ! -e /dev/nvidia0 ]; then
+    log INFO "No NVIDIA device found"
+    return 1
   fi
 
-  # OpenCL ICD が存在するか
-  if ldconfig -p | grep -q libOpenCL.so; then
-    return 0
+  if ! ldconfig -p | grep -q libnvidia-opencl; then
+    log WARN "NVIDIA OpenCL runtime not found"
+    return 1
   fi
 
+  if command -v clinfo >/dev/null 2>&1; then
+    if clinfo | grep -q "Device Type.*GPU"; then
+      log INFO "OpenCL GPU detected"
+      return 0
+    fi
+  fi
+
+  log WARN "OpenCL GPU not usable"
   return 1
 }
 
@@ -1061,12 +1071,12 @@ configure_c2me_opencl() {
     return
   fi
 
-  if detect_opencl_gpu; then
+  if detect_gpu; then
     export C2ME_OPENCL_ENABLED=true
-    log INFO "C2ME OpenCL enabled (GPU detected)"
+    log INFO "C2ME OpenCL enabled (GPU mode)"
   else
     export C2ME_OPENCL_ENABLED=false
-    log INFO "C2ME OpenCL disabled (GPU not available)"
+    log INFO "C2ME OpenCL disabled (CPU-safe mode)"
   fi
 }
 
@@ -1086,7 +1096,7 @@ install() {
   if [[ "${RESET_WORLD:-false}" == "true" ]]; then
     reset_world
   fi
-  detect_opencl_gpu
+  detect_gpu
   configure_c2me_opencl
   log INFO "Install phase completed (partial)"
 }

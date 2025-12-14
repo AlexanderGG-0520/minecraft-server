@@ -1,61 +1,44 @@
-# ============================================================
-# Java 25 (EXPERIMENTAL) Runtime Image
-# ============================================================
-# ⚠️ EXPERIMENTAL: GPU/OpenCL runtime only
-# ⚠️ Does NOT enable any experimental feature by default
-# ============================================================
+FROM nvidia/cuda:13.0.0-runtime-ubuntu22.04
 
-FROM eclipse-temurin:25-jre
+# ===== 基本環境 =====
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
 
-# ----------------------------
-# Base packages (same as common)
-# ----------------------------
+# ===== 必須パッケージ =====
 RUN apt-get update && apt-get install -y \
-    bash \
     ca-certificates \
     curl \
-    jq \
+    wget \
+    tzdata \
+    bash \
     tini \
     procps \
+    jq \
+    rsync \
     pciutils \
+    \
+    # Java
+    openjdk-25-jre-headless \
+    \
+    # OpenCL (重要)
     ocl-icd-libopencl1 \
-    libdrm2 \
+    clinfo \
+    libnvidia-opencl-550 \
+    libnvidia-compute-550 \
+    \
  && rm -rf /var/lib/apt/lists/*
 
-# ----------------------------
-# MinIO client (same path & name)
-# ----------------------------
-RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
-    -o /usr/local/bin/mc \
- && chmod +x /usr/local/bin/mc
+# ===== 作業ディレクトリ =====
+WORKDIR /data
 
-# ----------------------------
-# Non-root user (same UID/GID)
-# ----------------------------
-RUN if ! getent group 1000 >/dev/null; then \
-      groupadd -g 1000 mc; \
-    fi \
- && if ! id -u 1000 >/dev/null 2>&1; then \
-      useradd -u 1000 -g 1000 -m -s /bin/bash mc; \
-    fi
+# ===== ユーザー =====
+RUN groupadd -g 1000 minecraft \
+ && useradd -u 1000 -g 1000 -m minecraft
 
-# ----------------------------
-# Runtime directories
-# ----------------------------
-RUN mkdir -p /data /mods-drop \
- && chown -R 1000:1000 /data /mods-drop
-
-# ----------------------------
-# Entrypoint (identical)
-# ----------------------------
+# ===== entrypoint =====
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh \
- && chown 1000:1000 /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-USER 1000:1000
-
-# Optional marker (no behavior change)
-ENV JAVA_EXPERIMENTAL_IMAGE=true
-
+# tini 経由で起動（SIGTERM安全）
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/entrypoint.sh"]
