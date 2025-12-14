@@ -4,13 +4,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 
 # -----------------------------
-# Adoptium (Eclipse Temurin)
+# Base utilities + Adoptium key
 # -----------------------------
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
-    wget \
     gnupg \
+    tzdata \
  && mkdir -p /etc/apt/keyrings \
  && curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public \
     | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg \
@@ -24,19 +24,24 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
     bash \
     tini \
-    tzdata \
     procps \
     jq \
     rsync \
     pciutils \
     \
-    # Java (安定)
+    # Java (LTS / 安定)
     temurin-21-jre \
     \
-    # OpenCL (ICD only)
+    # OpenCL (ICD only, driverはホスト)
     ocl-icd-libopencl1 \
     clinfo \
  && rm -rf /var/lib/apt/lists/*
+
+# -----------------------------
+# Java PATH 明示（超重要）
+# -----------------------------
+ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jre-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # ----------------------------
 # MinIO client
@@ -48,27 +53,23 @@ RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
 # ----------------------------
 # Non-root user (safe)
 # ----------------------------
-RUN if ! getent group 1000 >/dev/null; then \
-      groupadd -g 1000 mc; \
-    fi \
- && if ! id -u 1000 >/dev/null 2>&1; then \
-      useradd -u 1000 -g 1000 -m -s /bin/bash mc; \
-    fi
+RUN groupadd -g 1000 mc \
+ && useradd -u 1000 -g 1000 -m -s /bin/bash mc
 
 # ----------------------------
 # Runtime directories
 # ----------------------------
 RUN mkdir -p /data /mods-drop \
- && chown -R 1000:1000 /data /mods-drop
+ && chown -R mc:mc /data /mods-drop
 
 # ----------------------------
 # Entrypoint
 # ----------------------------
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh \
- && chown 1000:1000 /entrypoint.sh
+ && chown mc:mc /entrypoint.sh
 
-USER 1000:1000
+USER mc
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/entrypoint.sh"]
