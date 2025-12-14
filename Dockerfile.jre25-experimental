@@ -1,47 +1,54 @@
-FROM eclipse-temurin:25-jre
+# ============================================================
+# Java 25 (EXPERIMENTAL) Runtime Image
+# ============================================================
+# ⚠️ This image is EXPERIMENTAL.
+# ⚠️ It does NOT enable any experimental features by default.
+# ⚠️ Runtime behavior is strictly controlled by entrypoint.sh.
+# ============================================================
 
-# ----------------------------
-# Packages
-# ----------------------------
-RUN apt-get update && apt-get install -y \
-    bash \
-    ca-certificates \
-    curl \
-    jq \
-    tini \
- && rm -rf /var/lib/apt/lists/*
+FROM eclipse-temurin:25-jre-jammy
 
-# ----------------------------
-# MinIO client
-# ----------------------------
-RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
-    -o /usr/local/bin/mc \
- && chmod +x /usr/local/bin/mc
+LABEL org.opencontainers.image.title="minecraft-server (java25-experimental)"
+LABEL org.opencontainers.image.description="Minecraft server runtime (Java 25 experimental, strictly guarded)"
+LABEL org.opencontainers.image.vendor="Adoptium"
+LABEL org.opencontainers.image.licenses="GPL-2.0-with-classpath-exception"
 
-# ----------------------------
-# Non-root user (safe)
-# ----------------------------
-RUN if ! getent group 1000 >/dev/null; then \
-      groupadd -g 1000 mc; \
-    fi \
- && if ! id -u 1000 >/dev/null 2>&1; then \
-      useradd -u 1000 -g 1000 -m -s /bin/bash mc; \
-    fi
+# ------------------------------------------------------------
+# Base utilities (minimal, runtime only)
+# ------------------------------------------------------------
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      jq \
+      bash \
+      tini \
+      procps \
+      pciutils \
+      ocl-icd-libopencl1 \
+      libdrm2 \
+    ; \
+    rm -rf /var/lib/apt/lists/*
 
-# ----------------------------
-# Runtime directories
-# ----------------------------
-RUN mkdir -p /data /mods-drop \
- && chown -R 1000:1000 /data /mods-drop
+# ------------------------------------------------------------
+# Non-root user (UID/GID = 1000)
+# ------------------------------------------------------------
+RUN groupadd -g 1000 mc \
+ && useradd -u 1000 -g 1000 -m -s /bin/bash mc
 
-# ----------------------------
+# ------------------------------------------------------------
+# Workdir & permissions
+# ------------------------------------------------------------
+WORKDIR /data
+RUN chown -R 1000:1000 /data
+
+# ------------------------------------------------------------
 # Entrypoint
-# ----------------------------
+# ------------------------------------------------------------
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh \
- && chown 1000:1000 /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 USER 1000:1000
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
