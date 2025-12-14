@@ -1,54 +1,61 @@
 # ============================================================
 # Java 25 (EXPERIMENTAL) Runtime Image
 # ============================================================
-# ⚠️ This image is EXPERIMENTAL.
-# ⚠️ It does NOT enable any experimental features by default.
-# ⚠️ Runtime behavior is strictly controlled by entrypoint.sh.
+# ⚠️ EXPERIMENTAL: GPU/OpenCL runtime only
+# ⚠️ Does NOT enable any experimental feature by default
 # ============================================================
 
-FROM eclipse-temurin:25-jre-jammy
+FROM eclipse-temurin:25-jre
 
-LABEL org.opencontainers.image.title="minecraft-server (java25-experimental)"
-LABEL org.opencontainers.image.description="Minecraft server runtime (Java 25 experimental, strictly guarded)"
-LABEL org.opencontainers.image.vendor="Adoptium"
-LABEL org.opencontainers.image.licenses="GPL-2.0-with-classpath-exception"
+# ----------------------------
+# Base packages (same as common)
+# ----------------------------
+RUN apt-get update && apt-get install -y \
+    bash \
+    ca-certificates \
+    curl \
+    jq \
+    tini \
+    procps \
+    pciutils \
+    ocl-icd-libopencl1 \
+    libdrm2 \
+ && rm -rf /var/lib/apt/lists/*
 
-# ------------------------------------------------------------
-# Base utilities (minimal, runtime only)
-# ------------------------------------------------------------
-RUN set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-      ca-certificates \
-      curl \
-      jq \
-      bash \
-      tini \
-      procps \
-      pciutils \
-      ocl-icd-libopencl1 \
-      libdrm2 \
-    ; \
-    rm -rf /var/lib/apt/lists/*
+# ----------------------------
+# MinIO client (same path & name)
+# ----------------------------
+RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
+    -o /usr/local/bin/mc \
+ && chmod +x /usr/local/bin/mc
 
-# ------------------------------------------------------------
-# Non-root user (UID/GID = 1000)
-# ------------------------------------------------------------
-RUN groupadd -g 1000 mc \
- && useradd -u 1000 -g 1000 -m -s /bin/bash mc
+# ----------------------------
+# Non-root user (same UID/GID)
+# ----------------------------
+RUN if ! getent group 1000 >/dev/null; then \
+      groupadd -g 1000 mc; \
+    fi \
+ && if ! id -u 1000 >/dev/null 2>&1; then \
+      useradd -u 1000 -g 1000 -m -s /bin/bash mc; \
+    fi
 
-# ------------------------------------------------------------
-# Workdir & permissions
-# ------------------------------------------------------------
-WORKDIR /data
-RUN chown -R 1000:1000 /data
+# ----------------------------
+# Runtime directories
+# ----------------------------
+RUN mkdir -p /data /mods-drop \
+ && chown -R 1000:1000 /data /mods-drop
 
-# ------------------------------------------------------------
-# Entrypoint
-# ------------------------------------------------------------
+# ----------------------------
+# Entrypoint (identical)
+# ----------------------------
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+ && chown 1000:1000 /entrypoint.sh
 
 USER 1000:1000
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
+# Optional marker (no behavior change)
+ENV JAVA_EXPERIMENTAL_IMAGE=true
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/entrypoint.sh"]
