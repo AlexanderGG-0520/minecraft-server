@@ -5,6 +5,24 @@ ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] [$1] $2"; }
 die() { log ERROR "$1"; exit 1; }
 
+MC_PID=""
+
+graceful_shutdown() {
+  log INFO "Received shutdown signal"
+
+  rm -f /data/.ready
+
+  if [[ -n "${MC_PID}" ]] && kill -0 "${MC_PID}" 2>/dev/null; then
+    kill "${MC_PID}"
+    wait "${MC_PID}"
+  fi
+
+  log INFO "Shutdown complete"
+  exit 0
+}
+
+trap graceful_shutdown SIGTERM SIGINT
+
 # ============================================================
 # Environment defaults (non server.properties)
 # ============================================================
@@ -538,6 +556,7 @@ install() {
 
 runtime() {
   log INFO "Starting Minecraft runtime"
+
   [[ -f /data/server.jar ]] || die "server.jar not found"
   [[ -f /data/jvm.args ]]  || die "jvm.args not found"
 
@@ -546,7 +565,8 @@ runtime() {
   java @"${JVM_ARGS_FILE:-/data/jvm.args}" -jar /data/server.jar nogui &
   MC_PID=$!
 
-  sleep 5
+  sleep "${READY_DELAY:-5}"
+
   if kill -0 "${MC_PID}" 2>/dev/null; then
     touch /data/.ready
     log INFO "Server marked as ready"
@@ -556,6 +576,7 @@ runtime() {
 
   wait "${MC_PID}"
 }
+
 
 
 main() {
