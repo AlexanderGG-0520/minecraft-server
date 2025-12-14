@@ -145,6 +145,150 @@ install_jvm_args() {
 
   log INFO "jvm.args generated"
 }
+# ===========================================
+# server.properties env -> key mapping
+# ===========================================
+declare -A PROP_MAP=(
+  # --- 基本 ---
+  [MOTD]="motd"
+  [DIFFICULTY]="difficulty"
+  [GAMEMODE]="gamemode"
+  [HARDCORE]="hardcore"
+  [FORCE_GAMEMODE]="force-gamemode"
+  [ALLOW_FLIGHT]="allow-flight"
+  [SPAWN_PROTECTION]="spawn-protection"
+  [MAX_PLAYERS]="max-players"
+  [VIEW_DISTANCE]="view-distance"
+  [SIMULATION_DISTANCE]="simulation-distance"
+
+  # --- Phase A: 管理・挙動 ---
+  [ENABLE_WHITELIST]="enable-whitelist"
+  [WHITE_LIST]="white-list"
+  [ENFORCE_WHITELIST]="enforce-whitelist"
+  [OP_PERMISSION_LEVEL]="op-permission-level"
+  [FUNCTION_PERMISSION_LEVEL]="function-permission-level"
+  [LOG_IPS]="log-ips"
+  [BROADCAST_CONSOLE_TO_OPS]="broadcast-console-to-ops"
+  [BROADCAST_RCON_TO_OPS]="broadcast-rcon-to-ops"
+
+  # --- Phase B: パフォーマンス・安定性 ---
+  [MAX_TICK_TIME]="max-tick-time"
+  [SYNC_CHUNK_WRITES]="sync-chunk-writes"
+  [ENTITY_BROADCAST_RANGE_PERCENTAGE]="entity-broadcast-range-percentage"
+  [MAX_CHAINED_NEIGHBOR_UPDATES]="max-chained-neighbor-updates"
+
+  # --- Phase C: Query / RCON / 外部連携 ---
+  [ENABLE_QUERY]="enable-query"
+  [QUERY_PORT]="query.port"
+  [ENABLE_RCON]="enable-rcon"
+  [RCON_PORT]="rcon.port"
+  [RCON_PASSWORD]="rcon.password"
+  [RESOURCE_PACK]="resource-pack"
+  [RESOURCE_PACK_SHA1]="resource-pack-sha1"
+  [REQUIRE_RESOURCE_PACK]="require-resource-pack"
+)
+
+generate_server_properties() {
+  log INFO "Generating server.properties"
+
+  PROPS_FILE="/data/server.properties"
+
+  # defaults（必要なものだけ）
+  : "${MOTD:=Welcome to the server}"
+  : "${DIFFICULTY:=easy}"
+  : "${GAMEMODE:=survival}"
+  : "${HARDCORE:=false}"
+  : "${FORCE_GAMEMODE:=false}"
+  : "${ALLOW_FLIGHT:=false}"
+  : "${SPAWN_PROTECTION:=16}"
+  : "${MAX_PLAYERS:=20}"
+  : "${VIEW_DISTANCE:=10}"
+  : "${SIMULATION_DISTANCE:=10}"
+
+  # --- Phase A defaults ---
+  : "${ENABLE_WHITELIST:=false}"
+  : "${WHITE_LIST:=false}"
+  : "${ENFORCE_WHITELIST:=false}"
+  : "${OP_PERMISSION_LEVEL:=4}"
+  : "${FUNCTION_PERMISSION_LEVEL:=2}"
+  : "${LOG_IPS:=true}"
+  : "${BROADCAST_CONSOLE_TO_OPS:=true}"
+  : "${BROADCAST_RCON_TO_OPS:=true}"
+
+  # --- Phase B defaults ---
+  : "${MAX_TICK_TIME:=60000}"
+  : "${SYNC_CHUNK_WRITES:=true}"
+  : "${ENTITY_BROADCAST_RANGE_PERCENTAGE:=100}"
+  : "${MAX_CHAINED_NEIGHBOR_UPDATES:=1000000}"
+
+  # --- Phase C defaults ---
+  : "${ENABLE_QUERY:=false}"
+  : "${QUERY_PORT:=25565}"
+
+  : "${ENABLE_RCON:=false}"
+  : "${RCON_PORT:=25575}"
+  : "${RCON_PASSWORD:=}"
+
+  : "${RESOURCE_PACK:=}"
+  : "${RESOURCE_PACK_SHA1:=}"
+  : "${REQUIRE_RESOURCE_PACK:=false}"
+
+
+  {
+    for ENV_KEY in "${!PROP_MAP[@]}"; do
+      PROP_KEY="${PROP_MAP[$ENV_KEY]}"
+      ENV_VAL="${!ENV_KEY}"
+      echo "${PROP_KEY}=${ENV_VAL}"
+    done
+  } > "${PROPS_FILE}"
+
+  log INFO "server.properties generated"
+}
+
+install_server_properties() {
+  PROPS_FILE="/data/server.properties"
+
+  if [[ ! -f "${PROPS_FILE}" ]]; then
+    generate_server_properties
+    return
+  fi
+
+  if [[ "${OVERRIDE_SERVER_PROPERTIES:-false}" == "true" ]]; then
+    generate_server_properties
+    return
+  fi
+
+  if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-false}" == "true" ]]; then
+    apply_server_properties_diff
+  else
+    log INFO "server.properties exists, no changes applied"
+  fi
+}
+
+apply_server_properties_diff() {
+  log INFO "Applying server.properties diff from environment"
+
+  PROPS_FILE="/data/server.properties"
+  TMP_FILE="/data/server.properties.tmp"
+
+  cp "${PROPS_FILE}" "${TMP_FILE}"
+
+  for ENV_KEY in "${!PROP_MAP[@]}"; do
+    ENV_VAL="${!ENV_KEY:-}"
+    [[ -z "${ENV_VAL}" ]] && continue
+
+    PROP_KEY="${PROP_MAP[$ENV_KEY]}"
+
+    if grep -q "^${PROP_KEY}=" "${TMP_FILE}"; then
+      sed -i "s|^${PROP_KEY}=.*|${PROP_KEY}=${ENV_VAL}|" "${TMP_FILE}"
+    else
+      echo "${PROP_KEY}=${ENV_VAL}" >> "${TMP_FILE}"
+    fi
+  done
+
+  mv "${TMP_FILE}" "${PROPS_FILE}"
+  log INFO "server.properties diff applied"
+}
 
 install() {
   log INFO "Install phase start"
@@ -157,20 +301,14 @@ install() {
 
 runtime() {
   log INFO "Starting Minecraft runtime"
-
   [[ -f /data/server.jar ]] || die "server.jar not found"
+  [[ -f /data/jvm.args ]]  || die "jvm.args not found"
 
-  # 起動直前は ready を消す（再起動安全）
   rm -f /data/.ready
 
-  # ここで exec して PID1 を Java に置き換える
-  exec java \
-  @"${JVM_ARGS_FILE}" \
-  -jar /data/server.jar nogui &
+  java @"${JVM_ARGS_FILE:-/data/jvm.args}" -jar /data/server.jar nogui &
   MC_PID=$!
-  log INFO "Minecraft server started with PID ${MC_PID}"
 
-  # JVMが生きていることを軽く確認（数秒）
   sleep 5
   if kill -0 "${MC_PID}" 2>/dev/null; then
     touch /data/.ready
@@ -179,10 +317,8 @@ runtime() {
     die "Minecraft process exited early"
   fi
 
-  # PID1 は wait でJVMに追従
   wait "${MC_PID}"
 }
-
 
 
 main() {

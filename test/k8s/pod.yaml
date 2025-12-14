@@ -18,6 +18,17 @@ spec:
           value: "true"
         - name: TYPE
           value: "${{ matrix.type }}"
+        - name: VERSION
+          value: "1.21.1"
+        - name: MEMORY
+          value: "1G"
+        - name: JVM_XMS
+          value: "1G"
+        - name: JVM_XMX
+          value: "1G"
+        - name: JVM_GC
+          value: "G1"
+
       volumeMounts:
         - name: data
           mountPath: /data
