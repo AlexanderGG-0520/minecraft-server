@@ -1040,6 +1040,52 @@ opt_install_links() {
   [[ $found -eq 1 ]] && return 0 || return 1
 }
 
+detect_opencl_gpu() {
+  log INFO "Detecting OpenCL GPU availability..."
+
+  # 1. NVIDIA device file check
+  if ! ls /dev/nvidia* >/dev/null 2>&1; then
+    log WARN "No NVIDIA device files found"
+    return 1
+  fi
+
+  # 2. OpenCL library check
+  if ! ldconfig -p 2>/dev/null | grep -q libOpenCL.so; then
+    log WARN "libOpenCL.so not found in ldconfig"
+    return 1
+  fi
+
+  # 3. clinfo GPU enumeration check
+  if ! command -v clinfo >/dev/null 2>&1; then
+    log WARN "clinfo not installed"
+    return 1
+  fi
+
+  if ! clinfo 2>/dev/null | grep -q "Device Type.*GPU"; then
+    log WARN "OpenCL GPU device not detected by clinfo"
+    return 1
+  fi
+
+  log INFO "OpenCL GPU detected successfully"
+  return 0
+}
+
+configure_c2me_opencl() {
+  if [[ "${C2ME_OPENCL_FORCE:-auto}" == "true" ]]; then
+    log WARN "C2ME OpenCL FORCE ENABLED"
+    export C2ME_OPENCL_ENABLED=true
+    return
+  fi
+
+  if detect_opencl_gpu; then
+    export C2ME_OPENCL_ENABLED=true
+    log INFO "C2ME OpenCL enabled (GPU detected)"
+  else
+    export C2ME_OPENCL_ENABLED=false
+    log INFO "C2ME OpenCL disabled (GPU not available)"
+  fi
+}
+
 install() {
   log INFO "Install phase start"
   install_dirs
@@ -1056,6 +1102,8 @@ install() {
   if [[ "${RESET_WORLD:-false}" == "true" ]]; then
     reset_world
   fi
+  detect_opencl_gpu
+  configure_c2me_opencl
   log INFO "Install phase completed (partial)"
 }
 
