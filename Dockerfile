@@ -11,7 +11,7 @@ ENV LANG=C.UTF-8
 # ============================================================
 FROM ${BASE_IMAGE} AS runtime
 
-ARG JAVA_MAJOR=21
+ARG JAVA_MAJOR=${JAVA_VERSION}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 
