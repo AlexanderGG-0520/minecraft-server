@@ -123,6 +123,7 @@ detect_runtime_env() {
     RUNTIME_OS_VERSION="unknown"
   fi
   export RUNTIME_OS RUNTIME_OS_VERSION
+}
 
 
 # ============================================================
@@ -1106,8 +1107,6 @@ runtime() {
   wait "${MC_PID}"
 }
 
-
-
 main() {
   log INFO "Minecraft Runtime Booting..."
   preflight
@@ -1119,4 +1118,3 @@ main() {
 if [[ "${__SOURCED:-0}" != "1" ]]; then
   main "$@"
 fi
-
