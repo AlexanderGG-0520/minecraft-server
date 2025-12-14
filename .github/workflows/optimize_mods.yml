@@ -7,49 +7,51 @@ jobs:
   test-entrypoint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+        -   uses: actions/checkout@v4
 
-      - name: Syntax check
-        run: bash -n entrypoint.sh
+        -   name: Syntax check
+            run: bash -n entrypoint.sh
 
-      - name: Unit test (mock mc)
-        run: |
-          set -euo pipefail
+        -   name: Unit test (mock mc)
+            run: |
+                set -euo pipefail
 
-          # --- arrange ---
-          export DATA_DIR="$(mktemp -d)"
-          mkdir -p "$DATA_DIR/mods" "$DATA_DIR/.managed/optimize-mods/fabric"
+                # --- arrange ---
+                export DATA_DIR="$(mktemp -d)"
+                mkdir -p "$DATA_DIR/mods" "$DATA_DIR/.managed/optimize-mods/fabric"
 
-          # user mod should never be deleted
-          echo "user" > "$DATA_DIR/mods/user.jar"
+                # user mod should never be deleted
+                echo "user" > "$DATA_DIR/mods/user.jar"
 
-          # create fake optimize jar in cache (as if mirrored)
-          echo "opt" > "$DATA_DIR/.managed/optimize-mods/fabric/Lithium.jar"
+                # create fake optimize jar in cache (as if mirrored)
+                echo "opt" > "$DATA_DIR/.managed/optimize-mods/fabric/Lithium.jar"
 
-          # mock mc: do nothing but succeed
-          mkdir -p ./ci/bin
-          cat > ./ci/bin/mc <<'EOF'
-          #!/usr/bin/env bash
-          # mc mock: succeed
-          exit 0
-          EOF
-          chmod +x ./ci/bin/mc
-          export PATH="$(pwd)/ci/bin:$PATH"
+                # mock mc: do nothing but succeed
+                mkdir -p ./ci/bin
+                cat > ./ci/bin/mc <<'EOF'
+                #!/usr/bin/env bash
+                # mc mock: succeed
+                exit 0
+                EOF
+                chmod +x ./ci/bin/mc
+                export PATH="$(pwd)/ci/bin:$PATH"
 
-          # --- minimal env ---
-          export TYPE=fabric
-          export OPTIMIZE_MODE=auto
-          export OPTIMIZE_S3_BUCKET=dummy
-          export S3_ENDPOINT=http://dummy
-          export S3_ACCESS_KEY=dummy
-          export S3_SECRET_KEY=dummy
+                # --- minimal env ---
+                export EULA=true
+                export TYPE=fabric
+                export VERSION=1.21.1
+                export OPTIMIZE_MODE=auto
+                export OPTIMIZE_S3_BUCKET=dummy
+                export S3_ENDPOINT=http://dummy
+                export S3_ACCESS_KEY=dummy
+                export S3_SECRET_KEY=dummy
 
-          # --- act ---
-          # Source entrypoint to call function without running main
-          source ./entrypoint.sh
-          install_optimize_mods
+                # --- act ---
+                # Source entrypoint to call function without running main
+                source ./entrypoint.sh
+                install_optimize_mods
 
-          # --- assert ---
-          test -f "$DATA_DIR/mods/user.jar"
-          test -L "$DATA_DIR/mods/zz-opt-Lithium.jar"
-          test "$(readlink "$DATA_DIR/mods/zz-opt-Lithium.jar")" = "$DATA_DIR/.managed/optimize-mods/fabric/Lithium.jar"
+                # --- assert ---
+                test -f "$DATA_DIR/mods/user.jar"
+                test -L "$DATA_DIR/mods/zz-opt-Lithium.jar"
+                test "$(readlink "$DATA_DIR/mods/zz-opt-Lithium.jar")" = "$DATA_DIR/.managed/optimize-mods/fabric/Lithium.jar"
