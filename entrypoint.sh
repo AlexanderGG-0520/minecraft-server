@@ -576,10 +576,13 @@ install_mods() {
   MODS_DIR="${DATA_DIR}/mods"
   mkdir -p "${MODS_DIR}"
 
-  if [[ "${MODS_SYNC_ONCE}" == "true" ]] && ls "${MODS_DIR}"/*.jar >/dev/null 2>&1; then
+  if [[ "${MODS_SYNC_ONCE}" == "true" ]] \
+    && [[ -n "$(ls -A "${MODS_DIR}")" ]] \
+    && [[ "${MODS_REMOVE_EXTRA}" != "true" ]]; then
     log INFO "Mods already present, skipping sync"
     return
   fi
+
 
   log INFO "Configuring MinIO client"
   mc alias set s3 \
@@ -699,10 +702,13 @@ install_configs() {
   mkdir -p "${CONFIG_DIR}"
 
   # すでに config が存在し、1回同期モードなら何もしない
-  if [[ "${CONFIGS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${CONFIG_DIR}")" ]]; then
+  if [[ "${CONFIGS_SYNC_ONCE}" == "true" ]] \
+    && [[ -n "$(ls -A "${CONFIG_DIR}")" ]] \
+    && [[ "${CONFIGS_REMOVE_EXTRA}" != "true" ]]; then
     log INFO "Configs already present, skipping sync"
     return
   fi
+
 
   log INFO "Configuring MinIO client for configs"
   mc alias set s3 \
@@ -754,10 +760,13 @@ install_plugins() {
   mkdir -p "${PLUGINS_DIR}"
 
   # 既に plugins があり、1回同期モードなら何もしない
-  if [[ "${PLUGINS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${PLUGINS_DIR}")" ]]; then
+  if [[ "${PLUGINS_SYNC_ONCE}" == "true" ]] \
+    && [[ -n "$(ls -A "${PLUGINS_DIR}")" ]] \
+    && [[ "${PLUGINS_REMOVE_EXTRA}" != "true" ]]; then
     log INFO "Plugins already present, skipping sync"
     return
   fi
+
 
   log INFO "Configuring MinIO client for plugins"
   mc alias set s3 \
@@ -803,10 +812,13 @@ install_datapacks() {
   mkdir -p "${DATAPACKS_DIR}"
 
   # 既に datapacks があり、1回同期モードならスキップ
-  if [[ "${DATAPACKS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${DATAPACKS_DIR}")" ]]; then
+  if [[ "${DATAPACKS_SYNC_ONCE}" == "true" ]] \
+    && [[ -n "$(ls -A "${DATAPACKS_DIR}")" ]] \
+    && [[ "${DATAPACKS_REMOVE_EXTRA}" != "true" ]]; then
     log INFO "Datapacks already present, skipping sync"
     return
   fi
+
 
   log INFO "Configuring MinIO client for datapacks"
   mc alias set s3 \
@@ -853,9 +865,14 @@ install_resourcepacks() {
   mkdir -p "${RP_DIR}"
 
   # 既に存在し、1回同期ならスキップ
-  if [[ "${RESOURCEPACKS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${RP_DIR}")" ]]; then
-    log INFO "Resourcepacks already present, skipping sync"
-  else
+  if [[ "${RESOURCEPACKS_SYNC_ONCE}" == "true" ]] \
+   && [[ -n "$(ls -A "${RP_DIR}")" ]] \
+   && [[ "${RESOURCEPACKS_REMOVE_EXTRA}" != "true" ]]; then
+  log INFO "Resourcepacks already present, skipping sync"
+  return
+  fi
+  if [[ "${RESOURCEPACKS_SYNC_ONCE}" == "true" ]] \
+    && [[ -n "$(ls -A "${RP_DIR}")" ]] \
     log INFO "Configuring MinIO client for resourcepacks"
     mc alias set s3 \
       "${S3_ENDPOINT}" \
