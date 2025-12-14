@@ -31,10 +31,6 @@ RUN apt-get update && apt-get install -y \
     \
     # Java (LTS / 安定)
     temurin-21-jre \
-    \
-    # OpenCL (ICD only, driverはホスト)
-    ocl-icd-libopencl1 \
-    clinfo \
  && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------
