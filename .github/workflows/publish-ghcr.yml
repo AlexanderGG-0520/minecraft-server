@@ -19,30 +19,32 @@ jobs:
                 include:
                 -   tag: jre8
                     base_image: debian:stable-slim
-                    java: 8
+                    java_major: 8
                     opencl: false
 
                 -   tag: jre11
                     base_image: debian:stable-slim
-                    java: 11
+                    java_major: 11
                     opencl: false
 
                 -   tag: jre17
                     base_image: debian:stable-slim
-                    java: 17
+                    java_major: 17
                     opencl: false
 
                 -   tag: jre21
+                    base_image: debian:stable-slim
+                    java_major: 21
                     opencl: false
 
                 -   tag: jre25
                     base_image: debian:stable-slim
-                    java: 25
+                    java_major: 25
                     opencl: false
 
                 -   tag: jre25-gpu
                     base_image: nvidia/cuda:13.0.0-runtime-debian12
-                    java: 25
+                    java_major: 25
                     opencl: true
         steps:
             -   name: Checkout
