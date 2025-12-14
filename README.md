@@ -5,22 +5,25 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Java](https://img.shields.io/badge/java-8%20%7C%2011%20%7C%2017%20%7C%2021%20%7C%2025--experimental-orange)
 ![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue)
-![Helm](https://img.shields.io/badge/helm-supported-0f1689)
 
 ---
 
 ## 📘 Overview
 
 This repository provides a **production-oriented Minecraft server Docker image**
-designed for **Kubernetes-first deployments**.
+designed for **explicit, reproducible deployments**.
 
-Key goals:
+This project intentionally avoids heavy abstractions (such as Helm charts)
+in favor of **clear configuration and predictable runtime behavior**.
 
-* 🧱 Safe, reproducible runtime (`preflight → install → runtime`)
+### Design goals
+
+* 🧱 Single entrypoint (`entrypoint.sh`)
+* 🔁 Deterministic lifecycle: `preflight → install → runtime`
 * ☸️ Kubernetes / Recreate strategy friendly
 * ⚙️ Configuration via environment variables (itzg-compatible)
 * ☁️ S3 / MinIO-based mod & config synchronization
-* 🧪 Strictly-guarded experimental features (C2ME, Java 25)
+* 🧪 Strictly-guarded experimental features (Java 25 / C2ME)
 
 ---
 
@@ -37,36 +40,93 @@ ghcr.io/alexandergg-0520/minecraft-server:jre-*
 | Tag                  | Description                      |
 | -------------------- | -------------------------------- |
 | `jre8`               | Legacy runtime                   |
-| `jre11`              | Legacy runtime                   |
+| `jre11`              | Legacy LTS                       |
 | `jre17`              | LTS                              |
-| `jre21`              | **Recommended (default)**        |
+| `jre21`              | **Recommended**                  |
 | `jre25-experimental` | Experimental runtime (C2ME only) |
 
 > ℹ️ Java version is selected **only by the image tag**.
-> The container does not auto-upgrade or downgrade Java.
+> The container never auto-switches Java versions.
 
 ---
 
-## 🚀 Quick Start (Helm)
-
-### 1. Add Helm Repository
+## 🚀 Quick Start (Docker)
 
 ```bash
-helm repo add mc https://alexandergg-0520.github.io/minecraft-server
-helm repo update
+docker run -d \
+  -p 25565:25565 \
+  -v ./data:/data \
+  -e EULA=true \
+  -e TYPE=FABRIC \
+  -e VERSION=1.21.1 \
+  ghcr.io/alexandergg-0520/minecraft-server:jre21
 ```
 
-### 2. Install a Server (Fabric example)
+---
 
-```bash
-helm install mc mc/minecraft \
-  --set server.eula=true \
-  --set server.type=FABRIC \
-  --set server.version=1.21.10 \
-  --set java.maxMemory=6G
+## 🧩 docker-compose (Recommended for local testing)
+
+```yaml
+services:
+  minecraft:
+    image: ghcr.io/alexandergg-0520/minecraft-server:jre21
+    container_name: minecraft
+    volumes:
+      - ./data:/data
+    environment:
+      EULA: "true"
+      TYPE: FABRIC
+      VERSION: 1.21.1
+      JVM_XMX: 6G
+    ports:
+      - "25565:25565"
+    restart: unless-stopped
 ```
 
-Your Minecraft server will start using the **Recreate strategy** on Kubernetes.
+---
+
+## ☸️ Kubernetes (YAML-first)
+
+This image is designed for **plain Kubernetes manifests**
+and works well with **GitOps tools such as ArgoCD**.
+
+Example (Deployment, Recreate strategy):
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minecraft
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minecraft
+  template:
+    metadata:
+      labels:
+        app: minecraft
+    spec:
+      containers:
+        - name: mc
+          image: ghcr.io/alexandergg-0520/minecraft-server:jre21
+          env:
+            - name: EULA
+              value: "true"
+            - name: TYPE
+              value: FABRIC
+            - name: VERSION
+              value: "1.21.1"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minecraft-data
+```
 
 ---
 
@@ -81,32 +141,24 @@ Your Minecraft server will start using the **Recreate strategy** on Kubernetes.
 | Paper    | ✅         |
 | Purpur   | ✅         |
 
-> Proxy servers (Velocity / BungeeCord / Waterfall) are **out of scope**
-> and intentionally not handled by this image.
-
 ---
 
 ## ⚙️ Configuration
 
-All configuration is done via **environment variables**
-(either through Helm `values.yaml` or `--set`).
+All configuration is done via **environment variables**.
 
 Example:
 
-```yaml
-server:
-  type: FABRIC
-  version: 1.21.10
-  eula: true
-  motd: "Hello Kubernetes!"
-
-java:
-  maxMemory: 6G
+```env
+EULA=true
+TYPE=FABRIC
+VERSION=1.21.1
+MOTD=Hello Kubernetes
+MAX_PLAYERS=20
 ```
 
-Most `server.properties` options are supported and mapped automatically.
-
-> 📄 See `values.yaml` for the full list of supported options.
+Most `server.properties` options are supported
+and mapped automatically at startup.
 
 ---
 
@@ -118,7 +170,7 @@ Most `server.properties` options are supported and mapped automatically.
 
 ### S3 / MinIO Sync (Optional)
 
-The image supports **read-only sync from S3-compatible storage**:
+Supported sync targets:
 
 * Mods
 * Configs
@@ -136,11 +188,11 @@ Rules:
 
 ## 🧪 Experimental: C2ME Hardware Acceleration
 
-⚠️ **This feature is EXPERIMENTAL and DISABLED by default.**
+⚠️ **Disabled by default. Experimental feature.**
 
-C2ME hardware acceleration is available **only** when **all** of the following conditions are met:
+C2ME hardware acceleration is enabled **only if ALL conditions are met**:
 
-### Hard requirements
+### Requirements
 
 * Image tag: `jre25-experimental`
 * Architecture: `x86_64`
@@ -150,61 +202,45 @@ C2ME hardware acceleration is available **only** when **all** of the following c
 
 ### Explicit user consent (ALL required)
 
-```yaml
-env:
-  ENABLE_C2ME: "true"
-  ENABLE_C2ME_HARDWARE_ACCELERATION: "true"
-  I_KNOW_C2ME_IS_EXPERIMENTAL: "true"
+```env
+ENABLE_C2ME=true
+ENABLE_C2ME_HARDWARE_ACCELERATION=true
+I_KNOW_C2ME_IS_EXPERIMENTAL=true
 ```
 
-If **any** condition is missing, **C2ME is forcibly disabled**.
+If **any condition is missing**, C2ME is **forcibly disabled**.
 
-> 🔒 The image will never auto-enable C2ME.
 > 🔒 CI and normal environments are always safe.
 
 ---
 
-## 🎮 GPU Usage Notes
+## 🎮 GPU Notes
 
-* GPU support is provided by the **host / Kubernetes runtime**
-* The container **does not include NVIDIA drivers**
-* GPU devices are injected at runtime (`--gpus` or `nvidia.com/gpu`)
+* GPU support is provided by the **host runtime**
+* The container **does not include GPU drivers**
+* Devices are injected at runtime (`--gpus` or `nvidia.com/gpu`)
 
-This design prevents:
+This prevents:
 
 * Driver mismatch issues
+* Accidental GPU usage
 * CI instability
-* Accidental GPU activation
-
----
-
-## 🔁 GitOps / ArgoCD
-
-The image and chart are designed to work seamlessly with **ArgoCD**.
-
-```yaml
-source:
-  repoURL: https://alexandergg-0520.github.io/minecraft-server
-  chart: minecraft
-```
-
-All behavior is deterministic and restart-safe.
 
 ---
 
 ## 🧠 Design Philosophy
 
-* **entrypoint.sh only** (no script sprawl)
-* Explicit over implicit
-* Safety > performance
-* Experimental features must be impossible to enable by accident
+* Explicit configuration over abstraction
+* One entrypoint, predictable lifecycle
+* Safety over convenience
+* Experimental features must be impossible to enable accidentally
 
 ---
 
 ## 📜 License
 
-This project is licensed under the **MIT License**.
-See the [LICENSE](./LICENSE) file for details.
+MIT License.
+See [LICENSE](./LICENSE).
 
 ---
 
@@ -213,4 +249,4 @@ See the [LICENSE](./LICENSE) file for details.
 Inspired by:
 
 * itzg/docker-minecraft-server
-* Kubernetes & Helm community
+* Kubernetes community
