@@ -8,7 +8,17 @@ set -Eeuo pipefail
 : "${DATA_DIR:=/data}"
 : "${JVM_ARGS_FILE:=${DATA_DIR}/jvm.args}"
 
+# ============================================================
+# Runtime detection defaults (set -u safety)
+# ============================================================
 
+: "${JAVA_MAJOR:=unknown}"
+: "${JAVA_VERSION_RAW:=unknown}"
+: "${JAVA_VENDOR:=unknown}"
+
+: "${RUNTIME_ARCH_NORM:=unknown}"
+: "${RUNTIME_CONTAINER:=unknown}"
+: "${RUNTIME_GPU:=none}"
 
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] [$1] $2"; }
