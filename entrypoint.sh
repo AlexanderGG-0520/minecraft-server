@@ -59,10 +59,25 @@ install_eula() {
       ;;
   esac
 }
+install_server() {
+  log INFO "Resolving server (TYPE=${TYPE}, VERSION=${VERSION:-auto})"
+
+  if [[ "${TYPE}" == "auto" ]]; then
+    if [[ ! -f /data/server.jar ]]; then
+      log INFO "Creating dummy server.jar (auto mode)"
+      echo "dummy server jar" > /data/server.jar
+    else
+      log INFO "server.jar already exists, skipping"
+    fi
+  else
+    die "install_server: TYPE=${TYPE} not implemented yet"
+  fi
+}
 install() {
   log INFO "Install phase start"
   install_dirs
   install_eula
+  install_server
   log INFO "Install phase completed (partial)"
 }
 
