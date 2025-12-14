@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mc-fabric
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mc-fabric
+  template:
+    metadata:
+      labels:
+        app: mc-fabric
+    spec:
+      containers:
+        - name: minecraft
+          image: ghcr.io/alexandergg-0520/minecraft-server:jre21
+          env:
+            - name: EULA
+              value: "true"
+            - name: TYPE
+              value: FABRIC
+            - name: VERSION
+              value: "1.21.1"
+          ports:
+            - containerPort: 25565
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            limits:
+              memory: "4Gi"
+              cpu: "2"
+            requests:
+              memory: "2Gi"
+              cpu: "1"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minecraft-data

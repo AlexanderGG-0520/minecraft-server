@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fabric-hardcore-smp
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fabric-hardcore-smp
+  template:
+    metadata:
+      labels:
+        app: fabric-hardcore-smp
+    spec:
+      containers:
+        - name: minecraft
+          image: ghcr.io/alexandergg-0520/minecraft-server:jre21
+          env:
+            - name: EULA
+              value: "true"
+            - name: TYPE
+              value: FABRIC
+            - name: VERSION
+              value: "1.21.1"
+            - name: HARDCORE
+              value: "true"
+            # F-1: CPU最適化MOD
+            - name: OPTIMIZE_MODE
+              value: auto
+            # --- Mods (user mods) ---
+            - name: MODS_ENABLED
+              value: "true"
+            - name: MODS_S3_BUCKET
+              value: minecraft-assets
+            - name: MODS_S3_PREFIX
+              value: fabric/hardcore/mods
+
+            # --- Optimize Mods (F-1) ---
+            - name: OPTIMIZE_MODE
+              value: force
+            - name: OPTIMIZE_S3_BUCKET
+              value: minecraft-assets
+            - name: OPTIMIZE_S3_PREFIX
+              value: optimize/fabric
+
+            # --- Configs ---
+            - name: CONFIGS_ENABLED
+              value: "true"
+            - name: CONFIGS_S3_BUCKET
+              value: minecraft-assets
+            - name: CONFIGS_S3_PREFIX
+              value: fabric/hardcore/config
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "6Gi"
+              cpu: "3"
+            limits:
+              memory: "12Gi"
+              cpu: "6"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: fabric-hardcore-smp-data

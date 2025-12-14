@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fabric-hardcore-smp-gpu
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fabric-hardcore-smp-gpu
+  template:
+    metadata:
+      labels:
+        app: fabric-hardcore-smp-gpu
+    spec:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      containers:
+        - name: minecraft
+          image: ghcr.io/alexandergg-0520/minecraft-server:jre25-experimental
+          env:
+            - name: EULA
+              value: "true"
+            - name: TYPE
+              value: FABRIC
+            - name: VERSION
+              value: "1.21.1"
+            - name: HARDCORE
+              value: "true"
+
+            # --- F-3: C2ME (ALL REQUIRED) ---
+            - name: ENABLE_C2ME
+              value: "true"
+            - name: ENABLE_C2ME_HARDWARE_ACCELERATION
+              value: "true"
+            - name: I_KNOW_C2ME_IS_EXPERIMENTAL
+              value: "true"
+              
+            # --- Mods ---
+            - name: MODS_ENABLED
+              value: "true"
+            - name: MODS_S3_BUCKET
+              value: minecraft-assets
+            - name: MODS_S3_PREFIX
+              value: fabric/hardcore/mods
+            - name: MODS_SYNC_ONCE
+              value: "true"
+
+            # --- Configs ---
+            - name: CONFIGS_ENABLED
+              value: "true"
+            - name: CONFIGS_S3_BUCKET
+              value: minecraft-assets
+            - name: CONFIGS_S3_PREFIX
+              value: fabric/hardcore/config
+
+            # --- S3 Common ---
+            - name: S3_ENDPOINT
+              value: https://minio.example.com
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio
+                  key: accessKey
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio
+                  key: secretKey
+
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "8Gi"
+              cpu: "4"
+            limits:
+              memory: "16Gi"
+              cpu: "8"
+              nvidia.com/gpu: 1
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: fabric-hardcore-smp-gpu-data
