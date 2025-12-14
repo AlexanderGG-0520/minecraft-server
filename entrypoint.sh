@@ -1128,7 +1128,6 @@ install() {
   if [[ "${RESET_WORLD:-false}" == "true" ]]; then
     reset_world
   fi
-  detect_opencl_gpu
   configure_c2me_opencl
   log INFO "Install phase completed (partial)"
 }
