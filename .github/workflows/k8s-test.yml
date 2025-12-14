@@ -1,0 +1,42 @@
+name: k8s-test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  k8s-test:
+    runs-on: ubuntu-latest
+
+    steps:
+        -   name: Checkout
+            uses: actions/checkout@v4
+
+        -   name: Set up Docker
+            uses: docker/setup-buildx-action@v3
+        -   name: Build image
+            run: |
+                docker build -t mc-server:test .
+        -   name: Create kind cluster
+            uses: helm/kind-action@v1.10.0
+            with:
+                cluster_name: mc-test
+        -   name: Load image into kind
+            run: |
+                kind load docker-image mc-server:test --name mc-test
+        -   name: Apply pod
+            run: |
+                kubectl apply -f test/pod.yaml
+
+        -   name: Wait for pod
+            run: |
+                kubectl wait --for=condition=Ready pod/mc-test --timeout=60s
+
+        -   name: Show logs
+            run: |
+                kubectl logs mc-test
+        -   name: EULA false should fail
+            run: |
+                kubectl delete pod mc-test --ignore-not-found
+                kubectl apply -f test/pod-eula-false.yaml
