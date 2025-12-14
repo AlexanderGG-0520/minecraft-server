@@ -9,6 +9,10 @@ jobs:
   k8s-test:
     runs-on: ubuntu-latest
 
+    strategy:
+        matrix:
+            type: [auto, vanilla]
+
     steps:
         -   name: Checkout
             uses: actions/checkout@v4

@@ -62,17 +62,46 @@ install_eula() {
 install_server() {
   log INFO "Resolving server (TYPE=${TYPE}, VERSION=${VERSION:-auto})"
 
-  if [[ "${TYPE}" == "auto" ]]; then
-    if [[ ! -f /data/server.jar ]]; then
-      log INFO "Creating dummy server.jar (auto mode)"
-      echo "dummy server jar" > /data/server.jar
-    else
-      log INFO "server.jar already exists, skipping"
-    fi
-  else
-    die "install_server: TYPE=${TYPE} not implemented yet"
-  fi
+  case "${TYPE}" in
+    auto)
+      if [[ ! -f /data/server.jar ]]; then
+        log INFO "Creating dummy server.jar (auto mode)"
+        echo "dummy server jar" > /data/server.jar
+      else
+        log INFO "server.jar already exists, skipping"
+      fi
+      ;;
+
+    vanilla)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for vanilla"
+
+      if [[ -f /data/server.jar ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      log INFO "Downloading vanilla server ${VERSION}"
+
+      meta_url="$(curl -fsSL https://launchermeta.mojang.com/mc/game/version_manifest.json \
+        | jq -r '.versions[] | select(.id=="'"${VERSION}"'") | .url')"
+      [[ -n "${meta_url}" && "${meta_url}" != "null" ]] || die "Invalid VERSION: ${VERSION}"
+
+      sha1="$(curl -fsSL "${meta_url}" | jq -r '.downloads.server.sha1')"
+      [[ -n "${sha1}" && "${sha1}" != "null" ]] || die "Failed to resolve server sha1"
+
+      curl -fL "https://piston-data.mojang.com/v1/objects/${sha1}/server.jar" \
+        -o /data/server.jar \
+        || die "Failed to download vanilla server.jar"
+
+      log INFO "Vanilla server.jar downloaded"
+      ;;
+
+    *)
+      die "install_server: TYPE=${TYPE} not implemented yet"
+      ;;
+  esac
 }
+
 install() {
   log INFO "Install phase start"
   install_dirs

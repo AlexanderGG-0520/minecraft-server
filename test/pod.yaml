@@ -11,7 +11,7 @@ spec:
         - name: EULA
           value: "true"
         - name: TYPE
-          value: "auto"
+          value: "${{ matrix.type }}"
       volumeMounts:
         - name: data
           mountPath: /data
