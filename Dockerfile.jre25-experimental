@@ -30,13 +30,13 @@ RUN apt-get update && apt-get install -y \
     pciutils \
     \
     # Java (LTS / 安定)
-    temurin-21-jre \
+    temurin-25-jre \
  && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------
 # Java PATH 明示（超重要）
 # -----------------------------
-ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jre-amd64
+ENV JAVA_HOME=/usr/lib/jvm/temurin-25-jre-amd64
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # ----------------------------
