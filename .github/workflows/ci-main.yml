@@ -33,7 +33,7 @@ jobs:
       # -----------------------------
       - name: Java smoke test
         run: |
-          docker run --rm mc:test-java21 java -version
+          docker run --rm mc:test-jre21 java -version
 
       # -----------------------------
       # 4. main フロー実行（CI最小構成）
