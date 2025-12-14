@@ -5,6 +5,33 @@ ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] [$1] $2"; }
 die() { log ERROR "$1"; exit 1; }
 
+# ============================================================
+# Environment defaults (non server.properties)
+# ============================================================
+
+# Runtime
+: "${TYPE:=auto}"
+: "${READY_DELAY:=5}"
+
+# JVM
+: "${JVM_XMS:=512M}"
+: "${JVM_XMX:=512M}"
+: "${JVM_GC:=G1}"
+: "${JVM_USE_CONTAINER_SUPPORT:=true}"
+: "${JVM_EXTRA_ARGS:=}"
+
+# Mods
+: "${MODS_ENABLED:=true}"
+: "${MODS_S3_PREFIX:=mods/latest}"
+: "${MODS_SYNC_ONCE:=true}"
+: "${MODS_REMOVE_EXTRA:=true}"
+
+# Configs
+: "${CONFIGS_ENABLED:=true}"
+: "${CONFIGS_S3_PREFIX:=configs/latest}"
+: "${CONFIGS_SYNC_ONCE:=true}"
+: "${CONFIGS_REMOVE_EXTRA:=true}"
+
 preflight() {
   log INFO "Preflight checks..."
 
@@ -449,6 +476,53 @@ install_mods() {
   log INFO "Mods installed successfully"
 }
 
+install_configs() {
+  log INFO "Install configs (MinIO only)"
+
+  [[ "${CONFIGS_ENABLED:-true}" == "true" ]] || {
+    log INFO "Configs disabled"
+    return
+  }
+
+  [[ -n "${CONFIGS_S3_BUCKET:-}" ]] || {
+    log INFO "CONFIGS_S3_BUCKET not set, skipping configs"
+    return
+  }
+
+  : "${CONFIGS_S3_PREFIX:=configs/latest}"
+  : "${CONFIGS_SYNC_ONCE:=true}"
+  : "${CONFIGS_REMOVE_EXTRA:=true}"
+
+  CONFIG_DIR="/data/config"
+  mkdir -p "${CONFIG_DIR}"
+
+  # すでに config が存在し、1回同期モードなら何もしない
+  if [[ "${CONFIGS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${CONFIG_DIR}")" ]]; then
+    log INFO "Configs already present, skipping sync"
+    return
+  fi
+
+  log INFO "Configuring MinIO client for configs"
+  mc alias set cfg3 \
+    "${CONFIGS_S3_ENDPOINT}" \
+    "${CONFIGS_S3_ACCESS_KEY}" \
+    "${CONFIGS_S3_SECRET_KEY}" \
+    || die "Failed to configure MinIO client (configs)"
+
+  REMOVE_FLAG=""
+  [[ "${CONFIGS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+
+  log INFO "Syncing configs from s3://${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}"
+
+  mc mirror \
+    --overwrite \
+    ${REMOVE_FLAG} \
+    "cfg3/${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}" \
+    "${CONFIG_DIR}" \
+    || die "Failed to sync configs from MinIO"
+
+  log INFO "Configs installed successfully"
+}
 
 install() {
   log INFO "Install phase start"
@@ -458,6 +532,7 @@ install() {
   install_jvm_args
   install_server_properties
   install_mods
+  install_configs
   log INFO "Install phase completed (partial)"
 }
 
