@@ -114,76 +114,16 @@ preflight() {
 detect_runtime_env() {
   log INFO "Detecting runtime environment..."
 
-  # ---- CPU / Arch ----
-  RUNTIME_ARCH="$(uname -m || echo unknown)"
-  export RUNTIME_ARCH
-
-  # Normalize arch
-  case "${RUNTIME_ARCH}" in
-    x86_64|amd64) RUNTIME_ARCH_NORM="x86_64" ;;
-    aarch64|arm64) RUNTIME_ARCH_NORM="aarch64" ;;
-    *) RUNTIME_ARCH_NORM="unknown" ;;
-  esac
-  export RUNTIME_ARCH_NORM
-
   # ---- OS ----
   if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
-    RUNTIME_OS="${ID:-unknown}"
-    RUNTIME_OS_VERSION="${VERSION_ID:-unknown}"
+    RUNTIME_OS="$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')"
+    RUNTIME_OS_VERSION="$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"')"
   else
     RUNTIME_OS="unknown"
     RUNTIME_OS_VERSION="unknown"
   fi
   export RUNTIME_OS RUNTIME_OS_VERSION
 
-  # ---- Container detection ----
-  if grep -qa container= /proc/1/cgroup 2>/dev/null; then
-    RUNTIME_CONTAINER="true"
-  else
-    RUNTIME_CONTAINER="unknown"
-  fi
-  export RUNTIME_CONTAINER
-
-  # ---- Java version ----
-  JAVA_VERSION_RAW="$(java -version 2>&1 | head -n 1 || true)"
-  export JAVA_VERSION_RAW
-
-  # Extract major version
-  if [[ "${JAVA_VERSION_RAW}" =~ \"([0-9]+) ]]; then
-    JAVA_MAJOR="${BASH_REMATCH[1]}"
-  else
-    JAVA_MAJOR="unknown"
-  fi
-  export JAVA_MAJOR
-
-  # ---- Java vendor ----
-  JAVA_VENDOR="$(java -XshowSettings:properties -version 2>&1 \
-    | grep -i 'java.vendor =' \
-    | head -n 1 \
-    | awk -F'= ' '{print $2}' || true)"
-  export JAVA_VENDOR
-
-  # ---- GPU detection (future use only) ----
-  if ls /dev/nvidia* >/dev/null 2>&1; then
-    RUNTIME_GPU="nvidia"
-  elif [[ -d /dev/dri ]]; then
-    RUNTIME_GPU="dri"
-  else
-    RUNTIME_GPU="none"
-  fi
-  export RUNTIME_GPU
-
-  # ---- Summary log ----
-  log INFO "Runtime summary:"
-  log INFO "  Arch        : ${RUNTIME_ARCH_NORM} (${RUNTIME_ARCH})"
-  log INFO "  OS          : ${RUNTIME_OS} ${RUNTIME_OS_VERSION}"
-  log INFO "  Container   : ${RUNTIME_CONTAINER}"
-  log INFO "  Java        : ${JAVA_VERSION_RAW}"
-  log INFO "  Java major  : ${JAVA_MAJOR}"
-  log INFO "  Java vendor : ${JAVA_VENDOR}"
-  log INFO "  GPU         : ${RUNTIME_GPU}"
-}
 
 # ============================================================
 # F-3: C2ME Hardware Accelerated (EXPERIMENTAL)
