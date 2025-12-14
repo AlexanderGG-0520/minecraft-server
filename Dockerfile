@@ -9,7 +9,7 @@ ENV LANG=C.UTF-8
 # ============================================================
 # Stage 1: runtime base
 # ============================================================
-FROM ${BASE_FLAVOR}-base AS runtime
+FROM ${BASE_IMAGE} AS runtime
 
 ARG JAVA_MAJOR=21
 ENV DEBIAN_FRONTEND=noninteractive
