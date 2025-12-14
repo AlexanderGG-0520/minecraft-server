@@ -24,8 +24,8 @@ jobs:
       - name: Build Docker image (java21)
         run: |
           docker build \
-            -f Dockerfile.java21 \
-            -t mc:test-java21 \
+            -f Dockerfile.jre21 \
+            -t mc:test-jre21 \
             .
 
       # -----------------------------
