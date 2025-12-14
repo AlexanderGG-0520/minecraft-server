@@ -356,26 +356,6 @@ generate_server_properties() {
   log INFO "server.properties generated"
 }
 
-install_server_properties() {
-  PROPS_FILE="/data/server.properties"
-
-  if [[ ! -f "${PROPS_FILE}" ]]; then
-    generate_server_properties
-    return
-  fi
-
-  if [[ "${OVERRIDE_SERVER_PROPERTIES:-false}" == "true" ]]; then
-    generate_server_properties
-    return
-  fi
-
-  if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-false}" == "true" ]]; then
-    apply_server_properties_diff
-  else
-    log INFO "server.properties exists, no changes applied"
-  fi
-}
-
 apply_server_properties_diff() {
   log INFO "Applying server.properties diff from environment"
 
@@ -401,12 +381,83 @@ apply_server_properties_diff() {
   log INFO "server.properties diff applied"
 }
 
+install_server_properties() {
+  PROPS_FILE="/data/server.properties"
+
+  if [[ ! -f "${PROPS_FILE}" ]]; then
+    generate_server_properties
+    return
+  fi
+
+  if [[ "${OVERRIDE_SERVER_PROPERTIES:-false}" == "true" ]]; then
+    generate_server_properties
+    return
+  fi
+
+  if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-false}" == "true" ]]; then
+    apply_server_properties_diff
+  else
+    log INFO "server.properties exists, no changes applied"
+  fi
+}
+
+install_mods() {
+  log INFO "Install mods (MinIO only)"
+
+  [[ "${MODS_ENABLED:-true}" == "true" ]] || {
+    log INFO "Mods disabled"
+    return
+  }
+
+  [[ -n "${MODS_S3_BUCKET:-}" ]] || {
+    log INFO "MODS_S3_BUCKET not set, skipping mods"
+    return
+  }
+
+  : "${MODS_S3_PREFIX:=mods/latest}"
+  : "${MODS_SYNC_ONCE:=true}"
+  : "${MODS_REMOVE_EXTRA:=true}"
+
+  MODS_DIR="/data/mods"
+  mkdir -p "${MODS_DIR}"
+
+  # すでに mods が存在し、1回同期モードなら何もしない
+  if [[ "${MODS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${MODS_DIR}")" ]]; then
+    log INFO "Mods already present, skipping sync"
+    return
+  fi
+
+  log INFO "Configuring MinIO client"
+  mc alias set mods3 \
+    "${MODS_S3_ENDPOINT}" \
+    "${MODS_S3_ACCESS_KEY}" \
+    "${MODS_S3_SECRET_KEY}" \
+    || die "Failed to configure MinIO client"
+
+  REMOVE_FLAG=""
+  [[ "${MODS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+
+  log INFO "Syncing mods from s3://${MODS_S3_BUCKET}/${MODS_S3_PREFIX}"
+
+  mc mirror \
+    --overwrite \
+    ${REMOVE_FLAG} \
+    "mods3/${MODS_S3_BUCKET}/${MODS_S3_PREFIX}" \
+    "${MODS_DIR}" \
+    || die "Failed to sync mods from MinIO"
+
+  log INFO "Mods installed successfully"
+}
+
+
 install() {
   log INFO "Install phase start"
   install_dirs
   install_eula
   install_server
   install_jvm_args
+  install_server_properties
+  install_mods
   log INFO "Install phase completed (partial)"
 }
 

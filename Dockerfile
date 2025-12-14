@@ -13,6 +13,13 @@ RUN apt-get update && apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 
 # ----------------------------
+# MinIO client (mc)
+# ----------------------------
+RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
+    -o /usr/local/bin/mc \
+ && chmod +x /usr/local/bin/mc
+
+# ----------------------------
 # Non-root user
 # ----------------------------
 RUN groupadd -g 1000 mc \
@@ -21,8 +28,8 @@ RUN groupadd -g 1000 mc \
 # ----------------------------
 # Runtime directories
 # ----------------------------
-RUN mkdir -p /data \
- && chown -R 1000:1000 /data
+RUN mkdir -p /data /mods-drop \
+ && chown -R 1000:1000 /data /mods-drop
 
 # ----------------------------
 # Entrypoint
