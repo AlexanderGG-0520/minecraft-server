@@ -11,7 +11,7 @@ jobs:
 
     strategy:
         matrix:
-            type: [auto, vanilla, fabric]
+            type: [auto, vanilla, fabric, forge, neoforge]
 
     steps:
         -   name: Checkout

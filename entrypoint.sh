@@ -81,19 +81,129 @@ install_server() {
       fi
 
       log INFO "Downloading vanilla server ${VERSION}"
-
       meta_url="$(curl -fsSL https://launchermeta.mojang.com/mc/game/version_manifest.json \
         | jq -r '.versions[] | select(.id=="'"${VERSION}"'") | .url')"
       [[ -n "${meta_url}" && "${meta_url}" != "null" ]] || die "Invalid VERSION: ${VERSION}"
 
       sha1="$(curl -fsSL "${meta_url}" | jq -r '.downloads.server.sha1')"
-      [[ -n "${sha1}" && "${sha1}" != "null" ]] || die "Failed to resolve server sha1"
-
       curl -fL "https://piston-data.mojang.com/v1/objects/${sha1}/server.jar" \
         -o /data/server.jar \
         || die "Failed to download vanilla server.jar"
+      ;;
 
-      log INFO "Vanilla server.jar downloaded"
+    fabric)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for fabric"
+
+      if [[ -f /data/server.jar ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      INSTALLER_VERSION="${FABRIC_INSTALLER_VERSION:-latest}"
+      LOADER_VERSION="${FABRIC_LOADER_VERSION:-latest}"
+
+      log INFO "Installing Fabric server (MC=${VERSION}, loader=${LOADER_VERSION})"
+
+      curl -fsSL \
+        "https://meta.fabricmc.net/v2/versions/installer" \
+        | jq -r '.[0].version' \
+        > /tmp/fabric_installer_version
+
+      INSTALLER_VER="$(cat /tmp/fabric_installer_version)"
+
+      curl -fL \
+        "https://meta.fabricmc.net/v2/versions/installer/${INSTALLER_VER}/${INSTALLER_VER}.jar" \
+        -o /tmp/fabric-installer.jar \
+        || die "Failed to download Fabric installer"
+
+      java -jar /tmp/fabric-installer.jar \
+        server \
+        -mcversion "${VERSION}" \
+        -loader "${LOADER_VERSION}" \
+        -downloadMinecraft \
+        -dir /data \
+        || die "Fabric installer failed"
+
+      # Fabric installer generates fabric-server-launch.jar
+      mv /data/fabric-server-launch.jar /data/server.jar \
+        || die "Fabric server jar not found"
+
+      log INFO "Fabric server.jar ready"
+      ;;
+
+    forge)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
+
+      if [[ -f /data/server.jar ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      FORGE_VER="${FORGE_VERSION:-latest}"
+      log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
+
+      # Forge version metadata
+      FORGE_META_URL="https://files.minecraftforge.net/net/minecraftforge/forge/index_${VERSION}.html"
+      FORGE_VER="$(curl -fsSL ${FORGE_META_URL} \
+        | grep -oP 'forge-\K[0-9\.]+' \
+        | head -n 1)"
+
+      [[ -n "${FORGE_VER}" ]] || die "Failed to resolve Forge version"
+
+      INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
+
+      curl -fL \
+        "https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}" \
+        -o "/tmp/${INSTALLER}" \
+        || die "Failed to download Forge installer"
+
+      java -jar "/tmp/${INSTALLER}" \
+        --installServer \
+        /data \
+        || die "Forge installer failed"
+
+      # Forge generates run.sh + libraries + jar
+      FORGE_JAR="$(ls /data | grep 'forge-.*-server.jar' | head -n 1)"
+      [[ -f "/data/${FORGE_JAR}" ]] || die "Forge server jar not found"
+
+      ln -sf "/data/${FORGE_JAR}" /data/server.jar
+      log INFO "Forge server.jar ready"
+      ;;
+
+    neoforge)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for neoforge"
+
+      if [[ -f /data/server.jar ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      NEO_VER="${NEOFORGE_VERSION:-latest}"
+      log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
+
+      # NeoForge metadata API
+      META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
+      NEO_VER="$(curl -fsSL ${META_URL} | jq -r '.[0].version')"
+
+      [[ -n "${NEO_VER}" ]] || die "Failed to resolve NeoForge version"
+
+      INSTALLER="neoforge-${NEO_VER}-installer.jar"
+
+      curl -fL \
+        "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/${INSTALLER}" \
+        -o "/tmp/${INSTALLER}" \
+        || die "Failed to download NeoForge installer"
+
+      java -jar "/tmp/${INSTALLER}" \
+        --installServer \
+        /data \
+        || die "NeoForge installer failed"
+
+      NEO_JAR="$(ls /data | grep 'neoforge-.*-server.jar' | head -n 1)"
+      [[ -f "/data/${NEO_JAR}" ]] || die "NeoForge server jar not found"
+
+      ln -sf "/data/${NEO_JAR}" /data/server.jar
+      log INFO "NeoForge server.jar ready"
       ;;
 
     *)
@@ -101,6 +211,7 @@ install_server() {
       ;;
   esac
 }
+
 
 install_jvm_args() {
   log INFO "Generating JVM args"
