@@ -1025,13 +1025,6 @@ opt_install_links() {
   [[ $found -eq 1 ]] && return 0 || return 1
 }
 
-fix_permissions() {
-  log INFO "Fixing ownership under ${DATA_DIR}"
-
-  chown -R 1000:1000 "${DATA_DIR}" || die "Failed to fix permissions"
-}
-
-
 install() {
   log INFO "Install phase start"
   install_dirs
@@ -1048,7 +1041,6 @@ install() {
   if [[ "${RESET_WORLD:-false}" == "true" ]]; then
     reset_world
   fi
-  fix_permissions
   log INFO "Install phase completed (partial)"
 }
 
