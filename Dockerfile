@@ -64,7 +64,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash ca-certificates curl tini procps \
-    pciutils ocl-icd-libopencl1 clinfo  nvidia-opencl-icd \
+    pciutils ocl-icd-libopencl1 clinfo \
  && rm -rf /var/lib/apt/lists/*
 
 # --- MinIO client (mc) ---
