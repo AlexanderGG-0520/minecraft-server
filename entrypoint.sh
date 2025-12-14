@@ -222,20 +222,29 @@ install_server() {
         return
       fi
 
-      INSTALLER_VERSION="${FABRIC_INSTALLER_VERSION:-latest}"
+      # ---- resolve loader ----
       LOADER_VERSION="${FABRIC_LOADER_VERSION:-latest}"
+      if [[ "${LOADER_VERSION}" == "latest" ]]; then
+        LOADER_VERSION="$(curl -fsSL \
+          "https://meta.fabricmc.net/v2/versions/loader/${VERSION}" \
+          | jq -r '.[0].loader.version')" \
+          || die "Failed to resolve Fabric loader version"
+      fi
 
-      log INFO "Installing Fabric server (MC=${VERSION}, loader=${LOADER_VERSION})"
+      # ---- resolve installer (from Maven) ----
+      INSTALLER_VERSION="${FABRIC_INSTALLER_VERSION:-latest}"
+      if [[ "${INSTALLER_VERSION}" == "latest" ]]; then
+        INSTALLER_VERSION="$(curl -fsSL \
+          "https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml" \
+          | tr -d '\r' \
+          | grep -oPm1 '(?<=<latest>)[^<]+')" \
+          || die "Failed to resolve Fabric installer version"
+      fi
 
-      curl -fsSL \
-        "https://meta.fabricmc.net/v2/versions/installer" \
-        | jq -r '.[0].version' \
-        > /tmp/fabric_installer_version
-
-      INSTALLER_VER="$(cat /tmp/fabric_installer_version)"
+      log INFO "Installing Fabric server (MC=${VERSION}, loader=${LOADER_VERSION}, installer=${INSTALLER_VERSION})"
 
       curl -fL \
-        "https://meta.fabricmc.net/v2/versions/installer/${INSTALLER_VER}/${INSTALLER_VER}.jar" \
+        "https://maven.fabricmc.net/net/fabricmc/fabric-installer/${INSTALLER_VERSION}/fabric-installer-${INSTALLER_VERSION}.jar" \
         -o /tmp/fabric-installer.jar \
         || die "Failed to download Fabric installer"
 
@@ -244,15 +253,15 @@ install_server() {
         -mcversion "${VERSION}" \
         -loader "${LOADER_VERSION}" \
         -downloadMinecraft \
-        -dir ${DATA_DIR} \
+        -dir "${DATA_DIR}" \
         || die "Fabric installer failed"
 
-      # Fabric installer generates fabric-server-launch.jar
-      mv ${DATA_DIR}/fabric-server-launch.jar ${DATA_DIR}/server.jar \
+      mv "${DATA_DIR}/fabric-server-launch.jar" "${DATA_DIR}/server.jar" \
         || die "Fabric server jar not found"
 
       log INFO "Fabric server.jar ready"
       ;;
+
 
     forge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
