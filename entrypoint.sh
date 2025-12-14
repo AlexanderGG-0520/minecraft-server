@@ -267,8 +267,8 @@ install_server() {
         || die "Fabric installer failed"
 
       mv "${DATA_DIR}/fabric-server-launch.jar" "${DATA_DIR}/server.jar" \
-      chown 1000:1000 "${DATA_DIR}/server.jar"
         || die "Fabric server jar not found"
+      chown 1000:1000 "${DATA_DIR}/server.jar"
 
       log INFO "Fabric server.jar ready"
       ;;
