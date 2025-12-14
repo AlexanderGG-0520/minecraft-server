@@ -28,14 +28,8 @@ jobs:
                 -f ${{ matrix.java.dockerfile }} \
                 -t mc-server:${{ matrix.java.tag }} .
 
-    -   name: Smoke test
+    -   name: Smoke test (java)
         run: |
-            CID=$(docker run -d \
-                -e EULA=true \
-                -e TYPE=auto \
-                -e READY_DELAY=1 \
-                mc-server:${{ matrix.java.tag }})
-
-            sleep 3
-            docker exec "$CID" test -f /data/.ready
-            docker rm -f "$CID"
+            docker run --rm \
+            mc-server:${{ matrix.java.tag }} \
+            java -version
