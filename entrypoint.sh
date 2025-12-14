@@ -1040,25 +1040,55 @@ opt_install_links() {
   [[ $found -eq 1 ]] && return 0 || return 1
 }
 
-detect_gpu() {
+detect_opencl_gpu() {
   log INFO "Detecting OpenCL GPU availability..."
 
-  # NVIDIA device exposed?
-  if [ -e /dev/nvidia0 ] || [ -e /dev/nvidiactl ]; then
-    log INFO "NVIDIA device node found"
-  else
-    log WARN "No NVIDIA device node"
+  # ----------------------------------------
+  # 1. NVIDIA device node
+  # ----------------------------------------
+  if [ ! -e /dev/nvidia0 ]; then
+    log INFO "NVIDIA device node not found"
+    return 1
+  fi
+  log INFO "NVIDIA device node found"
+
+  # ----------------------------------------
+  # 2. OpenCL loader (libOpenCL.so.1)
+  # ----------------------------------------
+  if ! ldconfig -p | grep -q libOpenCL.so.1; then
+    log WARN "OpenCL loader (libOpenCL.so.1) not found"
+    return 1
+  fi
+  log INFO "OpenCL loader present"
+
+  # ----------------------------------------
+  # 3. clinfo existence
+  # ----------------------------------------
+  if ! command -v clinfo >/dev/null 2>&1; then
+    log WARN "clinfo not available"
     return 1
   fi
 
-  # OpenCL loader present?
-  if ldconfig -p 2>/dev/null | grep -q libOpenCL.so; then
-    log INFO "OpenCL loader present"
-    return 0
+  # ----------------------------------------
+  # 4. clinfo sanity check (GPU visible)
+  # ----------------------------------------
+  if ! clinfo 2>/dev/null | grep -q "Device Type.*GPU"; then
+    log WARN "clinfo did not report a GPU device"
+    return 1
+  fi
+  log INFO "OpenCL GPU reported by clinfo"
+
+  # ----------------------------------------
+  # 5. HARD FAIL GUARD
+  #    Try to create OpenCL context indirectly
+  # ----------------------------------------
+  if clinfo 2>&1 | grep -q "OpenCL error"; then
+    log WARN "OpenCL context creation failed (clinfo error)"
+    return 1
   fi
 
-  log WARN "OpenCL loader missing"
-  return 1
+  log INFO "OpenCL GPU is usable"
+  return 0
 }
 
 configure_c2me_opencl() {
@@ -1093,7 +1123,7 @@ install() {
   if [[ "${RESET_WORLD:-false}" == "true" ]]; then
     reset_world
   fi
-  detect_gpu
+  detect_opencl_gpu
   configure_c2me_opencl
   log INFO "Install phase completed (partial)"
 }

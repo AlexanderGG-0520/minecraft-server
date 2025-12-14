@@ -17,17 +17,29 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                -   tag: jre8
-                    dockerfile: Dockerfile.jre8
-                -   tag: jre11
-                    dockerfile: Dockerfile.jre11
-                -   tag: jre17
-                    dockerfile: Dockerfile.jre17
-                -   tag: jre21
-                    dockerfile: Dockerfile.jre21
-                -   tag: jre25-experimental
-                    dockerfile: Dockerfile.jre25-experimental
+                -   java: 8
+                    tag: jre8
+                    opencl: false
 
+                -   java: 11
+                    tag: jre11
+                    opencl: false
+
+                -   java: 17
+                    tag: jre17
+                    opencl: false
+
+                -   java: 21
+                    tag: jre21
+                    opencl: false
+
+                -   java: 25
+                    tag: jre25
+                    opencl: false
+
+                -   java: 25
+                    tag: jre25-gpu
+                    opencl: true
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
@@ -51,12 +63,14 @@ jobs:
             # -----------------------------------
             # Build & Push
             # -----------------------------------
-            -   name: Build & Push (${{ matrix.tag }})
-                uses: docker/build-push-action@v5
+            -   name: Build and push image
+                uses: docker/build-push-action@v6
                 with:
                     context: .
-                    file: ${{ matrix.dockerfile }}
+                    file: ./Dockerfile
                     push: true
                     tags: |
                         ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.tag }}
-                    platforms: linux/amd64
+                        build-args: |
+                        JAVA_VERSION=${{ matrix.java }}
+                        ENABLE_OPENCL=${{ matrix.opencl }}
