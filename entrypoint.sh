@@ -869,9 +869,11 @@ apply_server_properties_diff() {
   cp "${PROPS_FILE}" "${TMP_FILE}"
 
   for ENV_KEY in "${!PROP_MAP[@]}"; do
-    ENV_VAL="${!ENV_KEY:-}"
-    [[ -z "${ENV_VAL}" ]] && continue
+    if [[ -z "${!ENV_KEY+x}" ]]; then
+      continue
+    fi
 
+    ENV_VAL="${!ENV_KEY}"
     PROP_KEY="${PROP_MAP[$ENV_KEY]}"
 
     if grep -q "^${PROP_KEY}=" "${TMP_FILE}"; then
@@ -880,6 +882,7 @@ apply_server_properties_diff() {
       echo "${PROP_KEY}=${ENV_VAL}" >> "${TMP_FILE}"
     fi
   done
+
 
   mv "${TMP_FILE}" "${PROPS_FILE}"
   log INFO "server.properties diff applied"
