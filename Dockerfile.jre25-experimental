@@ -1,44 +1,55 @@
 FROM nvidia/cuda:13.0.0-runtime-ubuntu22.04
 
-# ===== 基本環境 =====
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 
-# ===== 必須パッケージ =====
+# -----------------------------
+# Adoptium (Eclipse Temurin)
+# -----------------------------
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     wget \
-    tzdata \
+    gnupg \
+ && mkdir -p /etc/apt/keyrings \
+ && curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public \
+    | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg \
+ && echo "deb [signed-by=/etc/apt/keyrings/adoptium.gpg] \
+    https://packages.adoptium.net/artifactory/deb jammy main" \
+    > /etc/apt/sources.list.d/adoptium.list
+
+# -----------------------------
+# Runtime deps
+# -----------------------------
+RUN apt-get update && apt-get install -y \
     bash \
     tini \
+    tzdata \
     procps \
     jq \
     rsync \
     pciutils \
     \
-    # Java
-    openjdk-25-jre-headless \
+    # Java (安定)
+    temurin-21-jre \
     \
-    # OpenCL (重要)
+    # OpenCL (ICD only)
     ocl-icd-libopencl1 \
     clinfo \
-    libnvidia-opencl-550 \
-    libnvidia-compute-550 \
-    \
  && rm -rf /var/lib/apt/lists/*
 
-# ===== 作業ディレクトリ =====
-WORKDIR /data
-
-# ===== ユーザー =====
+# -----------------------------
+# Runtime user
+# -----------------------------
 RUN groupadd -g 1000 minecraft \
  && useradd -u 1000 -g 1000 -m minecraft
 
-# ===== entrypoint =====
+WORKDIR /data
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# tini 経由で起動（SIGTERM安全）
+USER minecraft
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/entrypoint.sh"]
