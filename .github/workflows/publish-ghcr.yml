@@ -19,27 +19,27 @@ jobs:
                 include:
                 -   java: 8
                     tag: jre8
-                    opencl: false
+                    base-flavor: cpu
 
                 -   java: 11
                     tag: jre11
-                    opencl: false
+                    base-flavor: cpu
 
                 -   java: 17
                     tag: jre17
-                    opencl: false
+                    base-flavor: cpu
 
                 -   java: 21
                     tag: jre21
-                    opencl: false
+                    base-flavor: cpu
 
                 -   java: 25
                     tag: jre25
-                    opencl: false
+                    base-flavor: cpu
 
                 -   java: 25
                     tag: jre25-gpu
-                    opencl: true
+                    base-flavor: gpu
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
