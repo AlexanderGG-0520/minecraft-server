@@ -1040,54 +1040,59 @@ opt_install_links() {
   [[ $found -eq 1 ]] && return 0 || return 1
 }
 
-detect_opencl_gpu() {
+detect_gpu() {
   log INFO "Detecting OpenCL GPU availability..."
 
-  # ----------------------------------------
+  # ------------------------------------------------------------
   # 1. NVIDIA device node
-  # ----------------------------------------
+  # ------------------------------------------------------------
   if [ ! -e /dev/nvidia0 ]; then
-    log INFO "NVIDIA device node not found"
+    log INFO "No NVIDIA device node found"
     return 1
   fi
   log INFO "NVIDIA device node found"
 
-  # ----------------------------------------
-  # 2. OpenCL loader (libOpenCL.so.1)
-  # ----------------------------------------
-  if ! ldconfig -p | grep -q libOpenCL.so.1; then
-    log WARN "OpenCL loader (libOpenCL.so.1) not found"
+  # ------------------------------------------------------------
+  # 2. OpenCL loader
+  # ------------------------------------------------------------
+  if ! ldconfig -p 2>/dev/null | grep -q "libOpenCL.so"; then
+    log WARN "OpenCL loader (libOpenCL.so) not found"
     return 1
   fi
   log INFO "OpenCL loader present"
 
-  # ----------------------------------------
+  # ------------------------------------------------------------
   # 3. clinfo existence
-  # ----------------------------------------
+  # ------------------------------------------------------------
   if ! command -v clinfo >/dev/null 2>&1; then
     log WARN "clinfo not available"
     return 1
   fi
 
-  # ----------------------------------------
-  # 4. clinfo sanity check (GPU visible)
-  # ----------------------------------------
+  # ------------------------------------------------------------
+  # 4. clinfo sanity check
+  #   - platform must exist
+  #   - device type must be GPU
+  # ------------------------------------------------------------
+  if ! clinfo 2>/dev/null | grep -q "Platform Name"; then
+    log WARN "clinfo did not report any OpenCL platform"
+    return 1
+  fi
+
   if ! clinfo 2>/dev/null | grep -q "Device Type.*GPU"; then
     log WARN "clinfo did not report a GPU device"
     return 1
   fi
-  log INFO "OpenCL GPU reported by clinfo"
 
-  # ----------------------------------------
-  # 5. HARD FAIL GUARD
-  #    Try to create OpenCL context indirectly
-  # ----------------------------------------
-  if clinfo 2>&1 | grep -q "OpenCL error"; then
-    log WARN "OpenCL context creation failed (clinfo error)"
+  # ------------------------------------------------------------
+  # 5. NVIDIA OpenCL platform guard
+  # ------------------------------------------------------------
+  if ! clinfo 2>/dev/null | grep -qi "NVIDIA"; then
+    log WARN "OpenCL platform is not NVIDIA"
     return 1
   fi
 
-  log INFO "OpenCL GPU is usable"
+  log INFO "OpenCL GPU detected and usable"
   return 0
 }
 
