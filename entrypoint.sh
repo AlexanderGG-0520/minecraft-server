@@ -115,11 +115,26 @@ runtime() {
 
   [[ -f /data/server.jar ]] || die "server.jar not found"
 
-  log INFO "Launching Java process"
-  exec java \
-    -Xms512M -Xmx512M \
-    -jar /data/server.jar nogui
+  # 起動直前は ready を消す（再起動安全）
+  rm -f /data/.ready
+
+  # Java をバックグラウンドで起動
+  java -Xms512M -Xmx512M -jar /data/server.jar nogui &
+  MC_PID=$!
+
+  # JVMが生きていることを軽く確認（数秒）
+  sleep 5
+  if kill -0 "${MC_PID}" 2>/dev/null; then
+    touch /data/.ready
+    log INFO "Server marked as ready"
+  else
+    die "Minecraft process exited early"
+  fi
+
+  # PID1 は wait でJVMに追従
+  wait "${MC_PID}"
 }
+
 
 
 main() {
