@@ -1047,18 +1047,20 @@ install() {
 runtime() {
   log INFO "Starting Minecraft runtime"
 
-  [[ -f ${DATA_DIR}/server.jar ]] || die "server.jar not found"
-  [[ -f ${DATA_DIR}/jvm.args ]]  || die "jvm.args not found"
+  [[ -f "${DATA_DIR}/server.jar" ]] || die "server.jar not found"
+  [[ -f "${DATA_DIR}/jvm.args" ]]  || die "jvm.args not found"
 
-  rm -f ${DATA_DIR}/.ready
+  rm -f "${DATA_DIR}/.ready"
 
-  java @"${JVM_ARGS_FILE:-${DATA_DIR}/jvm.args}" -jar ${DATA_DIR}/server.jar nogui &
+  cd "${DATA_DIR}" || die "Failed to cd to ${DATA_DIR}"
+
+  java @"${DATA_DIR}/jvm.args" -jar "${DATA_DIR}/server.jar" nogui &
   MC_PID=$!
 
   sleep "${READY_DELAY:-5}"
 
   if kill -0 "${MC_PID}" 2>/dev/null; then
-    touch ${DATA_DIR}/.ready
+    touch "${DATA_DIR}/.ready"
     log INFO "Server marked as ready"
   else
     die "Minecraft process exited early"
@@ -1066,6 +1068,7 @@ runtime() {
 
   wait "${MC_PID}"
 }
+
 
 main() {
   log INFO "Minecraft Runtime Booting..."
