@@ -6,6 +6,8 @@ set -Eeuo pipefail
 # ============================================================
 
 : "${DATA_DIR:=/data}"
+: "${JVM_ARGS_FILE:=${DATA_DIR}/jvm.args}"
+
 
 
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
@@ -86,9 +88,9 @@ trap graceful_shutdown SIGTERM SIGINT
 preflight() {
   log INFO "Preflight checks..."
 
-  [[ -d /data ]] || die "/data does not exist"
-  touch /data/.write_test 2>/dev/null || die "/data is not writable"
-  rm -f /data/.write_test
+  [[ -d "${DATA_DIR}" ]] || die "${DATA_DIR} does not exist"
+  touch ${DATA_DIR}/.write_test 2>/dev/null || die "${DATA_DIR} is not writable"
+  rm -f ${DATA_DIR}/.write_test
 
   [[ -n "${EULA:-}" ]] || die "EULA is not set"
 
@@ -101,7 +103,7 @@ preflight() {
     die "VERSION must be set when TYPE is not auto"
   fi
 
-  rm -f /data/.ready
+  rm -f ${DATA_DIR}/.ready
   log INFO "Preflight OK"
 }
 
@@ -211,14 +213,14 @@ install_dirs() {
   log INFO "Preparing directory structure"
 
   mkdir -p \
-    /data/logs \
-    /data/mods \
-    /data/config \
-    /data/world
+    ${DATA_DIR}/logs \
+    ${DATA_DIR}/mods \
+    ${DATA_DIR}/config \
+    ${DATA_DIR}/world
 
   # 権限トラブルの早期発見（非root想定なら特に重要）
-  touch /data/logs/.perm_test 2>/dev/null || die "/data/logs is not writable"
-  rm -f /data/logs/.perm_test
+  touch ${DATA_DIR}/logs/.perm_test 2>/dev/null || die "${DATA_DIR}/logs is not writable"
+  rm -f ${DATA_DIR}/logs/.perm_test
 
   log INFO "Directory structure ready"
 }
@@ -228,7 +230,7 @@ install_eula() {
 
   case "${EULA}" in
     true)
-      echo "eula=true" > /data/eula.txt
+      echo "eula=true" > ${DATA_DIR}/eula.txt
       log INFO "EULA accepted"
       ;;
     false)
@@ -244,9 +246,9 @@ install_server() {
 
   case "${TYPE}" in
     auto)
-      if [[ ! -f /data/server.jar ]]; then
+      if [[ ! -f ${DATA_DIR}/server.jar ]]; then
         log INFO "Creating dummy server.jar (auto mode)"
-        echo "dummy server jar" > /data/server.jar
+        echo "dummy server jar" > ${DATA_DIR}/server.jar
       else
         log INFO "server.jar already exists, skipping"
       fi
@@ -255,7 +257,7 @@ install_server() {
     vanilla)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for vanilla"
 
-      if [[ -f /data/server.jar ]]; then
+      if [[ -f ${DATA_DIR}/server.jar ]]; then
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -267,14 +269,14 @@ install_server() {
 
       sha1="$(curl -fsSL "${meta_url}" | jq -r '.downloads.server.sha1')"
       curl -fL "https://piston-data.mojang.com/v1/objects/${sha1}/server.jar" \
-        -o /data/server.jar \
+        -o ${DATA_DIR}/server.jar \
         || die "Failed to download vanilla server.jar"
       ;;
 
     fabric)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for fabric"
 
-      if [[ -f /data/server.jar ]]; then
+      if [[ -f ${DATA_DIR}/server.jar ]]; then
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -301,11 +303,11 @@ install_server() {
         -mcversion "${VERSION}" \
         -loader "${LOADER_VERSION}" \
         -downloadMinecraft \
-        -dir /data \
+        -dir ${DATA_DIR} \
         || die "Fabric installer failed"
 
       # Fabric installer generates fabric-server-launch.jar
-      mv /data/fabric-server-launch.jar /data/server.jar \
+      mv ${DATA_DIR}/fabric-server-launch.jar ${DATA_DIR}/server.jar \
         || die "Fabric server jar not found"
 
       log INFO "Fabric server.jar ready"
@@ -314,7 +316,7 @@ install_server() {
     forge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
 
-      if [[ -f /data/server.jar ]]; then
+      if [[ -f ${DATA_DIR}/server.jar ]]; then
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -339,21 +341,21 @@ install_server() {
 
       java -jar "/tmp/${INSTALLER}" \
         --installServer \
-        /data \
+        ${DATA_DIR} \
         || die "Forge installer failed"
 
       # Forge generates run.sh + libraries + jar
-      FORGE_JAR="$(ls /data | grep 'forge-.*-server.jar' | head -n 1)"
-      [[ -f "/data/${FORGE_JAR}" ]] || die "Forge server jar not found"
+      FORGE_JAR="$(ls ${DATA_DIR} | grep 'forge-.*-server.jar' | head -n 1)"
+      [[ -f "${DATA_DIR}/${FORGE_JAR}" ]] || die "Forge server jar not found"
 
-      ln -sf "/data/${FORGE_JAR}" /data/server.jar
+      ln -sf "${DATA_DIR}/${FORGE_JAR}" ${DATA_DIR}/server.jar
       log INFO "Forge server.jar ready"
       ;;
 
     neoforge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for neoforge"
 
-      if [[ -f /data/server.jar ]]; then
+      if [[ -f ${DATA_DIR}/server.jar ]]; then
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -376,20 +378,20 @@ install_server() {
 
       java -jar "/tmp/${INSTALLER}" \
         --installServer \
-        /data \
+        ${DATA_DIR} \
         || die "NeoForge installer failed"
 
-      NEO_JAR="$(ls /data | grep 'neoforge-.*-server.jar' | head -n 1)"
-      [[ -f "/data/${NEO_JAR}" ]] || die "NeoForge server jar not found"
+      NEO_JAR="$(ls ${DATA_DIR} | grep 'neoforge-.*-server.jar' | head -n 1)"
+      [[ -f "${DATA_DIR}/${NEO_JAR}" ]] || die "NeoForge server jar not found"
 
-      ln -sf "/data/${NEO_JAR}" /data/server.jar
+      ln -sf "${DATA_DIR}/${NEO_JAR}" ${DATA_DIR}/server.jar
       log INFO "NeoForge server.jar ready"
       ;;
 
     paper)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for paper"
 
-      if [[ -f /data/server.jar ]]; then
+      if [[ -f ${DATA_DIR}/server.jar ]]; then
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -408,7 +410,7 @@ install_server() {
 
       curl -fL \
         "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/${JAR_NAME}" \
-        -o /data/server.jar \
+        -o ${DATA_DIR}/server.jar \
         || die "Failed to download Paper server.jar"
 
       log INFO "Paper server.jar ready"
@@ -417,7 +419,7 @@ install_server() {
     purpur)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for purpur"
 
-      if [[ -f /data/server.jar ]]; then
+      if [[ -f ${DATA_DIR}/server.jar ]]; then
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -436,7 +438,7 @@ install_server() {
 
       curl -fL \
         "https://api.purpurmc.org/v2/purpur/${VERSION}/${BUILD}/download" \
-        -o /data/server.jar \
+        -o ${DATA_DIR}/server.jar \
         || die "Failed to download Purpur server.jar"
 
       log INFO "Purpur server.jar ready"
@@ -452,7 +454,7 @@ install_server() {
 install_jvm_args() {
   log INFO "Generating JVM args"
 
-  JVM_ARGS_FILE="/data/jvm.args"
+  JVM_ARGS_FILE="${DATA_DIR}/jvm.args"
 
   # 既にあれば尊重（ユーザー上書き可能）
   if [[ -f "${JVM_ARGS_FILE}" ]]; then
@@ -504,7 +506,7 @@ install_c2me_jvm_args() {
       echo "-Dc2me.experimental.hardwareAcceleration=true"
       echo "-Dc2me.experimental.opencl=true"
       echo "-Dc2me.experimental.unsafe=true"
-    } >> /data/jvm.args
+    } >> ${DATA_DIR}/jvm.args
   else
     log INFO "C2ME Hardware Acceleration disabled (guard conditions not met)"
   fi
@@ -556,7 +558,7 @@ declare -A PROP_MAP=(
 generate_server_properties() {
   log INFO "Generating server.properties"
 
-  PROPS_FILE="/data/server.properties"
+  PROPS_FILE="${DATA_DIR}/server.properties"
 
   # defaults（必要なものだけ）
   : "${MOTD:=Welcome to the server}"
@@ -613,8 +615,8 @@ generate_server_properties() {
 apply_server_properties_diff() {
   log INFO "Applying server.properties diff from environment"
 
-  PROPS_FILE="/data/server.properties"
-  TMP_FILE="/data/server.properties.tmp"
+  PROPS_FILE="${DATA_DIR}/server.properties"
+  TMP_FILE="${DATA_DIR}/server.properties.tmp"
 
   cp "${PROPS_FILE}" "${TMP_FILE}"
 
@@ -636,7 +638,7 @@ apply_server_properties_diff() {
 }
 
 install_server_properties() {
-  PROPS_FILE="/data/server.properties"
+  PROPS_FILE="${DATA_DIR}/server.properties"
 
   if [[ ! -f "${PROPS_FILE}" ]]; then
     generate_server_properties
@@ -672,7 +674,7 @@ install_mods() {
   : "${MODS_SYNC_ONCE:=true}"
   : "${MODS_REMOVE_EXTRA:=true}"
 
-  MODS_DIR="/data/mods"
+  MODS_DIR="${DATA_DIR}/mods"
   mkdir -p "${MODS_DIR}"
 
   # すでに mods が存在し、1回同期モードなら何もしない
@@ -720,7 +722,7 @@ install_configs() {
   : "${CONFIGS_SYNC_ONCE:=true}"
   : "${CONFIGS_REMOVE_EXTRA:=true}"
 
-  CONFIG_DIR="/data/config"
+  CONFIG_DIR="${DATA_DIR}/config"
   mkdir -p "${CONFIG_DIR}"
 
   # すでに config が存在し、1回同期モードなら何もしない
@@ -775,7 +777,7 @@ install_plugins() {
   : "${PLUGINS_SYNC_ONCE:=true}"
   : "${PLUGINS_REMOVE_EXTRA:=true}"
 
-  PLUGINS_DIR="/data/plugins"
+  PLUGINS_DIR="${DATA_DIR}/plugins"
   mkdir -p "${PLUGINS_DIR}"
 
   # 既に plugins があり、1回同期モードなら何もしない
@@ -824,7 +826,7 @@ install_datapacks() {
   : "${DATAPACKS_SYNC_ONCE:=true}"
   : "${DATAPACKS_REMOVE_EXTRA:=true}"
 
-  DATAPACKS_DIR="/data/world/datapacks"
+  DATAPACKS_DIR="${DATA_DIR}/world/datapacks"
   mkdir -p "${DATAPACKS_DIR}"
 
   # 既に datapacks があり、1回同期モードならスキップ
@@ -874,7 +876,7 @@ install_resourcepacks() {
   : "${RESOURCEPACKS_AUTO_APPLY:=true}"
   : "${RESOURCEPACK_REQUIRED:=false}"
 
-  RP_DIR="/data/resourcepacks"
+  RP_DIR="${DATA_DIR}/resourcepacks"
   mkdir -p "${RP_DIR}"
 
   # 既に存在し、1回同期ならスキップ
@@ -910,7 +912,7 @@ install_resourcepacks() {
       -e "s|^resource-pack=.*|resource-pack=${RESOURCEPACK_URL}|" \
       -e "s|^resource-pack-sha1=.*|resource-pack-sha1=${RESOURCEPACK_SHA1}|" \
       -e "s|^require-resource-pack=.*|require-resource-pack=${RESOURCEPACK_REQUIRED}|" \
-      /data/server.properties || true
+      ${DATA_DIR}/server.properties || true
   fi
 
   log INFO "Resourcepacks installed successfully"
@@ -924,7 +926,7 @@ reset_world() {
     die "RESET_WORLD_CONFIRM=yes is required to reset world"
   fi
 
-  WORLD_DIR="/data/world"
+  WORLD_DIR="${DATA_DIR}/world"
 
   # ---- Safety check 2: directory sanity ----
   if [[ ! -d "${WORLD_DIR}" ]]; then
@@ -932,23 +934,23 @@ reset_world() {
     return
   fi
 
-  if [[ "${WORLD_DIR}" == "/" || "${WORLD_DIR}" == "/data" ]]; then
+  if [[ "${WORLD_DIR}" == "/" || "${WORLD_DIR}" == "${DATA_DIR}" ]]; then
     die "Unsafe WORLD_DIR detected: ${WORLD_DIR}"
   fi
 
   log INFO "Resetting world at ${WORLD_DIR}"
 
   # ---- Step 1: mark NotReady ----
-  rm -f /data/.ready
+  rm -f ${DATA_DIR}/.ready
 
   # ---- Step 2: optional backup ----
   if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
     TS="$(date -u +'%Y%m%d-%H%M%S')"
-    BACKUP_DIR="/data/backups"
+    BACKUP_DIR="${DATA_DIR}/backups"
     mkdir -p "${BACKUP_DIR}"
 
     log INFO "Creating world backup"
-    tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C /data world \
+    tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C ${DATA_DIR} world \
       || die "World backup failed"
   fi
 
@@ -1144,18 +1146,18 @@ install() {
 runtime() {
   log INFO "Starting Minecraft runtime"
 
-  [[ -f /data/server.jar ]] || die "server.jar not found"
-  [[ -f /data/jvm.args ]]  || die "jvm.args not found"
+  [[ -f ${DATA_DIR}/server.jar ]] || die "server.jar not found"
+  [[ -f ${DATA_DIR}/jvm.args ]]  || die "jvm.args not found"
 
-  rm -f /data/.ready
+  rm -f ${DATA_DIR}/.ready
 
-  java @"${JVM_ARGS_FILE:-/data/jvm.args}" -jar /data/server.jar nogui &
+  java @"${JVM_ARGS_FILE:-${DATA_DIR}/jvm.args}" -jar ${DATA_DIR}/server.jar nogui &
   MC_PID=$!
 
   sleep "${READY_DELAY:-5}"
 
   if kill -0 "${MC_PID}" 2>/dev/null; then
-    touch /data/.ready
+    touch ${DATA_DIR}/.ready
     log INFO "Server marked as ready"
   else
     die "Minecraft process exited early"
