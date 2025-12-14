@@ -2,43 +2,106 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fabric-hardcore-smp-gpu
+  namespace: mc-server
 spec:
+  replicas: 1
+
+  # World data + GPU workloads should not be parallelized blindly
   strategy:
     type: Recreate
-  replicas: 1
+
   selector:
     matchLabels:
       app: fabric-hardcore-smp-gpu
+
   template:
     metadata:
       labels:
         app: fabric-hardcore-smp-gpu
+
     spec:
+      # --------------------------------------------------
+      # NVIDIA runtime (CRI-O / containerd / Docker)
+      # --------------------------------------------------
       runtimeClassName: nvidia
+
+      # --------------------------------------------------
+      # Security context
+      # --------------------------------------------------
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      # --------------------------------------------------
+      # GPU node selection
+      # --------------------------------------------------
       nodeSelector:
         nvidia.com/gpu.present: "true"
+
       containers:
         - name: minecraft
-          image: ghcr.io/alexandergg-0520/minecraft-server:jre25-experimental
+          image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre25-gpu
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 25565
+
+          # --------------------------------------------------
+          # Environment variables
+          # --------------------------------------------------
           env:
+            # --- Required ---
             - name: EULA
               value: "true"
+
             - name: TYPE
-              value: FABRIC
+              value: "fabric"
+
             - name: VERSION
-              value: "1.21.1"
+              value: "1.21.10"
+
             - name: HARDCORE
               value: "true"
 
-            # --- F-3: C2ME (ALL REQUIRED) ---
-            - name: ENABLE_C2ME
-              value: "true"
-            - name: ENABLE_C2ME_HARDWARE_ACCELERATION
-              value: "true"
-            - name: I_KNOW_C2ME_IS_EXPERIMENTAL
-              value: "true"
-              
-            # --- Mods ---
+            - name: SERVER_PORT
+              value: "25565"
+
+            - name: MAX_MEMORY
+              value: "15Gi"
+
+            - name: MOTD
+              value: "§a[Fabric Hardcore SMP] §cOne death. One chance."
+
+            # --------------------------------------------------
+            # JVM tuning
+            # --------------------------------------------------
+            - name: JVM_XMS
+              value: "8G"
+            - name: JVM_XMX
+              value: "8G"
+
+            # --------------------------------------------------
+            # S3 / MinIO (mods & configs)
+            # --------------------------------------------------
+            - name: S3_ENDPOINT
+              value: https://minio.example.com
+
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-minecraft-creds
+                  key: access-key
+
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-minecraft-creds
+                  key: secret-key
+
+            # --------------------------------------------------
+            # Mods
+            # --------------------------------------------------
             - name: MODS_ENABLED
               value: "true"
             - name: MODS_S3_BUCKET
@@ -47,42 +110,83 @@ spec:
               value: fabric/hardcore/mods
             - name: MODS_SYNC_ONCE
               value: "true"
+            - name: MODS_REMOVE_EXTRA
+              value: "false"
 
-            # --- Configs ---
+            # --------------------------------------------------
+            # Configs
+            # --------------------------------------------------
             - name: CONFIGS_ENABLED
               value: "true"
             - name: CONFIGS_S3_BUCKET
               value: minecraft-assets
             - name: CONFIGS_S3_PREFIX
               value: fabric/hardcore/config
+            - name: CONFIGS_SYNC_ONCE
+              value: "true"
 
-            # --- S3 Common ---
-            - name: S3_ENDPOINT
-              value: https://minio.example.com
-            - name: S3_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: minio
-                  key: accessKey
-            - name: S3_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: minio
-                  key: secretKey
+            # --------------------------------------------------
+            # Optimization mods (CPU-side)
+            # --------------------------------------------------
+            - name: OPTIMIZE_MODE
+              value: force
+            - name: OPTIMIZE_S3_BUCKET
+              value: minecraft-assets
+            - name: OPTIMIZE_S3_PREFIX
+              value: optimize/fabric
 
+            # --------------------------------------------------
+            # C2ME OpenCL (EXPERIMENTAL)
+            # --------------------------------------------------
+            - name: ENABLE_C2ME
+              value: "true"
+            - name: ENABLE_C2ME_HARDWARE_ACCELERATION
+              value: "true"
+            - name: I_KNOW_C2ME_IS_EXPERIMENTAL
+              value: "true"
 
+            # --------------------------------------------------
+            # NVIDIA / OpenCL runtime
+            # --------------------------------------------------
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "all"
+            - name: LD_LIBRARY_PATH
+              value: /usr/lib/x86_64-linux-gnu:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+
+          # --------------------------------------------------
+          # Volumes
+          # --------------------------------------------------
           volumeMounts:
             - name: data
               mountPath: /data
+
+            # Host OpenCL vendor ICDs (required for NVIDIA OpenCL)
+            - name: opencl-vendors
+              mountPath: /etc/OpenCL/vendors
+              readOnly: true
+
+          # --------------------------------------------------
+          # Resources
+          # --------------------------------------------------
           resources:
             requests:
-              memory: "8Gi"
               cpu: "4"
+              memory: "8Gi"
+              nvidia.com/gpu: "1"
             limits:
-              memory: "16Gi"
               cpu: "8"
-              nvidia.com/gpu: 1
+              memory: "16Gi"
+              nvidia.com/gpu: "1"
+
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: fabric-hardcore-smp-gpu-data
+
+        # Host-provided OpenCL ICDs
+        - name: opencl-vendors
+          hostPath:
+            path: /etc/OpenCL/vendors
+            type: Directory
