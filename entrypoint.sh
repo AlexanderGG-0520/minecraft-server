@@ -557,7 +557,7 @@ install_server_properties() {
 
 sync_from_s3_rsync() {
   local NAME="$1"
-  local S3_PREFIX="$2"
+  local MODS_S3_PREFIX="$2"
   local DEST_DIR="$3"
 
   local TMP_DIR="/tmp/sync-${NAME}"
@@ -568,7 +568,7 @@ sync_from_s3_rsync() {
 
   mc mirror \
     --overwrite \
-    "s3/${S3_BUCKET}/${S3_PREFIX}" \
+    "s3/${MODS_S3_BUCKET}/${MODS_S3_PREFIX}" \
     "${TMP_DIR}" \
     || die "Failed to mirror ${NAME} from S3"
 
@@ -592,8 +592,6 @@ install_mods() {
     log INFO "MODS_S3_BUCKET not set, skipping mods"
     return
   }
-
-  : "${MODS_S3_PREFIX:=fabric/hardcore/mods}"
 
   sync_from_s3_rsync \
     "mods" \
@@ -684,8 +682,6 @@ install_configs() {
     return
   }
 
-  : "${CONFIGS_S3_PREFIX:=fabric/hardcore/config}"
-
   sync_from_s3_rsync \
     "configs" \
     "${CONFIGS_S3_PREFIX}" \
@@ -705,8 +701,6 @@ install_plugins() {
     return
   }
 
-  : "${PLUGINS_S3_PREFIX:=paper/plugins}"
-
   sync_from_s3_rsync \
     "plugins" \
     "${PLUGINS_S3_PREFIX}" \
@@ -721,8 +715,6 @@ install_datapacks() {
     return
   }
 
-  : "${DATAPACKS_S3_PREFIX:=fabric/hardcore/datapacks}"
-
   sync_from_s3_rsync \
     "datapacks" \
     "${DATAPACKS_S3_PREFIX}" \
@@ -736,8 +728,6 @@ install_resourcepacks() {
     log INFO "RESOURCEPACKS_S3_BUCKET not set, skipping resourcepacks"
     return
   }
-
-  : "${RESOURCEPACKS_S3_PREFIX:=fabric/hardcore/resourcepacks}"
 
   sync_from_s3_rsync \
     "resourcepacks" \
