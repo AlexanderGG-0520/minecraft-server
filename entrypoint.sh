@@ -42,7 +42,13 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${MODS_ENABLED:=true}"
 : "${MODS_S3_PREFIX:=mods/latest}"
 : "${MODS_SYNC_ONCE:=true}"
-: "${MODS_REMOVE_EXTRA:=true}"
+: "${MODS_REMOVE_EXTRA:=true}
+
+# Plugins
+: "${PLUGINS_ENABLED:=true}"
+: "${PLUGINS_S3_PREFIX:=plugins/latest}"
+: "${PLUGINS_SYNC_ONCE:=true}"
+: "${PLUGINS_REMOVE_EXTRA:=true}"
 
 # Configs
 : "${CONFIGS_ENABLED:=true}"
@@ -487,7 +493,7 @@ install_mods() {
   mc mirror \
     --overwrite \
     ${REMOVE_FLAG} \
-    "mods3/${MODS_S3_BUCKET}/${MODS_S3_PREFIX}" \
+    "s3/${MODS_S3_BUCKET}/${MODS_S3_PREFIX}" \
     "${MODS_DIR}" \
     || die "Failed to sync mods from MinIO"
 
@@ -521,11 +527,12 @@ install_configs() {
   fi
 
   log INFO "Configuring MinIO client for configs"
-  mc alias set cfg3 \
-    "${CONFIGS_S3_ENDPOINT}" \
-    "${CONFIGS_S3_ACCESS_KEY}" \
-    "${CONFIGS_S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client (configs)"
+  mc alias set s3 \
+    "${S3_ENDPOINT}" \
+    "${S3_ACCESS_KEY}" \
+    "${S3_SECRET_KEY}" \
+    || die "Failed to configure MinIO client"
+
 
   REMOVE_FLAG=""
   [[ "${CONFIGS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
@@ -535,12 +542,69 @@ install_configs() {
   mc mirror \
     --overwrite \
     ${REMOVE_FLAG} \
-    "cfg3/${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}" \
+    "s3/${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}" \
     "${CONFIG_DIR}" \
+
     || die "Failed to sync configs from MinIO"
 
   log INFO "Configs installed successfully"
 }
+
+install_plugins() {
+  log INFO "Install plugins (Paper only)"
+
+  [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || {
+    log INFO "Plugins disabled"
+    return
+  }
+
+  # Paper 以外では無効
+  if [[ "${TYPE:-auto}" != "paper" ]]; then
+    log INFO "TYPE=${TYPE}, skipping plugins"
+    return
+  fi
+
+  [[ -n "${PLUGINS_S3_BUCKET:-}" ]] || {
+    log INFO "PLUGINS_S3_BUCKET not set, skipping plugins"
+    return
+  }
+
+  : "${PLUGINS_S3_PREFIX:=plugins/latest}"
+  : "${PLUGINS_SYNC_ONCE:=true}"
+  : "${PLUGINS_REMOVE_EXTRA:=true}"
+
+  PLUGINS_DIR="/data/plugins"
+  mkdir -p "${PLUGINS_DIR}"
+
+  # 既に plugins があり、1回同期モードなら何もしない
+  if [[ "${PLUGINS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${PLUGINS_DIR}")" ]]; then
+    log INFO "Plugins already present, skipping sync"
+    return
+  fi
+
+  log INFO "Configuring MinIO client for plugins"
+  mc alias set s3 \
+    "${S3_ENDPOINT}" \
+    "${S3_ACCESS_KEY}" \
+    "${S3_SECRET_KEY}" \
+    || die "Failed to configure MinIO client"
+
+
+  REMOVE_FLAG=""
+  [[ "${PLUGINS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+
+  log INFO "Syncing plugins from s3://${PLUGINS_S3_BUCKET}/${PLUGINS_S3_PREFIX}"
+
+mc mirror \
+  --overwrite \
+  ${REMOVE_FLAG} \
+  "s3/${PLUGINS_S3_BUCKET}/${PLUGINS_S3_PREFIX}" \
+  "${PLUGINS_DIR}" \
+    || die "Failed to sync plugins from MinIO"
+
+  log INFO "Plugins installed successfully"
+}
+
 
 install() {
   log INFO "Install phase start"
@@ -551,6 +615,7 @@ install() {
   install_server_properties
   install_mods
   install_configs
+  install_plugins
   log INFO "Install phase completed (partial)"
 }
 
