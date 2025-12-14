@@ -45,4 +45,4 @@ jobs:
         -   name: EULA false should fail
             run: |
                 kubectl delete pod mc-test --ignore-not-found
-                kubectl apply -f test/pod-eula-false.yaml
+                kubectl apply -f test/k8s/pod-eula-false.yaml
