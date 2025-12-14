@@ -659,6 +659,49 @@ install_datapacks() {
   log INFO "Datapacks installed successfully"
 }
 
+reset_world() {
+  log INFO "Requested world reset"
+
+  # ---- Safety check 1: explicit confirmation ----
+  if [[ "${RESET_WORLD_CONFIRM:-}" != "yes" ]]; then
+    die "RESET_WORLD_CONFIRM=yes is required to reset world"
+  fi
+
+  WORLD_DIR="/data/world"
+
+  # ---- Safety check 2: directory sanity ----
+  if [[ ! -d "${WORLD_DIR}" ]]; then
+    log INFO "World directory does not exist, nothing to reset"
+    return
+  fi
+
+  if [[ "${WORLD_DIR}" == "/" || "${WORLD_DIR}" == "/data" ]]; then
+    die "Unsafe WORLD_DIR detected: ${WORLD_DIR}"
+  fi
+
+  log INFO "Resetting world at ${WORLD_DIR}"
+
+  # ---- Step 1: mark NotReady ----
+  rm -f /data/.ready
+
+  # ---- Step 2: optional backup ----
+  if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
+    TS="$(date -u +'%Y%m%d-%H%M%S')"
+    BACKUP_DIR="/data/backups"
+    mkdir -p "${BACKUP_DIR}"
+
+    log INFO "Creating world backup"
+    tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C /data world \
+      || die "World backup failed"
+  fi
+
+  # ---- Step 3: delete world contents only ----
+  log INFO "Deleting world contents"
+  rm -rf "${WORLD_DIR:?}/"*
+
+  log INFO "World reset completed successfully"
+}
+
 install() {
   log INFO "Install phase start"
   install_dirs
@@ -670,6 +713,9 @@ install() {
   install_configs
   install_plugins
   install_datapacks
+  if [[ "${RESET_WORLD:-false}" == "true" ]]; then
+    reset_world
+  fi
   log INFO "Install phase completed (partial)"
 }
 
