@@ -410,68 +410,6 @@ install_server() {
   esac
 }
 
-
-install_jvm_args() {
-  log INFO "Generating JVM args"
-
-  JVM_ARGS_FILE="${DATA_DIR}/jvm.args"
-
-  # 既にあれば尊重（ユーザー上書き可能）
-  if [[ -f "${JVM_ARGS_FILE}" ]]; then
-    log INFO "jvm.args already exists, skipping generation"
-    return
-  fi
-
-  : "${JVM_XMS:=512M}"
-  : "${JVM_XMX:=512M}"
-  : "${JVM_GC:=G1}"
-  : "${JVM_EXTRA_ARGS:=}"
-
-  {
-    echo "-Xms${JVM_XMS}"
-    echo "-Xmx${JVM_XMX}"
-
-    case "${JVM_GC}" in
-      G1)
-        echo "-XX:+UseG1GC"
-        ;;
-      ZGC)
-        echo "-XX:+UseZGC"
-        ;;
-      *)
-        die "Invalid JVM_GC: ${JVM_GC}"
-        ;;
-    esac
-
-    if [[ "${JVM_USE_CONTAINER_SUPPORT:-true}" == "true" ]]; then
-      echo "-XX:+UseContainerSupport"
-    fi
-
-    if [[ -n "${JVM_EXTRA_ARGS}" ]]; then
-      echo "${JVM_EXTRA_ARGS}"
-    fi
-  } > "${JVM_ARGS_FILE}"
-
-  log INFO "jvm.args generated"
-}
-
-install_c2me_jvm_args() {
-  if should_enable_c2me; then
-    log WARN "C2ME Hardware Acceleration ENABLED (EXPERIMENTAL)"
-    log WARN "This may cause instability or data corruption"
-
-    {
-      echo ""
-      echo "# --- C2ME Hardware Acceleration (EXPERIMENTAL) ---"
-      echo "-Dc2me.experimental.hardwareAcceleration=true"
-      echo "-Dc2me.experimental.opencl=true"
-      echo "-Dc2me.experimental.unsafe=true"
-    } >> ${DATA_DIR}/jvm.args
-  else
-    log INFO "C2ME Hardware Acceleration disabled (guard conditions not met)"
-  fi
-}
-
 # ===========================================
 # server.properties env -> key mapping
 # ===========================================
@@ -663,6 +601,81 @@ install_mods() {
     || die "Failed to sync mods from MinIO"
 
   log INFO "Mods installed successfully"
+}
+
+detect_optimize_mod() {
+  local name="$1"
+  ls "${DATA_DIR}/mods"/"${name}"*.jar >/dev/null 2>&1
+}
+
+has_c2me_mod() {
+  detect_optimize_mod "c2me"
+}
+
+install_jvm_args() {
+  log INFO "Generating JVM args"
+
+  JVM_ARGS_FILE="${DATA_DIR}/jvm.args"
+
+  # 既にあれば尊重（ユーザー上書き可能）
+  if [[ -f "${JVM_ARGS_FILE}" ]]; then
+    log INFO "jvm.args already exists, skipping generation"
+    return
+  fi
+
+  : "${JVM_XMS:=512M}"
+  : "${JVM_XMX:=512M}"
+  : "${JVM_GC:=G1}"
+  : "${JVM_EXTRA_ARGS:=}"
+
+  {
+    echo "-Xms${JVM_XMS}"
+    echo "-Xmx${JVM_XMX}"
+
+    case "${JVM_GC}" in
+      G1)
+        echo "-XX:+UseG1GC"
+        ;;
+      ZGC)
+        echo "-XX:+UseZGC"
+        ;;
+      *)
+        die "Invalid JVM_GC: ${JVM_GC}"
+        ;;
+    esac
+
+    if [[ "${JVM_USE_CONTAINER_SUPPORT:-true}" == "true" ]]; then
+      echo "-XX:+UseContainerSupport"
+    fi
+
+    if [[ -n "${JVM_EXTRA_ARGS}" ]]; then
+      echo "${JVM_EXTRA_ARGS}"
+    fi
+  } > "${JVM_ARGS_FILE}"
+
+  log INFO "jvm.args generated"
+}
+
+install_c2me_jvm_args() {
+  if ! has_c2me_mod; then
+    log INFO "C2ME mod not found in mods/, skipping"
+    return 0
+  fi
+
+  if should_enable_c2me; then
+    log WARN "C2ME Hardware Acceleration ENABLED (EXPERIMENTAL)"
+    log WARN "This may cause instability or data corruption"
+
+    {
+      echo ""
+      echo "# --- C2ME Hardware Acceleration (EXPERIMENTAL) ---"
+      echo "-Dc2me.experimental.hardwareAcceleration=true"
+      echo "-Dc2me.experimental.opencl=true"
+      echo "-Dc2me.experimental.unsafe=true"
+    } >> /data/jvm.args
+  else
+    log INFO "C2ME mod present, but guard conditions not met"
+  fi
 }
 
 install_configs() {
@@ -921,19 +934,6 @@ reset_world() {
   log INFO "World reset completed successfully"
 }
 
-# ============================================================
-# Optimize Mods (F-1)
-# ============================================================
-
-: "${OPTIMIZE_MODE:=auto}"                 # auto|off|force
-: "${OPTIMIZE_S3_BUCKET:=}"                # required if optimize enabled
-: "${OPTIMIZE_S3_PREFIX:=optimization}"    # default prefix
-
-: "${OPTIMIZE_LITHIUM:=true}"
-: "${OPTIMIZE_FERRITECORE:=true}"
-: "${OPTIMIZE_MODERNFIX:=true}"
-: "${OPTIMIZE_STRICT:=false}"
-
 OPT_MANAGED_DIR="${DATA_DIR}/.managed/optimize-mods"
 OPT_LINK_PREFIX="zz-opt-"
 
@@ -1025,73 +1025,22 @@ opt_install_links() {
   [[ $found -eq 1 ]] && return 0 || return 1
 }
 
-install_optimize_mods() {
-  log INFO "Installing optimization mods..."
+fix_permissions() {
+  log INFO "Fixing ownership under ${DATA_DIR}"
 
-  if [[ "${OPTIMIZE_MODE}" == "off" ]]; then
-    log INFO "OPTIMIZE_MODE=off, skipping"
-    return 0
-  fi
-
-  local fam
-  fam="$(opt_type_family)"
-
-  if [[ "$fam" == "unknown" ]]; then
-    if [[ "${OPTIMIZE_MODE}" == "force" ]]; then
-      log WARN "Unknown TYPE='${TYPE:-}', but OPTIMIZE_MODE=force, continuing"
-    else
-      log INFO "TYPE='${TYPE:-}' not eligible for optimize mods, skipping"
-      return 0
-    fi
-  fi
-
-  # If nothing enabled for this family, skip
-  if [[ "$fam" != "unknown" ]] && ! opt_required_any_enabled "$fam"; then
-    log INFO "All optimize mods disabled by env for family=$fam, skipping"
-    return 0
-  fi
-
-  [[ -n "${OPTIMIZE_S3_BUCKET}" ]] || die "OPTIMIZE_S3_BUCKET is required when optimize mods enabled"
-
-  opt_mc_configure_alias
-
-  local cache_dir="${OPT_MANAGED_DIR}/${TYPE}"
-  local src="s3/${OPTIMIZE_S3_BUCKET}/${OPTIMIZE_S3_PREFIX}/${TYPE}"
-
-  log INFO "Sync optimize mods from: ${src} -> ${cache_dir}"
-  opt_mirror_from_s3 "$src" "$cache_dir" || {
-    if opt_bool "$OPTIMIZE_STRICT"; then
-      die "Failed to mirror optimize mods (strict mode)"
-    fi
-    log WARN "Failed to mirror optimize mods, continuing without them"
-    return 0
-  }
-
-  # Optional: basic filtering by family (soft)
-  # We *don't* delete jars from cache; we just link everything.
-  # If you want hard filtering later, do it in S3 layout, not here.
-
-  if opt_install_links "$cache_dir" "${DATA_DIR}/mods"; then
-    log INFO "Optimization mods linked into mods/ (prefix: ${OPT_LINK_PREFIX})"
-  else
-    if opt_bool "$OPTIMIZE_STRICT"; then
-      die "No optimization mod jars found after sync (strict mode)"
-    fi
-    log WARN "No optimize mod jars found in ${cache_dir}"
-  fi
-
-  return 0
+  chown -R 1000:1000 "${DATA_DIR}" || die "Failed to fix permissions"
 }
+
 
 install() {
   log INFO "Install phase start"
   install_dirs
   install_eula
   install_server
-  install_jvm_args
-  install_c2me_jvm_args
   install_server_properties
   install_mods
+  install_jvm_args
+  install_c2me_jvm_args
   install_configs
   install_plugins
   install_datapacks
@@ -1099,7 +1048,7 @@ install() {
   if [[ "${RESET_WORLD:-false}" == "true" ]]; then
     reset_world
   fi
-  install_optimize_mods
+  fix_permissions
   log INFO "Install phase completed (partial)"
 }
 
