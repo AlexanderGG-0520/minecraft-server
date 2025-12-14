@@ -67,9 +67,9 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 # --- your runtime files ---
 COPY --from=base / /
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
-CMD ["run"]
-
 # --- flags ---
 ENV RUNTIME_FLAVOR=gpu
 ENV ENABLE_C2ME_OPENCL=true
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
+CMD ["run"]
