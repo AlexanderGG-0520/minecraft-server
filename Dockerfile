@@ -6,6 +6,15 @@ FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
+# ============================================================
+# Stage 1: runtime base
+# ============================================================
+FROM ${BASE_IMAGE} AS runtime
+
+ARG JAVA_MAJOR=${JAVA_VERSION}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+
 # ------------------------------------------------------------
 # Base utilities + Adoptium key
 # ------------------------------------------------------------
