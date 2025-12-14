@@ -871,27 +871,25 @@ install_resourcepacks() {
   log INFO "Resourcepacks already present, skipping sync"
   return
   fi
-  if [[ "${RESOURCEPACKS_SYNC_ONCE}" == "true" ]] \
-    && [[ -n "$(ls -A "${RP_DIR}")" ]] \
-    log INFO "Configuring MinIO client for resourcepacks"
-    mc alias set s3 \
-      "${S3_ENDPOINT}" \
-      "${S3_ACCESS_KEY}" \
-      "${S3_SECRET_KEY}" \
-      || die "Failed to configure MinIO client"
 
-    REMOVE_FLAG=""
-    [[ "${RESOURCEPACKS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+  log INFO "Configuring MinIO client for resourcepacks"
+  mc alias set s3 \
+    "${S3_ENDPOINT}" \
+    "${S3_ACCESS_KEY}" \
+    "${S3_SECRET_KEY}" \
+    || die "Failed to configure MinIO client"
 
-    log INFO "Syncing resourcepacks from s3://${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}"
-    mc mirror \
-      --overwrite \
-      ${REMOVE_FLAG} \
-      "s3/${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}" \
-      "${RP_DIR}" \
-      || die "Failed to sync resourcepacks"
-  fi
+  REMOVE_FLAG=""
+  [[ "${RESOURCEPACKS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
 
+  log INFO "Syncing resourcepacks from s3://${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}"
+  mc mirror \
+    --overwrite \
+    ${REMOVE_FLAG} \
+    "s3/${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}" \
+    "${RP_DIR}" \
+    || die "Failed to sync resourcepacks"
+  
   # ---- server.properties 連動（任意） ----
   if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]]; then
     log INFO "Applying resource-pack settings to server.properties"
