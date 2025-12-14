@@ -54,6 +54,7 @@ jobs:
                     file: ./Dockerfile
                     target: ${{ matrix.target }}
                     push: true
+                    no-cache: true
                     tags: |
                         ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.target }}
                     platforms: linux/amd64
