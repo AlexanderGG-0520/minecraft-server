@@ -50,11 +50,24 @@ COPY --from=base / /
 # ============================================================
 # GPU runtime (ONLY jre25)
 # ============================================================
-FROM runtime-jre25 AS runtime-jre25-gpu
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime-jre25-gpu
 
+ENV DEBIAN_FRONTEND=noninteractive
+
+# --- base utils ---
 RUN apt-get update && apt-get install -y \
-    clinfo \
+    bash ca-certificates curl tini procps \
+    pciutils ocl-icd-libopencl1 clinfo \
  && rm -rf /var/lib/apt/lists/*
 
+# --- Java 25 ---
+COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# --- your runtime files ---
+COPY --from=base / /
+
+# --- flags ---
 ENV RUNTIME_FLAVOR=gpu
 ENV ENABLE_C2ME_OPENCL=true
