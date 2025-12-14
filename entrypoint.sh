@@ -111,10 +111,16 @@ install() {
 }
 
 runtime() {
-  log INFO "Runtime phase (stub)"
-  touch /data/.ready
-  sleep infinity
+  log INFO "Starting Minecraft runtime"
+
+  [[ -f /data/server.jar ]] || die "server.jar not found"
+
+  log INFO "Launching Java process"
+  exec java \
+    -Xms512M -Xmx512M \
+    -jar /data/server.jar nogui
 }
+
 
 main() {
   log INFO "Minecraft Runtime Booting..."
