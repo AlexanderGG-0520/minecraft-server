@@ -266,10 +266,6 @@ install_server() {
         -dir "${DATA_DIR}" \
         || die "Fabric installer failed"
 
-      mv "${DATA_DIR}/fabric-server-launch.jar" "${DATA_DIR}/server.jar" \
-        || die "Fabric server jar not found"
-      chown 1000:1000 "${DATA_DIR}/server.jar"
-
       log INFO "Fabric server.jar ready"
       ;;
 
@@ -1055,7 +1051,11 @@ runtime() {
 
   cd "${DATA_DIR}" || die "Failed to cd to ${DATA_DIR}"
 
-  java @"${DATA_DIR}/jvm.args" -jar "${DATA_DIR}/server.jar" nogui &
+  if [[ "${TYPE}" == "fabric" ]]; then
+    java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/fabric-server-launch.jar" nogui &
+  else
+    java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/server.jar" nogui &
+  fi
   MC_PID=$!
 
   sleep "${READY_DELAY:-5}"
