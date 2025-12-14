@@ -71,6 +71,6 @@ jobs:
                     push: true
                     tags: |
                         ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.tag }}
-                        build-args: |
+                    build-args: |
                         JAVA_VERSION=${{ matrix.java }}
                         ENABLE_OPENCL=${{ matrix.opencl }}
