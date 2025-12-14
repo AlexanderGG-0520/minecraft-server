@@ -56,6 +56,12 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${CONFIGS_SYNC_ONCE:=true}"
 : "${CONFIGS_REMOVE_EXTRA:=true}"
 
+# Datapacks
+: "${DATAPACKS_ENABLED:=true}"
+: "${DATAPACKS_S3_PREFIX:=datapacks/latest}"
+: "${DATAPACKS_SYNC_ONCE:=true}"
+: "${DATAPACKS_REMOVE_EXTRA:=true}"
+
 preflight() {
   log INFO "Preflight checks..."
 
@@ -605,6 +611,53 @@ mc mirror \
   log INFO "Plugins installed successfully"
 }
 
+install_datapacks() {
+  log INFO "Install datapacks"
+
+  [[ "${DATAPACKS_ENABLED:-true}" == "true" ]] || {
+    log INFO "Datapacks disabled"
+    return
+  }
+
+  [[ -n "${DATAPACKS_S3_BUCKET:-}" ]] || {
+    log INFO "DATAPACKS_S3_BUCKET not set, skipping datapacks"
+    return
+  }
+
+  : "${DATAPACKS_S3_PREFIX:=datapacks/latest}"
+  : "${DATAPACKS_SYNC_ONCE:=true}"
+  : "${DATAPACKS_REMOVE_EXTRA:=true}"
+
+  DATAPACKS_DIR="/data/world/datapacks"
+  mkdir -p "${DATAPACKS_DIR}"
+
+  # 既に datapacks があり、1回同期モードならスキップ
+  if [[ "${DATAPACKS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${DATAPACKS_DIR}")" ]]; then
+    log INFO "Datapacks already present, skipping sync"
+    return
+  fi
+
+  log INFO "Configuring MinIO client for datapacks"
+  mc alias set s3 \
+    "${S3_ENDPOINT}" \
+    "${S3_ACCESS_KEY}" \
+    "${S3_SECRET_KEY}" \
+    || die "Failed to configure MinIO client"
+
+  REMOVE_FLAG=""
+  [[ "${DATAPACKS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+
+  log INFO "Syncing datapacks from s3://${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}"
+
+  mc mirror \
+    --overwrite \
+    ${REMOVE_FLAG} \
+    "s3/${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}" \
+    "${DATAPACKS_DIR}" \
+    || die "Failed to sync datapacks"
+
+  log INFO "Datapacks installed successfully"
+}
 
 install() {
   log INFO "Install phase start"
@@ -616,6 +669,7 @@ install() {
   install_mods
   install_configs
   install_plugins
+  install_datapacks
   log INFO "Install phase completed (partial)"
 }
 
