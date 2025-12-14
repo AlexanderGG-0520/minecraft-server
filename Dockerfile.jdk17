@@ -1,4 +1,4 @@
-FROM debian:stable-slim
+FROM eclipse-temurin:17-jre
 
 # ----------------------------
 # Packages
@@ -9,11 +9,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     jq \
     tini \
-    openjdk-21-jre-headless \
  && rm -rf /var/lib/apt/lists/*
 
 # ----------------------------
-# MinIO client (mc)
+# MinIO client
 # ----------------------------
 RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
     -o /usr/local/bin/mc \

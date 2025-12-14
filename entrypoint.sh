@@ -62,6 +62,14 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${DATAPACKS_SYNC_ONCE:=true}"
 : "${DATAPACKS_REMOVE_EXTRA:=true}"
 
+# Resourcepacks
+: "${RESOURCEPACKS_ENABLED:=true}"
+: "${RESOURCEPACKS_S3_PREFIX:=resourcepacks/latest}"
+: "${RESOURCEPACKS_SYNC_ONCE:=true}"
+: "${RESOURCEPACKS_REMOVE_EXTRA:=true}"
+: "${RESOURCEPACKS_AUTO_APPLY:=true}"
+: "${RESOURCEPACK_REQUIRED:=false}"
+
 preflight() {
   log INFO "Preflight checks..."
 
