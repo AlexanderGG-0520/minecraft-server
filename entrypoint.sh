@@ -227,10 +227,13 @@ install_server() {
     fabric)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for fabric"
 
-      if [[ -f ${DATA_DIR}/server.jar ]]; then
-        log INFO "server.jar already exists, skipping"
+      if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
+        log INFO "fabric-server-launch.jar already exists, skipping"
         return
       fi
+
+  # ↓ ここから installer 実行
+
 
       # ---- resolve loader ----
       LOADER_VERSION="${FABRIC_LOADER_VERSION:-latest}"
