@@ -58,7 +58,7 @@ COPY --from=base / /
 # ============================================================
 # GPU runtime (ONLY jre25)
 # ============================================================
-FROM nvidia/cuda:13.1.0-runtime-ubuntu24.04 AS runtime-jre25-gpu
+FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 AS runtime-jre25-gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
