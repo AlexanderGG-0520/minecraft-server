@@ -557,7 +557,7 @@ install_server_properties() {
 
 sync_from_s3_rsync() {
   local NAME="$1"
-  local MODS_S3_PREFIX="$2"
+  local S3_PREFIX="$2"
   local DEST_DIR="$3"
 
   local TMP_DIR="/tmp/sync-${NAME}"
@@ -568,7 +568,7 @@ sync_from_s3_rsync() {
 
   mc mirror \
     --overwrite \
-    "s3/${MODS_S3_BUCKET}/${MODS_S3_PREFIX}" \
+    "${S3_BUCKET}/${S3_PREFIX}" \
     "${TMP_DIR}" \
     || die "Failed to mirror ${NAME} from S3"
 
@@ -579,6 +579,7 @@ sync_from_s3_rsync() {
 
   log INFO "${NAME} synced successfully"
 }
+
 
 install_mods() {
   log INFO "Install mods (rsync mode)"
