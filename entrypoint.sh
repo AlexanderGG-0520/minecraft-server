@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# ============================================================
+# Global paths
+# ============================================================
+
+: "${DATA_DIR:=/data}"
+
+
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] [$1] $2"; }
 die() { log ERROR "$1"; exit 1; }
@@ -10,7 +17,8 @@ MC_PID=""
 graceful_shutdown() {
   log INFO "Received shutdown signal"
 
-  rm -f /data/.ready
+  rm -f "${DATA_DIR}/.ready"
+
 
   if [[ -n "${MC_PID}" ]] && kill -0 "${MC_PID}" 2>/dev/null; then
     kill "${MC_PID}"
@@ -675,9 +683,9 @@ install_mods() {
 
   log INFO "Configuring MinIO client"
   mc alias set s3 \
-    "${MODS_S3_ENDPOINT}" \
-    "${MODS_S3_ACCESS_KEY}" \
-    "${MODS_S3_SECRET_KEY}" \
+    "${S3_ENDPOINT}" \
+    "${S3_ACCESS_KEY}" \
+    "${S3_SECRET_KEY}" \
     || die "Failed to configure MinIO client"
 
   REMOVE_FLAG=""
