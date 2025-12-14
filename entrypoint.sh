@@ -70,6 +70,11 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${RESOURCEPACKS_AUTO_APPLY:=true}"
 : "${RESOURCEPACK_REQUIRED:=false}"
 
+# F-3: C2ME (EXPERIMENTAL)
+: "${ENABLE_C2ME:=false}"
+: "${ENABLE_C2ME_HARDWARE_ACCELERATION:=false}"
+: "${I_KNOW_C2ME_IS_EXPERIMENTAL:=false}"
+
 preflight() {
   log INFO "Preflight checks..."
 
@@ -170,6 +175,29 @@ detect_runtime_env() {
   log INFO "  GPU         : ${RUNTIME_GPU}"
 }
 
+# ============================================================
+# F-3: C2ME Hardware Accelerated (EXPERIMENTAL)
+# ============================================================
+
+should_enable_c2me() {
+  # ---- Explicit user consent ----
+  [[ "${ENABLE_C2ME}" == "true" ]] || return 1
+  [[ "${ENABLE_C2ME_HARDWARE_ACCELERATION}" == "true" ]] || return 1
+  [[ "${I_KNOW_C2ME_IS_EXPERIMENTAL}" == "true" ]] || return 1
+
+  # ---- Java guard ----
+  [[ "${JAVA_MAJOR}" == "25" ]] || return 1
+
+  # ---- Runtime guard ----
+  [[ "${RUNTIME_ARCH_NORM}" == "x86_64" ]] || return 1
+  [[ "${RUNTIME_CONTAINER}" == "true" ]] || return 1
+  [[ "${RUNTIME_GPU}" != "none" ]] || return 1
+
+  # ---- Device guard ----
+  [[ -d /dev/dri || -e /dev/nvidia0 ]] || return 1
+
+  return 0
+}
 
 install_dirs() {
   log INFO "Preparing directory structure"
@@ -400,6 +428,24 @@ install_jvm_args() {
 
   log INFO "jvm.args generated"
 }
+
+install_c2me_jvm_args() {
+  if should_enable_c2me; then
+    log WARN "C2ME Hardware Acceleration ENABLED (EXPERIMENTAL)"
+    log WARN "This may cause instability or data corruption"
+
+    {
+      echo ""
+      echo "# --- C2ME Hardware Acceleration (EXPERIMENTAL) ---"
+      echo "-Dc2me.experimental.hardwareAcceleration=true"
+      echo "-Dc2me.experimental.opencl=true"
+      echo "-Dc2me.experimental.unsafe=true"
+    } >> /data/jvm.args
+  else
+    log INFO "C2ME Hardware Acceleration disabled (guard conditions not met)"
+  fi
+}
+
 # ===========================================
 # server.properties env -> key mapping
 # ===========================================
@@ -1017,6 +1063,7 @@ install() {
   install_eula
   install_server
   install_jvm_args
+  install_c2me_jvm_args
   install_server_properties
   install_mods
   install_configs
