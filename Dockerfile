@@ -54,7 +54,6 @@ FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime-jre25-gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# --- base utils ---
 RUN apt-get update && apt-get install -y \
     bash ca-certificates curl tini procps \
     pciutils ocl-icd-libopencl1 clinfo \
@@ -67,6 +66,9 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # --- your runtime files ---
 COPY --from=base / /
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
+CMD ["run"]
 
 # --- flags ---
 ENV RUNTIME_FLAVOR=gpu
