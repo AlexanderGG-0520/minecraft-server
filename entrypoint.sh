@@ -1043,27 +1043,23 @@ opt_install_links() {
 detect_gpu() {
   log INFO "Detecting OpenCL GPU availability..."
 
-  # OpenCL loader
-  if ! ldconfig -p 2>/dev/null | grep -q libOpenCL.so; then
-    log WARN "OpenCL loader not found"
+  # NVIDIA device exposed?
+  if [ -e /dev/nvidia0 ] || [ -e /dev/nvidiactl ]; then
+    log INFO "NVIDIA device node found"
+  else
+    log WARN "No NVIDIA device node"
     return 1
   fi
 
-  # clinfo-based detection (truth source)
-  if command -v clinfo >/dev/null 2>&1; then
-    if clinfo 2>/dev/null | grep -q "Platform Name.*NVIDIA"; then
-      log INFO "OpenCL GPU detected (NVIDIA platform)"
-      return 0
-    fi
-    log WARN "OpenCL present but NVIDIA platform not available"
-    return 1
+  # OpenCL loader present?
+  if ldconfig -p 2>/dev/null | grep -q libOpenCL.so; then
+    log INFO "OpenCL loader present"
+    return 0
   fi
 
-  log WARN "clinfo not available"
+  log WARN "OpenCL loader missing"
   return 1
 }
-
-
 
 configure_c2me_opencl() {
   if [[ "${C2ME_OPENCL_FORCE:-auto}" == "true" ]]; then
