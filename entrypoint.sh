@@ -771,6 +771,168 @@ reset_world() {
   log INFO "World reset completed successfully"
 }
 
+# ============================================================
+# Optimize Mods (F-1)
+# ============================================================
+
+: "${OPTIMIZE_MODE:=auto}"                 # auto|off|force
+: "${OPTIMIZE_S3_BUCKET:=}"                # required if optimize enabled
+: "${OPTIMIZE_S3_PREFIX:=optimization}"    # default prefix
+
+: "${OPTIMIZE_LITHIUM:=true}"
+: "${OPTIMIZE_FERRITECORE:=true}"
+: "${OPTIMIZE_MODERNFIX:=true}"
+: "${OPTIMIZE_STRICT:=false}"
+
+OPT_MANAGED_DIR="${DATA_DIR}/.managed/optimize-mods"
+OPT_LINK_PREFIX="zz-opt-"
+
+opt_bool() {
+  case "${1,,}" in
+    1|true|yes|y|on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+opt_type_family() {
+  # TYPE is assumed already set (fabric|quilt|forge|neoforge|...)
+  case "${TYPE:-}" in
+    fabric|quilt) echo "fabric" ;;
+    forge|neoforge) echo "forge" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+opt_required_any_enabled() {
+  local fam="$1"
+  if [[ "$fam" == "fabric" ]]; then
+    opt_bool "$OPTIMIZE_LITHIUM" && return 0
+    opt_bool "$OPTIMIZE_FERRITECORE" && return 0
+    return 1
+  elif [[ "$fam" == "forge" ]]; then
+    opt_bool "$OPTIMIZE_FERRITECORE" && return 0
+    opt_bool "$OPTIMIZE_MODERNFIX" && return 0
+    return 1
+  fi
+  return 1
+}
+
+opt_mc_configure_alias() {
+  # Expect mc available. Reuse common S3_* env.
+  [[ -n "${S3_ENDPOINT:-}" ]] || die "S3_ENDPOINT is required for optimize mods"
+  [[ -n "${S3_ACCESS_KEY:-}" ]] || die "S3_ACCESS_KEY is required for optimize mods"
+  [[ -n "${S3_SECRET_KEY:-}" ]] || die "S3_SECRET_KEY is required for optimize mods"
+
+  mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}" >/dev/null
+}
+
+opt_mirror_from_s3() {
+  local src="$1"  # like: s3/bucket/prefix/type
+  local dst="$2"
+
+  mkdir -p "$dst"
+
+  # IMPORTANT: no --remove here (rule!)
+  # We allow overwrite so updates propagate.
+  mc mirror --overwrite "$src" "$dst"
+}
+
+opt_install_links() {
+  local cache_dir="$1"
+  local mods_dir="$2"
+
+  mkdir -p "$mods_dir"
+
+  # Remove stale symlinks we previously created (safe: only symlink + prefix)
+  find "$mods_dir" -maxdepth 1 -type l -name "${OPT_LINK_PREFIX}*.jar" -print0 2>/dev/null \
+    | while IFS= read -r -d '' link; do
+        local target
+        target="$(readlink "$link" || true)"
+        if [[ -z "$target" || ! -e "$mods_dir/$target" && ! -e "$target" ]]; then
+          rm -f "$link"
+        fi
+      done
+
+  # Create/refresh symlinks for jars in cache
+  local found=0
+  shopt -s nullglob
+  for jar in "$cache_dir"/*.jar; do
+    found=1
+    local base
+    base="$(basename "$jar")"
+    local link="${mods_dir}/${OPT_LINK_PREFIX}${base}"
+
+    # If a non-symlink file exists with same name, don't touch it.
+    if [[ -e "$link" && ! -L "$link" ]]; then
+      log WARN "Optimize link name conflict (not a symlink), skipping: $link"
+      continue
+    fi
+
+    ln -sf "$jar" "$link"
+  done
+  shopt -u nullglob
+
+  [[ $found -eq 1 ]] && return 0 || return 1
+}
+
+install_optimize_mods() {
+  log INFO "Installing optimization mods..."
+
+  if [[ "${OPTIMIZE_MODE}" == "off" ]]; then
+    log INFO "OPTIMIZE_MODE=off, skipping"
+    return 0
+  fi
+
+  local fam
+  fam="$(opt_type_family)"
+
+  if [[ "$fam" == "unknown" ]]; then
+    if [[ "${OPTIMIZE_MODE}" == "force" ]]; then
+      log WARN "Unknown TYPE='${TYPE:-}', but OPTIMIZE_MODE=force, continuing"
+    else
+      log INFO "TYPE='${TYPE:-}' not eligible for optimize mods, skipping"
+      return 0
+    fi
+  fi
+
+  # If nothing enabled for this family, skip
+  if [[ "$fam" != "unknown" ]] && ! opt_required_any_enabled "$fam"; then
+    log INFO "All optimize mods disabled by env for family=$fam, skipping"
+    return 0
+  fi
+
+  [[ -n "${OPTIMIZE_S3_BUCKET}" ]] || die "OPTIMIZE_S3_BUCKET is required when optimize mods enabled"
+
+  opt_mc_configure_alias
+
+  local cache_dir="${OPT_MANAGED_DIR}/${TYPE}"
+  local src="s3/${OPTIMIZE_S3_BUCKET}/${OPTIMIZE_S3_PREFIX}/${TYPE}"
+
+  log INFO "Sync optimize mods from: ${src} -> ${cache_dir}"
+  opt_mirror_from_s3 "$src" "$cache_dir" || {
+    if opt_bool "$OPTIMIZE_STRICT"; then
+      die "Failed to mirror optimize mods (strict mode)"
+    fi
+    log WARN "Failed to mirror optimize mods, continuing without them"
+    return 0
+  }
+
+  # Optional: basic filtering by family (soft)
+  # We *don't* delete jars from cache; we just link everything.
+  # If you want hard filtering later, do it in S3 layout, not here.
+
+  if opt_install_links "$cache_dir" "${DATA_DIR}/mods"; then
+    log INFO "Optimization mods linked into mods/ (prefix: ${OPT_LINK_PREFIX})"
+  else
+    if opt_bool "$OPTIMIZE_STRICT"; then
+      die "No optimization mod jars found after sync (strict mode)"
+    fi
+    log WARN "No optimize mod jars found in ${cache_dir}"
+  fi
+
+  return 0
+}
+
 install() {
   log INFO "Install phase start"
   install_dirs
@@ -786,6 +948,7 @@ install() {
   if [[ "${RESET_WORLD:-false}" == "true" ]]; then
     reset_world
   fi
+  install_optimize_mods
   log INFO "Install phase completed (partial)"
 }
 
@@ -821,4 +984,7 @@ main() {
   runtime
 }
 
-main "$@"
+if [[ "${__SOURCED:-0}" != "1" ]]; then
+  main "$@"
+fi
+
