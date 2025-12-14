@@ -659,6 +659,67 @@ install_datapacks() {
   log INFO "Datapacks installed successfully"
 }
 
+install_resourcepacks() {
+  log INFO "Install resourcepacks"
+
+  [[ "${RESOURCEPACKS_ENABLED:-true}" == "true" ]] || {
+    log INFO "Resourcepacks disabled"
+    return
+  }
+
+  [[ -n "${RESOURCEPACKS_S3_BUCKET:-}" ]] || {
+    log INFO "RESOURCEPACKS_S3_BUCKET not set, skipping resourcepacks"
+    return
+  }
+
+  : "${RESOURCEPACKS_S3_PREFIX:=resourcepacks/latest}"
+  : "${RESOURCEPACKS_SYNC_ONCE:=true}"
+  : "${RESOURCEPACKS_REMOVE_EXTRA:=true}"
+  : "${RESOURCEPACKS_AUTO_APPLY:=true}"
+  : "${RESOURCEPACK_REQUIRED:=false}"
+
+  RP_DIR="/data/resourcepacks"
+  mkdir -p "${RP_DIR}"
+
+  # 既に存在し、1回同期ならスキップ
+  if [[ "${RESOURCEPACKS_SYNC_ONCE}" == "true" ]] && [[ -n "$(ls -A "${RP_DIR}")" ]]; then
+    log INFO "Resourcepacks already present, skipping sync"
+  else
+    log INFO "Configuring MinIO client for resourcepacks"
+    mc alias set s3 \
+      "${S3_ENDPOINT}" \
+      "${S3_ACCESS_KEY}" \
+      "${S3_SECRET_KEY}" \
+      || die "Failed to configure MinIO client"
+
+    REMOVE_FLAG=""
+    [[ "${RESOURCEPACKS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+
+    log INFO "Syncing resourcepacks from s3://${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}"
+    mc mirror \
+      --overwrite \
+      ${REMOVE_FLAG} \
+      "s3/${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}" \
+      "${RP_DIR}" \
+      || die "Failed to sync resourcepacks"
+  fi
+
+  # ---- server.properties 連動（任意） ----
+  if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]]; then
+    log INFO "Applying resource-pack settings to server.properties"
+
+    : "${RESOURCEPACK_SHA1:=}"
+
+    sed -i \
+      -e "s|^resource-pack=.*|resource-pack=${RESOURCEPACK_URL}|" \
+      -e "s|^resource-pack-sha1=.*|resource-pack-sha1=${RESOURCEPACK_SHA1}|" \
+      -e "s|^require-resource-pack=.*|require-resource-pack=${RESOURCEPACK_REQUIRED}|" \
+      /data/server.properties || true
+  fi
+
+  log INFO "Resourcepacks installed successfully"
+}
+
 reset_world() {
   log INFO "Requested world reset"
 
@@ -713,6 +774,7 @@ install() {
   install_configs
   install_plugins
   install_datapacks
+  install_resourcepacks
   if [[ "${RESET_WORLD:-false}" == "true" ]]; then
     reset_world
   fi
