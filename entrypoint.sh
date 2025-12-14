@@ -42,7 +42,7 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${MODS_ENABLED:=true}"
 : "${MODS_S3_PREFIX:=mods/latest}"
 : "${MODS_SYNC_ONCE:=true}"
-: "${MODS_REMOVE_EXTRA:=true}
+: "${MODS_REMOVE_EXTRA:=true}"
 
 # Plugins
 : "${PLUGINS_ENABLED:=true}"
@@ -493,7 +493,7 @@ install_mods() {
   fi
 
   log INFO "Configuring MinIO client"
-  mc alias set mods3 \
+  mc alias set s3 \
     "${MODS_S3_ENDPOINT}" \
     "${MODS_S3_ACCESS_KEY}" \
     "${MODS_S3_SECRET_KEY}" \
@@ -558,7 +558,6 @@ install_configs() {
     ${REMOVE_FLAG} \
     "s3/${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}" \
     "${CONFIG_DIR}" \
-
     || die "Failed to sync configs from MinIO"
 
   log INFO "Configs installed successfully"
