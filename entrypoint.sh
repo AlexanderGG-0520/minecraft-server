@@ -169,7 +169,7 @@ install_dirs() {
     ${DATA_DIR}/config \
     ${DATA_DIR}/world
 
-  # 権限トラブルの早期発見（非root想定なら特に重要）
+  # Permissions check
   touch ${DATA_DIR}/logs/.perm_test 2>/dev/null || die "${DATA_DIR}/logs is not writable"
   rm -f ${DATA_DIR}/logs/.perm_test
 
@@ -196,12 +196,12 @@ install_eula() {
 reset_world() {
   log INFO "Requested world reset"
 
-  FLAG_FILE="${DATA_DIR}/reset-world.flag"  # フラグファイルの場所
+  FLAG_FILE="${DATA_DIR}/reset-world.flag"  # flag file path
 
   # ---- Safety check 1: explicit confirmation ----
   if [[ ! -f "${FLAG_FILE}" ]]; then
     log INFO "reset-world.flag file is missing, cannot proceed with world reset"
-    return  # フラグが見つからない場合は終了
+    return  # return instead of die to avoid stopping the script
   fi
 
   WORLD_DIR="${DATA_DIR}/world"
@@ -214,7 +214,7 @@ reset_world() {
 
   if [[ "${WORLD_DIR}" == "/" || "${WORLD_DIR}" == "${DATA_DIR}" ]]; then
     log ERROR "Unsafe WORLD_DIR detected: ${WORLD_DIR}"
-    return  # 不正なディレクトリの場合
+    return  # stop instead of die
   fi
 
   log INFO "Resetting world at ${WORLD_DIR}"
@@ -305,9 +305,6 @@ install_server() {
         log INFO "fabric-server-launch.jar already exists, skipping"
         return
       fi
-
-  # ↓ ここから installer 実行
-
 
       # ---- resolve loader ----
       LOADER_VERSION="${FABRIC_LOADER_VERSION:-latest}"
@@ -548,7 +545,7 @@ install_jvm_args() {
 
   JVM_ARGS_FILE="${DATA_DIR}/jvm.args"
 
-  # 既にあれば尊重（ユーザー上書き可能）
+  # skip if already exists
   if [[ -f "${JVM_ARGS_FILE}" ]]; then
     log INFO "jvm.args already exists, skipping generation"
     return
@@ -629,7 +626,7 @@ install_configs() {
   CONFIG_DIR="${DATA_DIR}/config"
   mkdir -p "${CONFIG_DIR}"
 
-  # すでに config が存在し、1回同期モードなら何もしない
+  # now already configs present and sync once mode, skipping
   if [[ "${CONFIGS_SYNC_ONCE}" == "true" ]] \
     && [[ -n "$(ls -A "${CONFIG_DIR}")" ]] \
     && [[ "${CONFIGS_REMOVE_EXTRA}" != "true" ]]; then
@@ -669,7 +666,7 @@ install_plugins() {
     return
   }
 
-  # Paper 以外では無効
+  # disable if not paper
   if [[ "${TYPE:-auto}" != "paper" ]]; then
     log INFO "TYPE=${TYPE}, skipping plugins"
     return
@@ -687,7 +684,7 @@ install_plugins() {
   PLUGINS_DIR="${DATA_DIR}/plugins"
   mkdir -p "${PLUGINS_DIR}"
 
-  # 既に plugins があり、1回同期モードなら何もしない
+  # now already plugins present and sync once mode, skipping
   if [[ "${PLUGINS_SYNC_ONCE}" == "true" ]] \
     && [[ -n "$(ls -A "${PLUGINS_DIR}")" ]] \
     && [[ "${PLUGINS_REMOVE_EXTRA}" != "true" ]]; then
@@ -739,7 +736,7 @@ install_datapacks() {
   DATAPACKS_DIR="${DATA_DIR}/world/datapacks"
   mkdir -p "${DATAPACKS_DIR}"
 
-  # 既に datapacks があり、1回同期モードならスキップ
+  # now already datapacks present and sync once mode, skipping
   if [[ "${DATAPACKS_SYNC_ONCE}" == "true" ]] \
     && [[ -n "$(ls -A "${DATAPACKS_DIR}")" ]] \
     && [[ "${DATAPACKS_REMOVE_EXTRA}" != "true" ]]; then
@@ -792,7 +789,7 @@ install_resourcepacks() {
   RP_DIR="${DATA_DIR}/resourcepacks"
   mkdir -p "${RP_DIR}"
 
-  # 既に存在し、1回同期ならスキップ
+  # now already resourcepacks present and sync once mode, skipping
   if [[ "${RESOURCEPACKS_SYNC_ONCE}" == "true" ]] \
    && [[ -n "$(ls -A "${RP_DIR}")" ]] \
    && [[ "${RESOURCEPACKS_REMOVE_EXTRA}" != "true" ]]; then
@@ -818,7 +815,7 @@ install_resourcepacks() {
     "${RP_DIR}" \
     || die "Failed to sync resourcepacks"
   
-  # ---- server.properties 連動（任意） ----
+  # ---- server.properties linkage (optional) ----
   if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]]; then
     log INFO "Applying resource-pack settings to server.properties"
 
@@ -838,7 +835,7 @@ install_resourcepacks() {
 # server.properties env -> key mapping
 # ===========================================
 declare -A PROP_MAP=(
-  # --- 基本 ---
+  # --- General ---
   [MOTD]="motd"
   [DIFFICULTY]="difficulty"
   [GAMEMODE]="gamemode"
@@ -850,7 +847,7 @@ declare -A PROP_MAP=(
   [VIEW_DISTANCE]="view-distance"
   [SIMULATION_DISTANCE]="simulation-distance"
 
-  # --- Phase A: 管理・挙動 ---
+  # --- Phase A: Management / Behavior ---
   [ENABLE_WHITELIST]="enable-whitelist"
   [WHITE_LIST]="white-list"
   [ENFORCE_WHITELIST]="enforce-whitelist"
@@ -860,13 +857,13 @@ declare -A PROP_MAP=(
   [BROADCAST_CONSOLE_TO_OPS]="broadcast-console-to-ops"
   [BROADCAST_RCON_TO_OPS]="broadcast-rcon-to-ops"
 
-  # --- Phase B: パフォーマンス・安定性 ---
+  # --- Phase B: Performance / Stability ---
   [MAX_TICK_TIME]="max-tick-time"
   [SYNC_CHUNK_WRITES]="sync-chunk-writes"
   [ENTITY_BROADCAST_RANGE_PERCENTAGE]="entity-broadcast-range-percentage"
   [MAX_CHAINED_NEIGHBOR_UPDATES]="max-chained-neighbor-updates"
 
-  # --- Phase C: Query / RCON / 外部連携 ---
+  # --- Phase C: Query / RCON / External Integration ---
   [ENABLE_QUERY]="enable-query"
   [QUERY_PORT]="query.port"
   [ENABLE_RCON]="enable-rcon"
@@ -882,7 +879,7 @@ generate_server_properties() {
 
   PROPS_FILE="${DATA_DIR}/server.properties"
 
-  # defaults（必要なものだけ）
+  # defaults
   : "${MOTD:=Welcome to the server}"
   : "${DIFFICULTY:=easy}"
   : "${GAMEMODE:=survival}"
@@ -982,19 +979,19 @@ install_server_properties() {
   fi
 }
 
-# UUIDキャッシュファイルのパスを設定（環境変数またはスクリプト内で設定）
-UUID_CACHE_FILE="${DATA_DIR}/uuid_cache.json"  # キャッシュファイルの場所を指定
+# path to UUID cache file
+UUID_CACHE_FILE="${DATA_DIR}/uuid_cache.json"  # select a suitable location
 
-# 既存のUUIDキャッシュがない場合に空のキャッシュを作成
+# create UUID cache file if not exists
 init_uuid_cache() {
   [[ -f "$UUID_CACHE_FILE" ]] || echo "{}" > "$UUID_CACHE_FILE"
 }
 
-# Mojang APIからプレイヤー名に対応するUUIDを取得
+# get UUID for a given player name
 uuid_for_player() {
   local name="$1"
 
-  # キャッシュヒット
+  # cache hit check
   local cached
   cached=$(jq -r --arg n "$name" '.[$n] // empty' "$UUID_CACHE_FILE")
   if [[ -n "$cached" ]]; then
@@ -1002,7 +999,7 @@ uuid_for_player() {
     return
   fi
 
-  # Mojang APIにリクエストを送信してUUIDを取得
+  # get from Mojang API
   local uuid
   uuid=$(curl -fsSL \
     "https://api.mojang.com/users/profiles/minecraft/${name}" \
@@ -1010,7 +1007,7 @@ uuid_for_player() {
 
   [[ -z "$uuid" ]] && return
 
-  # キャッシュに書き込む
+  # update cache
   jq --arg n "$name" --arg u "$uuid" \
     '. + {($n): $u}' \
     "$UUID_CACHE_FILE" > "${UUID_CACHE_FILE}.tmp" \
@@ -1019,23 +1016,23 @@ uuid_for_player() {
   echo "$uuid"
 }
 
-# カンマ区切りで渡されたユーザー名を行ごとに分割
+# transform CSV string into newline-separated list
 parse_csv() {
   echo "$1" | tr ',' '\n' | sed '/^$/d'
 }
 
-# UUIDをハイフン付きの形式に変換
+# transform 32桁UUID into hyphenated form
 uuid_with_hyphen() {
   local u="$1"
-  # 32桁の16進数 → 8-4-4-4-12 の形式
+  # format: 8-4-4-4-12
   echo "${u:0:8}-${u:8:4}-${u:12:4}-${u:16:4}-${u:20:12}"
 }
 
-# ops.jsonを生成する関数
+# function to generate ops.json
 install_ops() {
   local FILE="${DATA_DIR}/ops.json"
 
-  # opsのユーザーが設定されていない場合は何もしない
+  # now ops is empty
   [[ -z "${OPS_USERS:-}" ]] && return
 
   log INFO "Generating ops.json"
@@ -1045,15 +1042,15 @@ install_ops() {
 
     local first=true
     for name in $(parse_csv "${OPS_USERS}"); do
-      # プレイヤー名からUUIDを取得
+      # get UUID for a given player name
       uuid=$(uuid_for_player "$name")
       [[ -z "$uuid" ]] && continue
 
-      # 最初のユーザー以外はカンマを入れる
+      # first user skip comma
       [[ "$first" != true ]] && echo ","
       first=false
 
-      # ops.jsonのエントリを出力
+      # output ops.json entry
       cat <<EOF
   {
     "uuid": "$(uuid_with_hyphen "$uuid")",
@@ -1067,11 +1064,11 @@ EOF
   } > "$FILE"
 }
 
-# whitelist.jsonを生成する関数
+# function to generate whitelist.json
 install_whitelist() {
   local FILE="${DATA_DIR}/whitelist.json"
 
-  # whitelistが無効の場合は何もしない
+  # now whitelist disabled or empty
   [[ "${ENABLE_WHITELIST:-false}" != "true" ]] && return
   [[ -z "${WHITELIST_USERS:-}" ]] && return
 
@@ -1082,15 +1079,15 @@ install_whitelist() {
 
     local first=true
     for name in $(parse_csv "${WHITELIST_USERS}"); do
-      # プレイヤー名からUUIDを取得
+      # get UUID for a given player name
       uuid=$(uuid_for_player "$name")
       [[ -z "$uuid" ]] && continue
 
-      # 最初のユーザー以外はカンマを入れる
+      # first user skip comma
       [[ "$first" != true ]] && echo ","
       first=false
 
-      # whitelist.jsonのエントリを出力
+      # output whitelist.json entry
       cat <<EOF
   {
     "uuid": "$(uuid_with_hyphen "$uuid")",
