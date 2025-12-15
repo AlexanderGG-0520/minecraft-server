@@ -1,0 +1,39 @@
+services:
+  minecraft:
+    image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre25-gpu
+    container_name: mc-fabric
+    ports:
+      - "25565:25565" 
+    volumes:
+      - ./data:/data 
+    environment:
+      EULA: "true" 
+      TYPE: "fabric" 
+      VERSION: "1.21.1" 
+      MAX_MEMORY: "4G" 
+      JVM_XMS: "1G" 
+      JVM_XMX: "4G" 
+      MOTD: ""  
+      MAX_PLAYERS: "20"  
+      ENABLE_C2ME: "true"  
+      ENABLE_C2ME_HARDWARE_ACCELERATION: "true"  
+      I_KNOW_C2ME_IS_EXPERIMENTAL: "true"  
+      # NVIDIA コンテナランタイム用（NVIDIA GPUの場合）
+      # NVIDIA_VISIBLE_DEVICES: "all"   # NVIDIA未使用ならコメントアウト
+      # NVIDIA_DRIVER_CAPABILITIES: "compute,utility"  # NVIDIA未使用ならコメントアウト
+    networks:
+      - minecraft_network  
+    restart: unless-stopped  
+    mem_limit: 4g  
+    cpu_count: 2  
+    tty: true  
+    # GPU サポート設定
+    # NVIDIA GPU の場合（Docker 20.10+ / Compose v1.28+）
+    # gpus: all  # NVIDIAがない/未設定ならコメントアウト
+    group_add:
+      - video
+    command: ["/entrypoint.sh"]
+    
+networks:
+  minecraft_network:
+    driver: bridge  

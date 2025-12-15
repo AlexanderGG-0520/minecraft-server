@@ -3,27 +3,25 @@ services:
     image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21
     container_name: mc-fabric
     ports:
-      - "25565:25565"  # Minecraftポートを外部に公開
+      - "25565:25565" 
     volumes:
-      - ./data:/data  # ローカルの ./data フォルダをコンテナの /data にマウント
+      - ./data:/data
     environment:
-      EULA: "true"  # EULA同意
-      TYPE: "fabric"  # Minecraftサーバータイプ
-      VERSION: "1.21.1"  # バージョン
-      MAX_MEMORY: "4G"  # 最大メモリの設定
-      JVM_XMS: "1G"  # JVM 初期メモリ
-      JVM_XMX: "4G"  # JVM 最大メモリ
-      MOTD: "ヴぁ"  # サーバーのメッセージ
-      MAX_PLAYERS: "20"  # 最大プレイヤー数
-      # 必要に応じて他の環境変数も設定できます
+      EULA: "true" 
+      TYPE: "fabric"
+      VERSION: "1.21.1"
+      MAX_MEMORY: "4G" 
+      JVM_XMS: "1G" 
+      JVM_XMX: "4G"  
+      MAX_PLAYERS: "20"  
     networks:
-      - minecraft_network  # 名前付きネットワークを設定
-    restart: unless-stopped  # コンテナが停止した場合に再起動
-    mem_limit: 4g  # メモリ制限
-    cpu_count: 2  # CPU制限
-    tty: true  # 端末を開く（必要な場合）
+      - minecraft_network  
+    restart: unless-stopped  
+    mem_limit: 4g  
+    cpu_count: 2 
+    tty: true  
     command: ["/entrypoint.sh"]
     
 networks:
   minecraft_network:
-    driver: bridge  # Dockerのブリッジネットワークを使用
+    driver: bridge  
