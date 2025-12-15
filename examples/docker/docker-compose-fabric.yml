@@ -11,7 +11,9 @@ services:
       TYPE: "fabric"  # Minecraftサーバータイプ
       VERSION: "1.21.1"  # バージョン
       MAX_MEMORY: "4G"  # 最大メモリの設定
-      MOTD: "Welcome to the Minecraft Fabric Server!"  # サーバーのメッセージ
+      JVM_XMS: "1G"  # JVM 初期メモリ
+      JVM_XMX: "4G"  # JVM 最大メモリ
+      MOTD: "ヴぁ"  # サーバーのメッセージ
       MAX_PLAYERS: "20"  # 最大プレイヤー数
       # 必要に応じて他の環境変数も設定できます
     networks:
@@ -20,6 +22,7 @@ services:
     mem_limit: 4g  # メモリ制限
     cpu_count: 2  # CPU制限
     tty: true  # 端末を開く（必要な場合）
+    command: ["/entrypoint.sh"]
     
 networks:
   minecraft_network:
