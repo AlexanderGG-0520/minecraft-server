@@ -245,7 +245,7 @@ handle_reset_world_flag() {
   MAX_AGE=300  # 5 minutes
 
   FLAG="${DATA_DIR}/reset-world.flag"
-  
+
   if [[ -f "$FLAG" ]]; then
     NOW=$(date +%s)
     MTIME=$(stat -c %Y "$FLAG")
@@ -1262,6 +1262,8 @@ install() {
   install_datapacks
   install_resourcepacks
   install_server_properties
+  install_whitelist
+  install_ops
   configure_c2me_opencl
   log INFO "Install phase completed (partial)"
 }
