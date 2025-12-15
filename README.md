@@ -27,12 +27,12 @@ in favor of **clear configuration and predictable runtime behavior**.
 
 ### Design goals
 
-* 🧱 Single entrypoint (`entrypoint.sh`)
-* 🔁 Deterministic lifecycle: `preflight → install → runtime`
-* ☸️ Kubernetes / Recreate strategy friendly
-* ⚙️ Configuration via environment variables (itzg-compatible)
-* ☁️ S3 / MinIO-based mod & config synchronization
-* 🧪 Strictly-guarded experimental features (Java 25 / C2ME)
+- Single entrypoint (`entrypoint.sh`)
+- Deterministic lifecycle: `preflight → install → runtime`
+- ☸️ Kubernetes / Recreate strategy friendly
+- ⚙️ Configuration via environment variables (itzg-compatible)
+- S3 / MinIO-based mod & config synchronization
+- Strictly-guarded experimental features (Java 25 / C2ME)
 
 ---
 
@@ -59,7 +59,7 @@ ghcr.io/alexandergg-0520/minecraft-server:jre-*
 
 ---
 
-## 🚀 Quick Start (Docker)
+## Quick Start (Docker)
 
 ```bash
 docker run -d \
@@ -73,7 +73,7 @@ docker run -d \
 
 ---
 
-## 🧩 docker-compose (Recommended for local testing)
+## docker-compose (Recommended for local testing)
 
 ```yaml
 services:
@@ -139,7 +139,7 @@ spec:
 
 ---
 
-## 🧱 Supported Server Types
+## Supported Server Types
 
 | Type     | Supported |
 | -------- | --------- |
@@ -173,29 +173,29 @@ and mapped automatically at startup.
 
 ## 📦 Mods / Plugins / Datapacks
 
-* Fabric / Forge / NeoForge: `mods/`
-* Paper / Purpur: `plugins/`
-* Datapacks: `world/datapacks/`
+- Fabric / Forge / NeoForge: `mods/`
+- Paper / Purpur: `plugins/`
+- Datapacks: `world/datapacks/`
 
 ### S3 / MinIO Sync (Optional)
 
 Supported sync targets:
 
-* Mods
-* Configs
-* Plugins
-* Datapacks
-* Optimization mods
+- Mods
+- Configs
+- Plugins
+- Datapacks
+- Optimization mods
 
 Rules:
 
-* User-provided files are **never deleted**
-* Optimization mods are **never synced with `--remove`**
-* Sync behavior is deterministic and restart-safe
+- User-provided files are **never deleted**
+- Optimization mods are **never synced with `--remove`**
+- Sync behavior is deterministic and restart-safe
 
 ---
 
-## 🧪 Experimental: C2ME Hardware Acceleration
+## Experimental: C2ME Hardware Acceleration
 
 ⚠️ **Disabled by default. Experimental feature.**
 
@@ -203,11 +203,11 @@ C2ME hardware acceleration is enabled **only if ALL conditions are met**:
 
 ### Requirements
 
-* Image tag: `jre25-experimental`
-* Architecture: `x86_64`
-* Container runtime (Docker / Kubernetes)
-* GPU device available (`/dev/dri` or NVIDIA)
-* OpenCL runtime available
+- Image tag: `jre25-gpu`
+- Architecture: `x86_64`
+- Container runtime (Docker / Kubernetes)
+- GPU device available (`/dev/dri` or NVIDIA)
+- OpenCL runtime available
 
 ### Explicit user consent (ALL required)
 
@@ -225,37 +225,37 @@ If **any condition is missing**, C2ME is **forcibly disabled**.
 
 ## 🎮 GPU Notes
 
-* GPU support is provided by the **host runtime**
-* The container **does not include GPU drivers**
-* Devices are injected at runtime (`--gpus` or `nvidia.com/gpu`)
+- GPU support is provided by the **host runtime**
+- The container **does not include GPU drivers**
+- Devices are injected at runtime (`--gpus` or `nvidia.com/gpu`)
 
 This prevents:
 
-* Driver mismatch issues
-* Accidental GPU usage
-* CI instability
+- Driver mismatch issues
+- Accidental GPU usage
+- CI instability
 
 ---
 
-## 🧠 Design Philosophy
+## Design Philosophy
 
-* Explicit configuration over abstraction
-* One entrypoint, predictable lifecycle
-* Safety over convenience
-* Experimental features must be impossible to enable accidentally
+- Explicit configuration over abstraction
+- One entrypoint, predictable lifecycle
+- Safety over convenience
+- Experimental features must be impossible to enable accidentally
 
 ---
 
-## 📜 License
+## License
 
 MIT License.
 See [LICENSE](./LICENSE).
 
 ---
 
-## ❤️ Credits
+## Credits
 
 Inspired by:
 
-* itzg/docker-minecraft-server
-* Kubernetes community
+- itzg/docker-minecraft-server
+- Kubernetes community
