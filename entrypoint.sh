@@ -982,6 +982,9 @@ install_server_properties() {
   fi
 }
 
+# UUIDキャッシュファイルのパスを設定（環境変数またはスクリプト内で設定）
+UUID_CACHE_FILE="${DATA_DIR}/uuid_cache.json"  # キャッシュファイルの場所を指定
+
 # 既存のUUIDキャッシュがない場合に空のキャッシュを作成
 init_uuid_cache() {
   [[ -f "$UUID_CACHE_FILE" ]] || echo "{}" > "$UUID_CACHE_FILE"
