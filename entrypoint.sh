@@ -396,7 +396,7 @@ install_server() {
 
       # NeoForge metadata API
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
-      NEO_VER="$(curl -fsSL ${META_URL} | jq -r '.[0].version')"
+      NEO_VER="$(curl -fsSL ${META_URL} | jq -r '.versions[0]')"
 
       [[ -n "${NEO_VER}" ]] || die "Failed to resolve NeoForge version"
 
