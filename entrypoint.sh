@@ -192,6 +192,91 @@ install_eula() {
       ;;
   esac
 }
+
+reset_world() {
+  log INFO "Requested world reset"
+
+  # ---- Safety check 1: explicit confirmation ----
+  if [[ "${RESET_WORLD_CONFIRM:-}" != "yes" ]]; then
+    die "RESET_WORLD_CONFIRM=yes is required to reset world"
+  fi
+
+  WORLD_DIRS=(
+  "${DATA_DIR}/world"
+  "${DATA_DIR}/world_nether"
+  "${DATA_DIR}/world_the_end"
+  "${DATA_DIR}/DIM-1"
+  "${DATA_DIR}/DIM1"
+)
+
+for dir in "${WORLD_DIRS[@]}"; do
+  if [[ -d "$dir" ]]; then
+    log INFO "Deleting world directory: $dir"
+    rm -rf "${dir:?}/"*
+  fi
+done
+
+
+  # ---- Safety check 2: directory sanity ----
+  if [[ ! -d "${WORLD_DIR}" ]]; then
+    log INFO "World directory does not exist, nothing to reset"
+    return
+  fi
+
+  if [[ "${WORLD_DIR}" == "/" || "${WORLD_DIR}" == "${DATA_DIR}" ]]; then
+    die "Unsafe WORLD_DIR detected: ${WORLD_DIR}"
+  fi
+
+  log INFO "Resetting world at ${WORLD_DIR}"
+
+  # ---- Step 1: mark NotReady ----
+  rm -f ${DATA_DIR}/.ready
+
+  # ---- Step 2: optional backup ----
+  if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
+    TS="$(date -u +'%Y%m%d-%H%M%S')"
+    BACKUP_DIR="${DATA_DIR}/backups"
+    mkdir -p "${BACKUP_DIR}"
+
+    log INFO "Creating world backup"
+    tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C "${DATA_DIR}" \
+      world world_nether world_the_end DIM-1 DIM1 \
+      || die "World backup failed"
+  fi
+
+  # ---- Step 3: delete world contents only ----
+  log INFO "Deleting world contents"
+  for dir in "${WORLD_DIRS[@]}"; do
+    if [[ -d "$dir" ]]; then
+      rm -rf "${dir:?}/"*
+    fi
+  done
+
+  log INFO "World reset completed successfully"
+}
+
+handle_reset_world_flag() {
+  MAX_AGE=300  # 5 minutes
+
+  if [[ -f "$FLAG" ]]; then
+    NOW=$(date +%s)
+    MTIME=$(stat -c %Y "$FLAG")
+
+    log WARN "reset-world.flag detected, proceeding to reset world"
+
+    if (( NOW - MTIME > MAX_AGE )); then
+      die "reset-world.flag expired (older than ${MAX_AGE}s)"
+    fi
+  fi
+
+
+  reset_world
+
+  # consume flag (ONE-SHOT)
+  rm -f "$FLAG"
+  log INFO "reset-world.flag consumed"
+}
+
 install_server() {
   log INFO "Resolving server (TYPE=${TYPE}, VERSION=${VERSION:-auto})"
 
@@ -1012,49 +1097,6 @@ EOF
   } > "$FILE"
 }
 
-reset_world() {
-  log INFO "Requested world reset"
-
-  # ---- Safety check 1: explicit confirmation ----
-  if [[ "${RESET_WORLD_CONFIRM:-}" != "yes" ]]; then
-    die "RESET_WORLD_CONFIRM=yes is required to reset world"
-  fi
-
-  WORLD_DIR="${DATA_DIR}/world"
-
-  # ---- Safety check 2: directory sanity ----
-  if [[ ! -d "${WORLD_DIR}" ]]; then
-    log INFO "World directory does not exist, nothing to reset"
-    return
-  fi
-
-  if [[ "${WORLD_DIR}" == "/" || "${WORLD_DIR}" == "${DATA_DIR}" ]]; then
-    die "Unsafe WORLD_DIR detected: ${WORLD_DIR}"
-  fi
-
-  log INFO "Resetting world at ${WORLD_DIR}"
-
-  # ---- Step 1: mark NotReady ----
-  rm -f ${DATA_DIR}/.ready
-
-  # ---- Step 2: optional backup ----
-  if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
-    TS="$(date -u +'%Y%m%d-%H%M%S')"
-    BACKUP_DIR="${DATA_DIR}/backups"
-    mkdir -p "${BACKUP_DIR}"
-
-    log INFO "Creating world backup"
-    tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C ${DATA_DIR} world \
-      || die "World backup failed"
-  fi
-
-  # ---- Step 3: delete world contents only ----
-  log INFO "Deleting world contents"
-  rm -rf "${WORLD_DIR:?}/"*
-
-  log INFO "World reset completed successfully"
-}
-
 OPT_MANAGED_DIR="${DATA_DIR}/.managed/optimize-mods"
 OPT_LINK_PREFIX="zz-opt-"
 
@@ -1222,6 +1264,7 @@ install() {
   log INFO "Install phase start"
   install_dirs
   install_eula
+  handle_reset_world_flag
   install_server
   install_mods
   install_jvm_args
@@ -1231,9 +1274,6 @@ install() {
   install_datapacks
   install_resourcepacks
   install_server_properties
-  if [[ "${RESET_WORLD:-false}" == "true" ]]; then
-    reset_world
-  fi
   configure_c2me_opencl
   log INFO "Install phase completed (partial)"
 }
