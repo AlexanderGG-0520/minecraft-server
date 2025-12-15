@@ -196,26 +196,14 @@ install_eula() {
 reset_world() {
   log INFO "Requested world reset"
 
+  FLAG_FILE="${DATA_DIR}/reset-world.FLAG"
+
   # ---- Safety check 1: explicit confirmation ----
-  if [[ "${RESET_WORLD_CONFIRM:-}" != "yes" ]]; then
-    die "RESET_WORLD_CONFIRM=yes is required to reset world"
+  if [[ ! -f "${FLAG_FILE}" ]]; then
+    die "reset-world.FLAG file is missing, cannot proceed with world reset"
   fi
 
-  WORLD_DIRS=(
-  "${DATA_DIR}/world"
-  "${DATA_DIR}/world_nether"
-  "${DATA_DIR}/world_the_end"
-  "${DATA_DIR}/DIM-1"
-  "${DATA_DIR}/DIM1"
-)
-
-for dir in "${WORLD_DIRS[@]}"; do
-  if [[ -d "$dir" ]]; then
-    log INFO "Deleting world directory: $dir"
-    rm -rf "${dir:?}/"*
-  fi
-done
-
+  WORLD_DIR="${DATA_DIR}/world"
 
   # ---- Safety check 2: directory sanity ----
   if [[ ! -d "${WORLD_DIR}" ]]; then
@@ -239,21 +227,20 @@ done
     mkdir -p "${BACKUP_DIR}"
 
     log INFO "Creating world backup"
-    tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C "${DATA_DIR}" \
-      world world_nether world_the_end DIM-1 DIM1 \
+    tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C ${DATA_DIR} world \
       || die "World backup failed"
   fi
 
   # ---- Step 3: delete world contents only ----
   log INFO "Deleting world contents"
-  for dir in "${WORLD_DIRS[@]}"; do
-    if [[ -d "$dir" ]]; then
-      rm -rf "${dir:?}/"*
-    fi
-  done
+  rm -rf "${WORLD_DIR:?}/"*
+
+  # ---- Step 4: delete the FLAG file to prevent repeated resets ----
+  rm -f "${FLAG_FILE}"
 
   log INFO "World reset completed successfully"
 }
+
 
 handle_reset_world_flag() {
   MAX_AGE=300  # 5 minutes
