@@ -244,6 +244,8 @@ reset_world() {
 handle_reset_world_flag() {
   MAX_AGE=300  # 5 minutes
 
+  FLAG="${DATA_DIR}/reset-world.flag"
+  
   if [[ -f "$FLAG" ]]; then
     NOW=$(date +%s)
     MTIME=$(stat -c %Y "$FLAG")
