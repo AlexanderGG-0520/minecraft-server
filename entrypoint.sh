@@ -196,7 +196,7 @@ install_eula() {
 reset_world() {
   log INFO "Requested world reset"
 
-  FLAG_FILE="${DATA_DIR}/reset-world.FLAG"
+  FLAG_FILE="${DATA_DIR}/reset-world.FLAG"  # フラグファイルの場所
 
   # ---- Safety check 1: explicit confirmation ----
   if [[ ! -f "${FLAG_FILE}" ]]; then
@@ -240,7 +240,6 @@ reset_world() {
 
   log INFO "World reset completed successfully"
 }
-
 
 handle_reset_world_flag() {
   MAX_AGE=300  # 5 minutes
