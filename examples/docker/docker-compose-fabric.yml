@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   minecraft:
     image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21
