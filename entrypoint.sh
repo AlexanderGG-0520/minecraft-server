@@ -908,6 +908,110 @@ install_server_properties() {
   fi
 }
 
+UUID_CACHE_FILE="${DATA_DIR}/.uuid-cache.json"
+
+init_uuid_cache() {
+  [[ -f "$UUID_CACHE_FILE" ]] || echo "{}" > "$UUID_CACHE_FILE"
+}
+
+uuid_for_player() {
+  local name="$1"
+
+  # cache hit
+  local cached
+  cached=$(jq -r --arg n "$name" '.[$n] // empty' "$UUID_CACHE_FILE")
+  if [[ -n "$cached" ]]; then
+    echo "$cached"
+    return
+  fi
+
+  # Mojang API
+  local uuid
+  uuid=$(curl -fsSL \
+    "https://api.mojang.com/users/profiles/minecraft/${name}" \
+    | jq -r '.id // empty')
+
+  [[ -z "$uuid" ]] && return
+
+  # cache write
+  jq --arg n "$name" --arg u "$uuid" \
+    '. + {($n): $u}' \
+    "$UUID_CACHE_FILE" > "${UUID_CACHE_FILE}.tmp" \
+    && mv "${UUID_CACHE_FILE}.tmp" "$UUID_CACHE_FILE"
+
+  echo "$uuid"
+}
+
+parse_csv() {
+  echo "$1" | tr ',' '\n' | sed '/^$/d'
+}
+
+uuid_with_hyphen() {
+  local u="$1"
+
+  # 32 hex → 8-4-4-4-12
+  echo "${u:0:8}-${u:8:4}-${u:12:4}-${u:16:4}-${u:20:12}"
+}
+
+install_whitelist() {
+  local FILE="${DATA_DIR}/whitelist.json"
+
+  [[ "${ENABLE_WHITELIST:-false}" != "true" ]] && return
+  [[ -z "${WHITELIST_USERS:-}" ]] && return
+
+  log INFO "Generating whitelist.json"
+
+  {
+    echo "["
+    local first=true
+    for name in $(parse_csv "${WHITELIST_USERS}"); do
+      uuid=$(uuid_for_player "$name")
+      [[ -z "$uuid" ]] && continue
+
+      [[ "$first" != true ]] && echo ","
+      first=false
+
+      cat <<EOF
+  {
+    "uuid": "$(uuid_with_hyphen "$uuid")",
+    "name": "$name"
+  }
+EOF
+    done
+    echo "]"
+  } > "$FILE"
+}
+
+install_ops() {
+  local FILE="${DATA_DIR}/ops.json"
+
+  [[ -z "${OPS_USERS:-}" ]] && return
+
+  log INFO "Generating ops.json"
+
+  {
+    echo "["
+    local first=true
+    for name in $(parse_csv "${OPS_USERS}"); do
+      uuid=$(uuid_for_player "$name")
+      [[ -z "$uuid" ]] && continue
+
+      [[ "$first" != true ]] && echo ","
+      first=false
+
+      cat <<EOF
+  {
+    "uuid": "$(uuid_with_hyphen "$uuid")",
+    "name": "$name",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  }
+EOF
+    done
+    echo "]"
+  } > "$FILE"
+}
+
 reset_world() {
   log INFO "Requested world reset"
 
