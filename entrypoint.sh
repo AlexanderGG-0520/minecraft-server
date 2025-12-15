@@ -982,16 +982,16 @@ install_server_properties() {
   fi
 }
 
-UUID_CACHE_FILE="${DATA_DIR}/.uuid-cache.json"
-
+# 既存のUUIDキャッシュがない場合に空のキャッシュを作成
 init_uuid_cache() {
   [[ -f "$UUID_CACHE_FILE" ]] || echo "{}" > "$UUID_CACHE_FILE"
 }
 
+# Mojang APIからプレイヤー名に対応するUUIDを取得
 uuid_for_player() {
   local name="$1"
 
-  # cache hit
+  # キャッシュヒット
   local cached
   cached=$(jq -r --arg n "$name" '.[$n] // empty' "$UUID_CACHE_FILE")
   if [[ -n "$cached" ]]; then
@@ -999,7 +999,7 @@ uuid_for_player() {
     return
   fi
 
-  # Mojang API
+  # Mojang APIにリクエストを送信してUUIDを取得
   local uuid
   uuid=$(curl -fsSL \
     "https://api.mojang.com/users/profiles/minecraft/${name}" \
@@ -1007,7 +1007,7 @@ uuid_for_player() {
 
   [[ -z "$uuid" ]] && return
 
-  # cache write
+  # キャッシュに書き込む
   jq --arg n "$name" --arg u "$uuid" \
     '. + {($n): $u}' \
     "$UUID_CACHE_FILE" > "${UUID_CACHE_FILE}.tmp" \
@@ -1016,39 +1016,47 @@ uuid_for_player() {
   echo "$uuid"
 }
 
+# カンマ区切りで渡されたユーザー名を行ごとに分割
 parse_csv() {
   echo "$1" | tr ',' '\n' | sed '/^$/d'
 }
 
+# UUIDをハイフン付きの形式に変換
 uuid_with_hyphen() {
   local u="$1"
-
-  # 32 hex → 8-4-4-4-12
+  # 32桁の16進数 → 8-4-4-4-12 の形式
   echo "${u:0:8}-${u:8:4}-${u:12:4}-${u:16:4}-${u:20:12}"
 }
 
-install_whitelist() {
-  local FILE="${DATA_DIR}/whitelist.json"
+# ops.jsonを生成する関数
+install_ops() {
+  local FILE="${DATA_DIR}/ops.json"
 
-  [[ "${ENABLE_WHITELIST:-false}" != "true" ]] && return
-  [[ -z "${WHITELIST_USERS:-}" ]] && return
+  # opsのユーザーが設定されていない場合は何もしない
+  [[ -z "${OPS_USERS:-}" ]] && return
 
-  log INFO "Generating whitelist.json"
+  log INFO "Generating ops.json"
 
   {
     echo "["
+
     local first=true
-    for name in $(parse_csv "${WHITELIST_USERS}"); do
+    for name in $(parse_csv "${OPS_USERS}"); do
+      # プレイヤー名からUUIDを取得
       uuid=$(uuid_for_player "$name")
       [[ -z "$uuid" ]] && continue
 
+      # 最初のユーザー以外はカンマを入れる
       [[ "$first" != true ]] && echo ","
       first=false
 
+      # ops.jsonのエントリを出力
       cat <<EOF
   {
     "uuid": "$(uuid_with_hyphen "$uuid")",
-    "name": "$name"
+    "name": "$name",
+    "level": 4,
+    "bypassesPlayerLimit": false
   }
 EOF
     done
@@ -1056,29 +1064,34 @@ EOF
   } > "$FILE"
 }
 
-install_ops() {
-  local FILE="${DATA_DIR}/ops.json"
+# whitelist.jsonを生成する関数
+install_whitelist() {
+  local FILE="${DATA_DIR}/whitelist.json"
 
-  [[ -z "${OPS_USERS:-}" ]] && return
+  # whitelistが無効の場合は何もしない
+  [[ "${ENABLE_WHITELIST:-false}" != "true" ]] && return
+  [[ -z "${WHITELIST_USERS:-}" ]] && return
 
-  log INFO "Generating ops.json"
+  log INFO "Generating whitelist.json"
 
   {
     echo "["
+
     local first=true
-    for name in $(parse_csv "${OPS_USERS}"); do
+    for name in $(parse_csv "${WHITELIST_USERS}"); do
+      # プレイヤー名からUUIDを取得
       uuid=$(uuid_for_player "$name")
       [[ -z "$uuid" ]] && continue
 
+      # 最初のユーザー以外はカンマを入れる
       [[ "$first" != true ]] && echo ","
       first=false
 
+      # whitelist.jsonのエントリを出力
       cat <<EOF
   {
     "uuid": "$(uuid_with_hyphen "$uuid")",
-    "name": "$name",
-    "level": 4,
-    "bypassesPlayerLimit": false
+    "name": "$name"
   }
 EOF
     done
