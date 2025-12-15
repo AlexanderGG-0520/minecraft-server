@@ -196,11 +196,11 @@ install_eula() {
 reset_world() {
   log INFO "Requested world reset"
 
-  FLAG_FILE="${DATA_DIR}/reset-world.FLAG"  # フラグファイルの場所
+  FLAG_FILE="${DATA_DIR}/reset-world.flag"  # フラグファイルの場所
 
   # ---- Safety check 1: explicit confirmation ----
   if [[ ! -f "${FLAG_FILE}" ]]; then
-    die "reset-world.FLAG file is missing, cannot proceed with world reset"
+    die "reset-world.flag file is missing, cannot proceed with world reset"
   fi
 
   WORLD_DIR="${DATA_DIR}/world"
