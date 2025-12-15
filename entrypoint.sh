@@ -200,7 +200,8 @@ reset_world() {
 
   # ---- Safety check 1: explicit confirmation ----
   if [[ ! -f "${FLAG_FILE}" ]]; then
-    die "reset-world.flag file is missing, cannot proceed with world reset"
+    log INFO "reset-world.flag file is missing, cannot proceed with world reset"
+    return  # フラグが見つからない場合は終了
   fi
 
   WORLD_DIR="${DATA_DIR}/world"
@@ -212,7 +213,8 @@ reset_world() {
   fi
 
   if [[ "${WORLD_DIR}" == "/" || "${WORLD_DIR}" == "${DATA_DIR}" ]]; then
-    die "Unsafe WORLD_DIR detected: ${WORLD_DIR}"
+    log ERROR "Unsafe WORLD_DIR detected: ${WORLD_DIR}"
+    return  # 不正なディレクトリの場合
   fi
 
   log INFO "Resetting world at ${WORLD_DIR}"
@@ -228,7 +230,7 @@ reset_world() {
 
     log INFO "Creating world backup"
     tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C ${DATA_DIR} world \
-      || die "World backup failed"
+      || log ERROR "World backup failed"
   fi
 
   # ---- Step 3: delete world contents only ----
@@ -243,7 +245,6 @@ reset_world() {
 
 handle_reset_world_flag() {
   # MAX_AGE=300  # 5 minutes
-
   FLAG="${DATA_DIR}/reset-world.flag"
 
   if [[ -f "$FLAG" ]]; then
