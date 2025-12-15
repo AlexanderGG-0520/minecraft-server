@@ -17,7 +17,7 @@ A production-grade Minecraft server runtime designed for:
 
 ---
 
-## 📘 Overview
+## Overview
 
 This repository provides a **production-oriented Minecraft server Docker image**
 designed for **explicit, reproducible deployments**.
@@ -48,11 +48,11 @@ ghcr.io/alexandergg-0520/minecraft-server:jre-*
 
 | Tag                  | Description                      |
 | -------------------- | -------------------------------- |
-| `jre8`               | Legacy runtime                   |
-| `jre11`              | Legacy LTS                       |
-| `jre17`              | LTS                              |
-| `jre21`              | **Recommended**                  |
-| `jre25-experimental` | Experimental runtime (C2ME only) |
+| `runtime-jre8`               | Legacy runtime                   |
+| `runtime-jre11`              | Legacy LTS                       |
+| `runtime-jre17`              | LTS                              |
+| `runtime-jre21`              | **Recommended**                  |
+| `runtime-jre25-gpu` | Experimental runtime (C2ME only) |
 
 > ℹ️ Java version is selected **only by the image tag**.
 > The container never auto-switches Java versions.
@@ -223,7 +223,7 @@ If **any condition is missing**, C2ME is **forcibly disabled**.
 
 ---
 
-## 🎮 GPU Notes
+## GPU Notes
 
 - GPU support is provided by the **host runtime**
 - The container **does not include GPU drivers**
