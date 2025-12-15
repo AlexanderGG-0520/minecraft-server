@@ -244,8 +244,6 @@ reset_world() {
 handle_reset_world_flag() {
   MAX_AGE=300  # 5 minutes
 
-  FLAG="${DATA_DIR}/reset-world.flag"
-  
   if [[ -f "$FLAG" ]]; then
     NOW=$(date +%s)
     MTIME=$(stat -c %Y "$FLAG")
@@ -253,10 +251,10 @@ handle_reset_world_flag() {
     log WARN "reset-world.flag detected, proceeding to reset world"
 
     if (( NOW - MTIME > MAX_AGE )); then
-      die "reset-world.flag expired (older than ${MAX_AGE}s)"
+      log ERROR "reset-world.flag expired (older than ${MAX_AGE}s), resetting aborted"
+      return  # Stop further execution but do not die
     fi
   fi
-
 
   reset_world
 
