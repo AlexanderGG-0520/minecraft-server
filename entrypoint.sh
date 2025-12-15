@@ -244,7 +244,7 @@ reset_world() {
 }
 
 handle_reset_world_flag() {
-  # MAX_AGE=300  # 5 minutes
+  MAX_AGE=1800  # 30 minutes
   FLAG="${DATA_DIR}/reset-world.flag"
 
   if [[ -f "$FLAG" ]]; then
