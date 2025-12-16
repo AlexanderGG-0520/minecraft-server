@@ -1335,7 +1335,7 @@ runtime() {
         java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
 
         log INFO "Bootstrap finished, re-entering runtime"
-        exec "$0" run
+        exec /entrypoint.sh run
       fi
       ;;
 
