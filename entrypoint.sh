@@ -1336,8 +1336,12 @@ runtime() {
       # --- bootstrap phase ---
       log INFO "${TYPE} bootstrap phase (first run)"
 
+      # ★ NeoForge installer が必ず最初にログを書こうとする対策
+      touch ./neoforge-installer.log || true
+      chmod 644 ./neoforge-installer.log || true
+
       java @"${JVM_ARGS_FILE}" \
-        -Dneoforge.installer.log=/dev/null \
+        -Dneoforge.installer.log=./neoforge-installer.log \
         -jar "./server.jar" \
         nogui
 
