@@ -1319,46 +1319,34 @@ runtime() {
         -jar "${DATA_DIR}/server.jar" nogui
       ;;
 
-    # ======================================================
-    # Forge / NeoForge
-    # ======================================================
-# ==========================================================
-# Forge / NeoForge
-# ==========================================================
+    # ==========================================================
+    # Forge / NeoForge (runtime)
+    # ==========================================================
     forge|neoforge)
       cd "${DATA_DIR}"
 
-      INSTALL_MARKER=".installed-${TYPE}-${VERSION}"
+      # --- ① すでに実行環境があるなら install しない ---
+      if [[ -x "./run.sh" ]]; then
+        log INFO "Detected existing ${TYPE} runtime (run.sh found)"
+        log INFO "Launching ${TYPE} server"
 
-      if [[ -f "${INSTALL_MARKER}" ]]; then
-        log INFO "${TYPE} already installed, starting runtime"
-
-        if [[ ! -x "./run.sh" ]]; then
-          log ERROR "run.sh exists but is not executable"
-          exit 1
-        fi
-
-        exec bash ./run.sh nogui
+        chmod +x ./run.sh
+        exec ./run.sh nogui
       fi
 
-      log INFO "${TYPE} install phase (first run)"
+      # --- ② run.sh が無い場合のみ install ---
+      log INFO "${TYPE} runtime not found, starting install phase"
 
-      # --- Installer must run as DATA owner ---
+      # installer 実行
       java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
 
-      # --- Validate install result ---
-      if [[ ! -f "./run.sh" ]]; then
-        log ERROR "Installation finished but run.sh not found"
+      # --- ③ install 後に run.sh が生成されているはず ---
+      if [[ ! -x "./run.sh" ]]; then
+        log ERROR "Install finished but run.sh not found"
         exit 1
       fi
 
-      chmod +x ./run.sh
-
-      # --- Sentinel ---
-      touch "${INSTALL_MARKER}"
-      log INFO "Install marker created: ${INSTALL_MARKER}"
-
-      log INFO "Re-entering runtime phase"
+      log INFO "Install completed, restarting runtime"
       exec "$0" run
       ;;
 
