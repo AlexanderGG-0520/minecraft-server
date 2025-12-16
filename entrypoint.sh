@@ -1322,32 +1322,39 @@ runtime() {
     # ======================================================
     # Forge / NeoForge
     # ======================================================
+# ==========================================================
+# Forge / NeoForge
+# ==========================================================
     forge|neoforge)
       cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR=${DATA_DIR}"
       umask 022
 
-      # --------------------------------------------------------
-      # If server.jar is still an installer, install once
-      # --------------------------------------------------------
-      if [[ ! -f ".server-ready" ]]; then
-        log INFO "${TYPE} installer phase (first and only time)"
+      READY_MARK=".${TYPE}-server-ready"
 
+      if [[ ! -f "${READY_MARK}" ]]; then
+        log INFO "${TYPE} installer phase (one-time)"
+
+        # installer 実行（これ自体は必ず exit 0 する）
         java @"${JVM_ARGS_FILE}" -jar "./server.jar" --installServer
 
-        # --- locate real server jar ---
-        REAL_SERVER_JAR="$(ls libraries/net/neoforged/neoforge/*/neoforge-*-server.jar 2>/dev/null | head -n1)"
+        if [[ "${TYPE}" == "neoforge" ]]; then
+          REAL_SERVER_JAR="$(ls libraries/net/neoforged/neoforge/*/neoforge-*-server.jar 2>/dev/null | head -n1)"
+        else
+          # Forge
+          REAL_SERVER_JAR="$(ls libraries/net/minecraftforge/forge/*/forge-*-server.jar 2>/dev/null | head -n1)"
+        fi
 
-        [[ -f "${REAL_SERVER_JAR}" ]] || die "Real NeoForge server jar not found"
+        [[ -f "${REAL_SERVER_JAR}" ]] || die "${TYPE} real server jar not found"
 
-        # --- replace installer with real server ---
+        # installer jar を server jar に置換（ここが本丸）
         mv -f "${REAL_SERVER_JAR}" "./server.jar"
         chmod 644 "./server.jar"
 
-        touch ".server-ready"
-        log INFO "NeoForge server jar installed and activated"
+        touch "${READY_MARK}"
+        log INFO "${TYPE} server jar activated"
       fi
 
-      log INFO "Launching NeoForge server"
+      log INFO "Launching ${TYPE} server"
       exec java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
       ;;
 
