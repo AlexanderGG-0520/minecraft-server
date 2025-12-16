@@ -1320,43 +1320,40 @@ runtime() {
       ;;
 
     # ==========================================================
-    # Forge / NeoForge
+    # Forge / NeoForge (runtime phase)
     # ==========================================================
     forge|neoforge)
-      cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR=${DATA_DIR}"
-      umask 022
-
-      INSTALL_MARKER="${DATA_DIR}/.installed-${TYPE}"
+      cd "${DATA_DIR}"
 
       # --------------------------------------------------------
-      # Install phase (first boot only)
+      # Install済み判定
+      # ・run.sh が存在する
+      # ・libraries ディレクトリが存在する
       # --------------------------------------------------------
-      if [[ ! -f "${INSTALL_MARKER}" ]]; then
-        log INFO "${TYPE} installer phase (first run)"
+      if [[ -x "./run.sh" && -d "./libraries" ]]; then
+        log INFO "${TYPE} already installed, launching runtime"
 
-        java @"${JVM_ARGS_FILE}" \
-          -jar "./server.jar" \
-          --installServer \
-          --no-run || true
+        chmod +x ./run.sh
 
-        # installer 完了を明示的に記録
-        touch "${INSTALL_MARKER}"
-        log INFO "${TYPE} install completed"
-      else
-        log INFO "${TYPE} already installed, skipping installer"
+        # run.sh は foreground 実行（PIDを掴む）
+        exec ./run.sh nogui
       fi
 
       # --------------------------------------------------------
-      # Run phase
+      # 初回インストールフェーズ
       # --------------------------------------------------------
-      if [[ ! -x "./run.sh" ]]; then
-        die "run.sh missing or not executable after install"
-      fi
+      log INFO "${TYPE} bootstrap phase (first install)"
 
-      log INFO "Launching ${TYPE} via run.sh"
+      # 念のため installer jar があれば削除（中途半端対策）
+      rm -f neoforge-*-installer.jar forge-*-installer.jar 2>/dev/null || true
 
-      # ★ Kubernetes 前提：PID1 を Minecraft にする
-      exec bash ./run.sh nogui
+      # installer 実行（ここは exit 0 してOK）
+      java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
+
+      log INFO "Bootstrap finished, re-entering runtime phase"
+
+      # 再実行（この時点で run.sh が生成されている前提）
+      exec "$0" run
       ;;
 
     # ======================================================
