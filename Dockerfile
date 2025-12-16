@@ -1,5 +1,5 @@
 # ============================================================
-# Base (共通)
+# Base (共通ツール + entrypoint)
 # ============================================================
 FROM debian:stable-slim AS base
 
@@ -23,9 +23,8 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # ============================================================
-# Java runtimes (純Javaだけ)
+# Java base images
 # ============================================================
-
 FROM eclipse-temurin:8-jre  AS jre8
 FROM eclipse-temurin:11-jre AS jre11
 FROM eclipse-temurin:17-jre AS jre17
@@ -33,13 +32,13 @@ FROM eclipse-temurin:21-jre AS jre21
 FROM eclipse-temurin:25-jre AS jre25
 
 # ============================================================
-# Runtime images (base + Java)
+# Runtime images (CPU)
 # ============================================================
 
 # -------- Java 8 --------
 FROM jre8 AS runtime-jre8
+RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -49,8 +48,8 @@ CMD ["run"]
 
 # -------- Java 11 --------
 FROM jre11 AS runtime-jre11
+RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -60,8 +59,8 @@ CMD ["run"]
 
 # -------- Java 17 --------
 FROM jre17 AS runtime-jre17
+RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -71,8 +70,8 @@ CMD ["run"]
 
 # -------- Java 21 --------
 FROM jre21 AS runtime-jre21
+RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -82,8 +81,8 @@ CMD ["run"]
 
 # -------- Java 25 --------
 FROM jre25 AS runtime-jre25
+RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -94,7 +93,6 @@ CMD ["run"]
 # ============================================================
 # GPU runtime (Java 25 only)
 # ============================================================
-
 FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 AS runtime-jre25-gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -115,9 +113,8 @@ COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-# --- entrypoint & tini jq ---
+# --- entrypoint & tini ---
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /entrypoint.sh /entrypoint.sh
 
 ENV HOME=/data
