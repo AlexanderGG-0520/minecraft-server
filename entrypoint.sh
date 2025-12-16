@@ -1282,67 +1282,66 @@ install() {
   log INFO "Install phase completed (partial)"
 }
 
+# ==========================================================
+# Runtime
+# ==========================================================
 runtime() {
   log INFO "Starting runtime (TYPE=${TYPE})"
 
   case "${TYPE}" in
-    # ==========================================================
+    # ======================================================
     # Fabric
-    # ==========================================================
+    # ======================================================
     fabric)
       log INFO "Launching Fabric server"
-      java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/fabric-server-launch.jar" nogui &
-      MC_PID=$!
+      exec java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/fabric-server-launch.jar" nogui
       ;;
 
-    # ==========================================================
+    # ======================================================
     # Paper / Purpur / Spigot
-    # ==========================================================
+    # ======================================================
     paper|purpur|spigot)
       log INFO "Launching Paper-like server (${TYPE})"
-      java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/server.jar" nogui &
-      MC_PID=$!
+      exec java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/server.jar" nogui
       ;;
 
-    # ==========================================================
+    # ======================================================
     # Vanilla
-    # ==========================================================
+    # ======================================================
     vanilla)
       [[ "${EULA}" == "true" ]] || die "EULA not accepted"
       [[ -f "${DATA_DIR}/server.jar" ]] || die "server.jar not found"
 
       log INFO "Launching Vanilla server"
-      java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/server.jar" nogui &
-      MC_PID=$!
+      exec java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/server.jar" nogui
       ;;
 
-    # ==========================================================
+    # ======================================================
     # Forge / NeoForge
-    # ==========================================================
+    # ======================================================
     forge|neoforge)
       cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR=${DATA_DIR}"
       umask 022
 
-      # --- run phase ---
+      # ---- run phase ----
       if [[ -f "./run.sh" ]]; then
         log INFO "Launching ${TYPE} via run.sh"
         chmod +x ./run.sh
         exec bash ./run.sh nogui
       fi
 
-      # --- installer phase ---
+      # ---- installer phase (first boot only) ----
       log INFO "${TYPE} installer phase (first run)"
 
-      # NeoForge installer のログバグ対策（あってもなくてもOK）
-      touch ./neoforge-installer.log || true
-      chmod 644 ./neoforge-installer.log || true
+      # NeoForge installer log workaround
+      touch ./installer.log || true
+      chmod 644 ./installer.log || true
 
-      # ★ run.sh を exec させないのがポイント
       java @"${JVM_ARGS_FILE}" \
-        -Dneoforge.installer.log=./neoforge-installer.log \
+        -Dneoforge.installer.log=./installer.log \
         -jar "./server.jar" \
         --installServer \
         --no-run || true
@@ -1351,27 +1350,13 @@ runtime() {
       exec /entrypoint.sh run
       ;;
 
-    # ==========================================================
+    # ======================================================
     # Unknown
-    # ==========================================================
+    # ======================================================
     *)
       die "Unknown TYPE: ${TYPE}"
       ;;
   esac
-
-  # ------------------------------------------------------------
-  # Common supervision
-  # ------------------------------------------------------------
-  sleep "${READY_DELAY:-5}"
-
-  if ! kill -0 "${MC_PID}" 2>/dev/null; then
-    die "Minecraft process exited early"
-  fi
-
-  touch "${DATA_DIR}/.ready"
-  log INFO "Minecraft server is running (pid=${MC_PID})"
-
-  wait "${MC_PID}"
 }
 
 main() {
