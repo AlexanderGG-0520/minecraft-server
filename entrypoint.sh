@@ -270,15 +270,6 @@ install_server() {
   log INFO "Resolving server (TYPE=${TYPE}, VERSION=${VERSION:-auto})"
 
   case "${TYPE}" in
-    auto)
-      if [[ ! -f ${DATA_DIR}/server.jar ]]; then
-        log INFO "Creating dummy server.jar (auto mode)"
-        echo "dummy server jar" > ${DATA_DIR}/server.jar
-      else
-        log INFO "server.jar already exists, skipping"
-      fi
-      ;;
-
     vanilla)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for vanilla"
 
@@ -347,76 +338,63 @@ install_server() {
     forge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
 
-      if [[ -f ${DATA_DIR}/server.jar ]]; then
-        log INFO "server.jar already exists, skipping"
+      MARKER="${DATA_DIR}/.installed-forge-${VERSION}"
+      if [[ -f "${MARKER}" && -f "${DATA_DIR}/run.sh" ]]; then
+        log INFO "Forge already installed (${VERSION}), skipping"
         return
       fi
 
       FORGE_VER="${FORGE_VERSION:-latest}"
       log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
 
-      # Forge version metadata
       FORGE_META_URL="https://files.minecraftforge.net/net/minecraftforge/forge/index_${VERSION}.html"
-      FORGE_VER="$(curl -fsSL ${FORGE_META_URL} \
-        | grep -oP 'forge-\K[0-9\.]+' \
-        | head -n 1)"
-
+      FORGE_VER="$(curl -fsSL "${FORGE_META_URL}" | grep -oP 'forge-\K[0-9\.]+' | head -n 1)"
       [[ -n "${FORGE_VER}" ]] || die "Failed to resolve Forge version"
 
       INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
-
       curl -fL \
         "https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}" \
         -o "/tmp/${INSTALLER}" \
         || die "Failed to download Forge installer"
 
-      java -jar "/tmp/${INSTALLER}" \
-        --installServer \
-        ${DATA_DIR} \
+      java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
         || die "Forge installer failed"
 
-      # Forge generates run.sh + libraries + jar
-      FORGE_JAR="$(ls ${DATA_DIR} | grep 'forge-.*-server.jar' | head -n 1)"
-      [[ -f "${DATA_DIR}/${FORGE_JAR}" ]] || die "Forge server jar not found"
+      [[ -f "${DATA_DIR}/run.sh" ]] || die "Forge install finished but run.sh not found"
 
-      ln -sf "${DATA_DIR}/${FORGE_JAR}" ${DATA_DIR}/server.jar
-      log INFO "Forge server.jar ready"
+      touch "${MARKER}"
+      log INFO "Forge installed marker created: ${MARKER}"
       ;;
 
     neoforge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for neoforge"
 
-      if [[ -f ${DATA_DIR}/server.jar ]]; then
-        log INFO "server.jar already exists, skipping"
+      MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}"
+      if [[ -f "${MARKER}" && -f "${DATA_DIR}/run.sh" ]]; then
+        log INFO "NeoForge already installed (${VERSION}), skipping"
         return
       fi
 
       NEO_VER="${NEOFORGE_VERSION:-latest}"
       log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
 
-      # NeoForge metadata API
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
-      NEO_VER="$(curl -fsSL ${META_URL} | jq -r '.versions[0]')"
-
-      [[ -n "${NEO_VER}" ]] || die "Failed to resolve NeoForge version"
+      NEO_VER="$(curl -fsSL "${META_URL}" | jq -r '.versions[0]')"
+      [[ -n "${NEO_VER}" && "${NEO_VER}" != "null" ]] || die "Failed to resolve NeoForge version"
 
       INSTALLER="neoforge-${NEO_VER}-installer.jar"
-
       curl -fL \
         "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/${INSTALLER}" \
         -o "/tmp/${INSTALLER}" \
         || die "Failed to download NeoForge installer"
 
-      java -jar "/tmp/${INSTALLER}" \
-        --installServer \
-        ${DATA_DIR} \
+      java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
         || die "NeoForge installer failed"
 
-      NEO_JAR="$(ls ${DATA_DIR} | grep 'neoforge-.*-server.jar' | head -n 1)"
-      [[ -f "${DATA_DIR}/${NEO_JAR}" ]] || die "NeoForge server jar not found"
+      [[ -f "${DATA_DIR}/run.sh" ]] || die "NeoForge install finished but run.sh not found"
 
-      ln -sf "${DATA_DIR}/${NEO_JAR}" ${DATA_DIR}/server.jar
-      log INFO "NeoForge server.jar ready"
+      touch "${MARKER}"
+      log INFO "NeoForge installed marker created: ${MARKER}"
       ;;
 
     paper)
