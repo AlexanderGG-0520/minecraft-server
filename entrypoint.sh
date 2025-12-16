@@ -1328,7 +1328,7 @@ runtime() {
       if [[ -f "./run.sh" ]]; then
         log INFO "Launching ${TYPE} via run.sh"
         chmod +x ./run.sh
-        bash ./run.sh nogui &
+        exec bash ./run.sh nogui &
         MC_PID=$!
       else
         log INFO "${TYPE} bootstrap phase (first run)"
