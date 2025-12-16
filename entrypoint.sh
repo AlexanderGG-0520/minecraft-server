@@ -1330,7 +1330,8 @@ runtime() {
       if [[ -f "./run.sh" ]]; then
         log INFO "Launching ${TYPE} via run.sh"
         chmod +x ./run.sh
-        exec bash ./run.sh nogui
+        bash ./run.sh nogui &
+        MC_PID=$!
       fi
 
       # ---- installer phase (first boot only) ----
