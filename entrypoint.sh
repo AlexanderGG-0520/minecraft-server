@@ -1323,36 +1323,25 @@ runtime() {
     # Forge / NeoForge
     # ==========================================================
     forge|neoforge)
-      # --- 必須：作業ディレクトリ ---
       cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR=${DATA_DIR}"
+      umask 022
 
-      # ----------------------------------------------------------
-      # 2nd phase: 実行フェーズ（run.sh が存在する場合）
-      # ----------------------------------------------------------
+      # --- run phase ---
       if [[ -f "./run.sh" ]]; then
         log INFO "Launching ${TYPE} via run.sh"
-
         chmod +x ./run.sh
-
-        # ★ 重要：exec で PID 1 を Java に置き換える
         exec bash ./run.sh nogui
       fi
 
-      # ----------------------------------------------------------
-      # 1st phase: bootstrap / installer フェーズ
-      # ----------------------------------------------------------
+      # --- bootstrap phase ---
       log INFO "${TYPE} bootstrap phase (first run)"
 
-      # ★ NeoForge / Forge installer はログファイル書き込みを試みるため
-      # ★ --no-log を必ず付けて Permission 問題を回避する
       java @"${JVM_ARGS_FILE}" \
+        -Dneoforge.installer.log=/dev/null \
         -jar "./server.jar" \
-        --no-log \
         nogui
 
       log INFO "Bootstrap finished, re-entering runtime"
-
-      # ★ tini + PID1 を維持したまま runtime() に戻す
       exec /entrypoint.sh run
       ;;
 
