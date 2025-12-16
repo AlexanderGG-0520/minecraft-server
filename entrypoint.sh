@@ -1323,17 +1323,19 @@ runtime() {
     # Forge / NeoForge
     # ==========================================================
     forge|neoforge)
-      if [[ -f "${DATA_DIR}/run.sh" ]]; then
+      cd "${DATA_DIR}"
+
+      if [[ -f "./run.sh" ]]; then
         log INFO "Launching ${TYPE} via run.sh"
-        bash "${DATA_DIR}/run.sh" nogui &
+        chmod +x ./run.sh
+        bash ./run.sh nogui &
         MC_PID=$!
       else
         log INFO "${TYPE} bootstrap phase (first run)"
-        java @"${JVM_ARGS_FILE}" \
-          -jar "${DATA_DIR}/server.jar" nogui
+        java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
 
-        log INFO "Bootstrap finished, exiting for restart"
-        exit 0
+        log INFO "Bootstrap finished, re-entering runtime"
+        exec "$0" run
       fi
       ;;
 
