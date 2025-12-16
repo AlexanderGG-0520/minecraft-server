@@ -1336,9 +1336,16 @@ runtime() {
       # --- installer phase ---
       log INFO "${TYPE} installer phase (first run)"
 
+      # NeoForge installer のログバグ対策（あってもなくてもOK）
+      touch ./neoforge-installer.log || true
+      chmod 644 ./neoforge-installer.log || true
+
+      # ★ run.sh を exec させないのがポイント
       java @"${JVM_ARGS_FILE}" \
+        -Dneoforge.installer.log=./neoforge-installer.log \
         -jar "./server.jar" \
-        --installServer
+        --installServer \
+        --no-run || true
 
       log INFO "Installer finished, re-entering runtime"
       exec /entrypoint.sh run
