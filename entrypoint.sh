@@ -1283,34 +1283,82 @@ install() {
 }
 
 runtime() {
-  log INFO "Starting Minecraft runtime"
+  log INFO "Starting runtime (TYPE=${TYPE})"
 
-  [[ -f "${DATA_DIR}/server.jar" ]] || die "server.jar not found"
-  [[ -f "${DATA_DIR}/jvm.args" ]]  || die "jvm.args not found"
+  case "${TYPE}" in
+    # ==========================================================
+    # Fabric
+    # ==========================================================
+    fabric)
+      log INFO "Launching Fabric server"
+      java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/fabric-server-launch.jar" nogui &
+      MC_PID=$!
+      ;;
 
-  rm -f "${DATA_DIR}/.ready"
+    # ==========================================================
+    # Paper / Purpur / Spigot
+    # ==========================================================
+    paper|purpur|spigot)
+      log INFO "Launching Paper-like server (${TYPE})"
+      java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/server.jar" nogui &
+      MC_PID=$!
+      ;;
 
-  cd "${DATA_DIR}" || die "Failed to cd to ${DATA_DIR}"
+    # ==========================================================
+    # Vanilla
+    # ==========================================================
+    vanilla)
+      [[ "${EULA}" == "true" ]] || die "EULA not accepted"
+      [[ -f "${DATA_DIR}/server.jar" ]] || die "server.jar not found"
 
-  if [[ "${TYPE}" == "fabric" ]]; then
-    java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/fabric-server-launch.jar" nogui &
-  else
-    java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/server.jar" nogui &
-  fi
-  MC_PID=$!
+      log INFO "Launching Vanilla server"
+      java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/server.jar" nogui &
+      MC_PID=$!
+      ;;
 
+    # ==========================================================
+    # Forge / NeoForge
+    # ==========================================================
+    forge|neoforge)
+      if [[ -f "${DATA_DIR}/run.sh" ]]; then
+        log INFO "Launching ${TYPE} via run.sh"
+        bash "${DATA_DIR}/run.sh" nogui &
+        MC_PID=$!
+      else
+        log INFO "${TYPE} bootstrap phase (first run)"
+        java @"${JVM_ARGS_FILE}" \
+          -jar "${DATA_DIR}/server.jar" nogui
+
+        log INFO "Bootstrap finished, exiting for restart"
+        exit 0
+      fi
+      ;;
+
+    # ==========================================================
+    # Unknown
+    # ==========================================================
+    *)
+      die "Unknown TYPE: ${TYPE}"
+      ;;
+  esac
+
+  # ------------------------------------------------------------
+  # Common supervision
+  # ------------------------------------------------------------
   sleep "${READY_DELAY:-5}"
 
-  if kill -0 "${MC_PID}" 2>/dev/null; then
-    touch "${DATA_DIR}/.ready"
-    log INFO "Server marked as ready"
-  else
+  if ! kill -0 "${MC_PID}" 2>/dev/null; then
     die "Minecraft process exited early"
   fi
 
+  touch "${DATA_DIR}/.ready"
+  log INFO "Minecraft server is running (pid=${MC_PID})"
+
   wait "${MC_PID}"
 }
-
 
 main() {
   log INFO "Minecraft Runtime Booting..."
