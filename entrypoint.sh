@@ -1326,29 +1326,26 @@ runtime() {
       cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR=${DATA_DIR}"
       umask 022
 
-      # ---- run phase ----
-      if [[ -f "./run.sh" ]]; then
-        log INFO "Launching ${TYPE} via run.sh"
-        chmod +x ./run.sh
-        bash ./run.sh nogui &
-        MC_PID=$!
+      if [[ ! -f ".installed-${TYPE}" ]]; then
+        log INFO "${TYPE} installer phase (first run)"
+
+        java @"${JVM_ARGS_FILE}" \
+          -jar "./server.jar" \
+          --installServer \
+          --no-run || true
+
+        touch ".installed-${TYPE}"
+      else
+        log INFO "${TYPE} already installed, skipping installer"
       fi
 
-      # ---- installer phase (first boot only) ----
-      log INFO "${TYPE} installer phase (first run)"
+      if [[ ! -x "./run.sh" ]]; then
+        die "run.sh missing or not executable after install"
+      fi
 
-      # NeoForge installer log workaround
-      touch ./installer.log || true
-      chmod 644 ./installer.log || true
-
-      java @"${JVM_ARGS_FILE}" \
-        -Dneoforge.installer.log=./installer.log \
-        -jar "./server.jar" \
-        --installServer \
-        --no-run || true
-
-      log INFO "Installer finished, re-entering runtime"
-      exec /entrypoint.sh run
+      log INFO "Launching ${TYPE} via run.sh"
+      bash ./run.sh nogui &
+      MC_PID=$!
       ;;
 
     # ======================================================
