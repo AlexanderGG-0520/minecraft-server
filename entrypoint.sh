@@ -1319,14 +1319,19 @@ runtime() {
         -jar "${DATA_DIR}/server.jar" nogui
       ;;
 
-    # ======================================================
+    # ==========================================================
     # Forge / NeoForge
-    # ======================================================
+    # ==========================================================
     forge|neoforge)
       cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR=${DATA_DIR}"
       umask 022
 
-      if [[ ! -f ".installed-${TYPE}" ]]; then
+      INSTALL_MARKER="${DATA_DIR}/.installed-${TYPE}"
+
+      # --------------------------------------------------------
+      # Install phase (first boot only)
+      # --------------------------------------------------------
+      if [[ ! -f "${INSTALL_MARKER}" ]]; then
         log INFO "${TYPE} installer phase (first run)"
 
         java @"${JVM_ARGS_FILE}" \
@@ -1334,18 +1339,24 @@ runtime() {
           --installServer \
           --no-run || true
 
-        touch ".installed-${TYPE}"
+        # installer 完了を明示的に記録
+        touch "${INSTALL_MARKER}"
+        log INFO "${TYPE} install completed"
       else
         log INFO "${TYPE} already installed, skipping installer"
       fi
 
+      # --------------------------------------------------------
+      # Run phase
+      # --------------------------------------------------------
       if [[ ! -x "./run.sh" ]]; then
         die "run.sh missing or not executable after install"
       fi
 
       log INFO "Launching ${TYPE} via run.sh"
-      bash ./run.sh nogui &
-      MC_PID=$!
+
+      # ★ Kubernetes 前提：PID1 を Minecraft にする
+      exec bash ./run.sh nogui
       ;;
 
     # ======================================================
