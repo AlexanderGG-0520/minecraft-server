@@ -345,11 +345,20 @@ install_server() {
       fi
 
       FORGE_VER="${FORGE_VERSION:-latest}"
-      log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
-
       FORGE_META_URL="https://files.minecraftforge.net/net/minecraftforge/forge/index_${VERSION}.html"
-      FORGE_VER="$(curl -fsSL "${FORGE_META_URL}" | grep -oP 'forge-\K[0-9\.]+' | head -n 1)"
-      [[ -n "${FORGE_VER}" ]] || die "Failed to resolve Forge version"
+
+      if [[ "${FORGE_VER}" == "latest" ]]; then
+        log INFO "Resolving latest Forge version for MC ${VERSION}"
+        FORGE_VER="$(curl -fsSL "${FORGE_META_URL}" \
+          | grep -oP 'forge-\K[0-9\.]+' \
+          | head -n 1)" \
+          || die "Failed to resolve latest Forge version"
+      fi
+
+      [[ -n "${FORGE_VER}" ]] \
+        || die "Invalid Forge version resolved: ${FORGE_VER}"
+
+      log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
 
       INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
       curl -fL \
@@ -376,11 +385,18 @@ install_server() {
       fi
 
       NEO_VER="${NEOFORGE_VERSION:-latest}"
-      log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
-
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
-      NEO_VER="$(curl -fsSL "${META_URL}" | jq -r '.versions[0]')"
-      [[ -n "${NEO_VER}" && "${NEO_VER}" != "null" ]] || die "Failed to resolve NeoForge version"
+
+      if [[ "${NEO_VER}" == "latest" ]]; then
+        log INFO "Resolving latest NeoForge version from Maven"
+        NEO_VER="$(curl -fsSL "${META_URL}" | jq -r '.versions[0]')" \
+          || die "Failed to resolve latest NeoForge version"
+      fi
+
+      [[ -n "${NEO_VER}" && "${NEO_VER}" != "null" ]] \
+        || die "Invalid NeoForge version resolved: ${NEO_VER}"
+
+      log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
 
       INSTALLER="neoforge-${NEO_VER}-installer.jar"
       curl -fL \
