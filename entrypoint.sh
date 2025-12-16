@@ -1326,20 +1326,29 @@ runtime() {
       cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR=${DATA_DIR}"
       umask 022
 
-      # /data が書けないならここで即死（原因を隠さない）
-      touch "${DATA_DIR}/.writetest" 2>/dev/null || die "/data is not writable (check PVC perms / fsGroup / initContainer)"
-      rm -f "${DATA_DIR}/.writetest" 2>/dev/null || true
+      # --------------------------------------------------------
+      # If server.jar is still an installer, install once
+      # --------------------------------------------------------
+      if [[ ! -f ".server-ready" ]]; then
+        log INFO "${TYPE} installer phase (first and only time)"
 
-      if [[ -x "./run.sh" ]]; then
-        log INFO "Launching ${TYPE} via run.sh"
-        exec ./run.sh nogui
+        java @"${JVM_ARGS_FILE}" -jar "./server.jar" --installServer
+
+        # --- locate real server jar ---
+        REAL_SERVER_JAR="$(ls libraries/net/neoforged/neoforge/*/neoforge-*-server.jar 2>/dev/null | head -n1)"
+
+        [[ -f "${REAL_SERVER_JAR}" ]] || die "Real NeoForge server jar not found"
+
+        # --- replace installer with real server ---
+        mv -f "${REAL_SERVER_JAR}" "./server.jar"
+        chmod 644 "./server.jar"
+
+        touch ".server-ready"
+        log INFO "NeoForge server jar installed and activated"
       fi
 
-      log INFO "${TYPE} bootstrap phase (first run)"
-      java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
-
-      log INFO "Bootstrap finished, re-entering runtime"
-      exec "$0" run
+      log INFO "Launching NeoForge server"
+      exec java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
       ;;
 
     # ======================================================
