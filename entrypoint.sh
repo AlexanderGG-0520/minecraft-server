@@ -1333,19 +1333,14 @@ runtime() {
         exec bash ./run.sh nogui
       fi
 
-      # --- bootstrap phase ---
-      log INFO "${TYPE} bootstrap phase (first run)"
-
-      # ★ NeoForge installer が必ず最初にログを書こうとする対策
-      touch ./neoforge-installer.log || true
-      chmod 644 ./neoforge-installer.log || true
+      # --- installer phase ---
+      log INFO "${TYPE} installer phase (first run)"
 
       java @"${JVM_ARGS_FILE}" \
-        -Dneoforge.installer.log=./neoforge-installer.log \
         -jar "./server.jar" \
-        nogui
+        --installServer
 
-      log INFO "Bootstrap finished, re-entering runtime"
+      log INFO "Installer finished, re-entering runtime"
       exec /entrypoint.sh run
       ;;
 
