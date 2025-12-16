@@ -1319,41 +1319,36 @@ runtime() {
         -jar "${DATA_DIR}/server.jar" nogui
       ;;
 
-    # ==========================================================
-    # Forge / NeoForge (runtime phase)
-    # ==========================================================
+    # ======================================================
+    # Forge / NeoForge
+    # ======================================================
     forge|neoforge)
       cd "${DATA_DIR}"
 
-      # --------------------------------------------------------
-      # Install済み判定
-      # ・run.sh が存在する
-      # ・libraries ディレクトリが存在する
-      # --------------------------------------------------------
-      if [[ -x "./run.sh" && -d "./libraries" ]]; then
-        log INFO "${TYPE} already installed, launching runtime"
+      INSTALL_MARKER="${DATA_DIR}/.installed-${TYPE}"
+
+      if [[ ! -f "${INSTALL_MARKER}" ]]; then
+        log INFO "${TYPE} install phase (first run)"
+
+        # installer 実行（ここは今のままでOK）
+        java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
+
+        # run.sh が生成されたことを確認
+        if [[ ! -f "./run.sh" ]]; then
+          die "run.sh was not generated; ${TYPE} install failed"
+        fi
 
         chmod +x ./run.sh
 
-        # run.sh は foreground 実行（PIDを掴む）
-        exec ./run.sh nogui
+        # install 完了フラグを立てる
+        touch "${INSTALL_MARKER}"
+        log INFO "${TYPE} install completed"
+
+        # ★ ここで exit しない ★
       fi
 
-      # --------------------------------------------------------
-      # 初回インストールフェーズ
-      # --------------------------------------------------------
-      log INFO "${TYPE} bootstrap phase (first install)"
-
-      # 念のため installer jar があれば削除（中途半端対策）
-      rm -f neoforge-*-installer.jar forge-*-installer.jar 2>/dev/null || true
-
-      # installer 実行（ここは exit 0 してOK）
-      java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
-
-      log INFO "Bootstrap finished, re-entering runtime phase"
-
-      # 再実行（この時点で run.sh が生成されている前提）
-      exec "$0" run
+      log INFO "Launching ${TYPE} via run.sh"
+      exec ./run.sh nogui
       ;;
 
     # ======================================================
