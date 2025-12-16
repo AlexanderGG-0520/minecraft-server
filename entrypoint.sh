@@ -1323,32 +1323,23 @@ runtime() {
     # Forge / NeoForge
     # ======================================================
     forge|neoforge)
-      cd "${DATA_DIR}"
+      cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR=${DATA_DIR}"
+      umask 022
 
-      INSTALL_MARKER="${DATA_DIR}/.installed-${TYPE}"
+      # /data が書けないならここで即死（原因を隠さない）
+      touch "${DATA_DIR}/.writetest" 2>/dev/null || die "/data is not writable (check PVC perms / fsGroup / initContainer)"
+      rm -f "${DATA_DIR}/.writetest" 2>/dev/null || true
 
-      if [[ ! -f "${INSTALL_MARKER}" ]]; then
-        log INFO "${TYPE} install phase (first run)"
-
-        # installer 実行（ここは今のままでOK）
-        java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
-
-        # run.sh が生成されたことを確認
-        if [[ ! -f "./run.sh" ]]; then
-          die "run.sh was not generated; ${TYPE} install failed"
-        fi
-
-        chmod +x ./run.sh
-
-        # install 完了フラグを立てる
-        touch "${INSTALL_MARKER}"
-        log INFO "${TYPE} install completed"
-
-        # ★ ここで exit しない ★
+      if [[ -x "./run.sh" ]]; then
+        log INFO "Launching ${TYPE} via run.sh"
+        exec ./run.sh nogui
       fi
 
-      log INFO "Launching ${TYPE} via run.sh"
-      exec ./run.sh nogui
+      log INFO "${TYPE} bootstrap phase (first run)"
+      java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
+
+      log INFO "Bootstrap finished, re-entering runtime"
+      exec "$0" run
       ;;
 
     # ======================================================
