@@ -252,17 +252,19 @@ handle_reset_world_flag() {
 
     log WARN "reset-world.flag detected, proceeding to reset world"
 
+    reset_world
+
+    # consume flag (ONE-SHOT)
+    rm -f "$FLAG"
+    log INFO "reset-world.flag consumed"
+
     if (( NOW - MTIME > MAX_AGE )); then
       log ERROR "reset-world.flag expired (older than ${MAX_AGE}s), resetting aborted"
       return  # Stop further execution but do not die
     fi
+  else
+    log INFO "No reset-world.flag detected, skipping world reset"
   fi
-
-  reset_world
-
-  # consume flag (ONE-SHOT)
-  rm -f "$FLAG"
-  log INFO "reset-world.flag consumed"
 }
 
 install_server() {
