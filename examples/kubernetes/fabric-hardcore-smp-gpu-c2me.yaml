@@ -126,16 +126,6 @@ spec:
               value: "true"
 
             # --------------------------------------------------
-            # Optimization mods (CPU-side)
-            # --------------------------------------------------
-            - name: OPTIMIZE_MODE
-              value: force
-            - name: OPTIMIZE_S3_BUCKET
-              value: minecraft-assets
-            - name: OPTIMIZE_S3_PREFIX
-              value: optimize/fabric
-
-            # --------------------------------------------------
             # C2ME OpenCL (EXPERIMENTAL)
             # --------------------------------------------------
             - name: ENABLE_C2ME

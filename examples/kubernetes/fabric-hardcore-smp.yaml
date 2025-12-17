@@ -26,9 +26,6 @@ spec:
               value: "1.21.1"
             - name: HARDCORE
               value: "true"
-            # F-1: CPU最適化MOD
-            - name: OPTIMIZE_MODE
-              value: auto
             # --- Mods (user mods) ---
             - name: MODS_ENABLED
               value: "true"
