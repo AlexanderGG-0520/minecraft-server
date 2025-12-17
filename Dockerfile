@@ -39,6 +39,7 @@ FROM eclipse-temurin:25-jre AS jre25
 FROM jre8 AS runtime-jre8
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -50,6 +51,7 @@ CMD ["run"]
 FROM jre11 AS runtime-jre11
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -61,6 +63,7 @@ CMD ["run"]
 FROM jre17 AS runtime-jre17
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -72,6 +75,7 @@ CMD ["run"]
 FROM jre21 AS runtime-jre21
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -83,6 +87,7 @@ CMD ["run"]
 FROM jre25 AS runtime-jre25
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 ENV HOME=/data
@@ -113,8 +118,9 @@ COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-# --- entrypoint & tini ---
+# --- entrypoint & tini & jq ---
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/jq /usr/bin/jq
 COPY --from=base /entrypoint.sh /entrypoint.sh
 
 ENV HOME=/data
