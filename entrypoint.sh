@@ -348,17 +348,9 @@ install_server() {
     forge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
 
-
+      # ---- version resolution ----
       FORGE_VER="${FORGE_VERSION:-latest}"
       FORGE_META_URL="https://files.minecraftforge.net/net/minecraftforge/forge/index_${VERSION}.html"
-
-      MARKER="${DATA_DIR}/.installed-forge-${VERSION}-${FORGE_VER}"
-
-      if [[ -f "${MARKER}" ]]; then
-        log INFO "Forge already installed (MC=${VERSION}, forge=${FORGE_VER}), skipping"
-        return
-      fi
-
 
       if [[ "${FORGE_VER}" == "latest" ]]; then
         log INFO "Resolving latest Forge version for MC ${VERSION}"
@@ -376,9 +368,13 @@ install_server() {
         }
       fi
 
+      # ---- marker AFTER resolution ----
+      MARKER="${DATA_DIR}/.installed-forge-${VERSION}-${FORGE_VER}"
 
-      [[ -n "${FORGE_VER}" ]] \
-        || die "Invalid Forge version resolved: ${FORGE_VER}"
+      if [[ -f "${MARKER}" ]]; then
+        log INFO "Forge already installed (MC=${VERSION}, forge=${FORGE_VER}), skipping"
+        return
+      fi
 
       log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
 
@@ -412,18 +408,11 @@ install_server() {
 
       json="$(curl -fsSL "${META_URL}" || true)"
 
-      NEO_VER="$(
-        printf '%s' "$json" \
-        | jq -er '
-          if type=="object"
-            and has("versions")
-            and (.versions|type=="array")
-            and (.versions|length>0)
-          then .versions[0]
-          else empty
-          end
-        ' 2>/dev/null
-      )" || true
+      if [[ "${NEO_VER}" == "latest" ]]; then
+        json="$(curl -fsSL "${META_URL}" || true)"
+        NEO_VER="$(printf '%s' "$json" | jq -er '.versions[0]')"
+      fi
+
       [[ -n "${NEO_VER}" ]] || {
         log ERROR "Failed to resolve NeoForge version. Response was:"
         log ERROR "$(echo "$json" | head -c 300)"
