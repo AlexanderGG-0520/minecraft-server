@@ -233,9 +233,10 @@ reset_world() {
       || log ERROR "World backup failed"
   fi
 
-  # ---- Step 3: delete world contents only ----
-  log INFO "Deleting world contents"
-  rm -rf "${WORLD_DIR:?}/"*
+  # ---- Step 3: delete world directory completely ----
+  log INFO "Deleting world directory"
+  rm -rf "${WORLD_DIR}"
+  mkdir -p "${WORLD_DIR}"
 
   # ---- Step 4: delete the FLAG file to prevent repeated resets ----
   rm -f "${FLAG_FILE}"
