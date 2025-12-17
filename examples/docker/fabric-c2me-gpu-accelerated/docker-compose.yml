@@ -10,7 +10,7 @@ services:
     environment:
       EULA: "true" 
       TYPE: "fabric" 
-      VERSION: "1.21.1" 
+      VERSION: "1.21.10" 
       MAX_MEMORY: "4G" 
       JVM_XMS: "1G" 
       JVM_XMX: "4G" 
