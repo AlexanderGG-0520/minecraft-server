@@ -1,6 +1,7 @@
 services:
   minecraft:
     image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre25-gpu
+    pull_policy: always
     container_name: mc-fabric
     ports:
       - "25565:25565" 
