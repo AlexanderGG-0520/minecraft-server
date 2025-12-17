@@ -1,25 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# ============================================================
-# Global paths
-# ============================================================
-
-: "${DATA_DIR:=/data}"
-: "${JVM_ARGS_FILE:=${DATA_DIR}/jvm.args}"
-
-# ============================================================
-# Runtime detection defaults (set -u safety)
-# ============================================================
-
-: "${JAVA_MAJOR:=unknown}"
-: "${JAVA_VERSION_RAW:=unknown}"
-: "${JAVA_VENDOR:=unknown}"
-
-: "${RUNTIME_ARCH_NORM:=unknown}"
-: "${RUNTIME_CONTAINER:=unknown}"
-: "${RUNTIME_GPU:=none}"
-
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] [$1] $2"; }
 die() { log ERROR "$1"; exit 1; }
@@ -46,6 +27,23 @@ trap graceful_shutdown SIGTERM SIGINT
 # ============================================================
 # Environment defaults (non server.properties)
 # ============================================================
+
+# Java
+: "${JAVA_MAJOR:=unknown}"
+: "${JAVA_VERSION_RAW:=unknown}"
+: "${JAVA_VENDOR:=unknown}"
+
+: "${RUNTIME_ARCH_NORM:=unknown}"
+: "${RUNTIME_CONTAINER:=unknown}"
+: "${RUNTIME_GPU:=none}"
+
+# Global Paths
+: "${DATA_DIR:=/data}"
+: "${JVM_ARGS_FILE:=${DATA_DIR}/jvm.args}"
+
+# UID/GID
+: "${UID:=1000}"
+: "${GID:=1000}"
 
 # Runtime
 : "${TYPE:=auto}"
@@ -914,6 +912,28 @@ generate_server_properties() {
   : "${RESOURCE_PACK_SHA1:=}"
   : "${REQUIRE_RESOURCE_PACK:=false}"
 
+  # --- Phase D: World / Gameplay ---
+  : "${LEVEL_SEED:=}"
+  : "${LEVEL:=world}"
+  : "${LEVEL_TYPE:=minecraft:default}"
+  : "${GENERATE_STRUCTURES:=true}"
+  : "${ALLOW_NETHER:=true}"
+  : "${ALLOW_END:=true}"
+  : "${ENABLE_COMMAND_BLOCK:=false}"
+  : "${SPAWN_ANIMALS:=true}"
+  : "${SPAWN_MONSTERS:=true}"
+
+  # --- Phase E: Networking / Connections ---
+  : "${ONLINE_MODE:=true}"
+  : "${MAX_WORLD_SIZE:=29999984}"
+  : "${SNOOPER_ENABLED:=true}"
+  : "${USE_NATIVE_TRANSPORT:=true}"
+  : "${NETWORK_COMPRESSION_THRESHOLD:=256}"
+
+  # --- Phase F: Rcon ---
+  : "${ENABLE_RCON:=true}"
+  : "${RCON_PORT:=25575}"
+  : "${RCON_PASSWORD:=changeme}"
 
   {
     for ENV_KEY in "${!PROP_MAP[@]}"; do
