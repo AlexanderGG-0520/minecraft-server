@@ -298,14 +298,17 @@ install_server() {
         return
       fi
 
-      # ---- resolve loader ----
-      LOADER_VERSION="${FABRIC_LOADER_VERSION:-latest}"
-      if [[ "${LOADER_VERSION}" == "latest" ]]; then
-        LOADER_VERSION="$(curl -fsSL \
-          "https://meta.fabricmc.net/v2/versions/loader/${VERSION}" \
-          | jq -r '.[0].loader.version')" \
-          || die "Failed to resolve Fabric loader version"
-      fi
+      json="$(curl -fsSL "https://meta.fabricmc.net/v2/versions/loader/${VERSION}" || true)"
+
+      LOADER_VERSION="$(printf '%s' "$json" | jq -er '
+        if type=="array" and length>0 and .[0].loader.version
+        then .[0].loader.version
+        else empty
+        end
+      ')"
+
+      [[ -n "${LOADER_VERSION}" ]] || die "Failed to resolve Fabric loader version"
+
 
       # ---- resolve installer (from Maven) ----
       INSTALLER_VERSION="${FABRIC_INSTALLER_VERSION:-latest}"
@@ -350,11 +353,20 @@ install_server() {
 
       if [[ "${FORGE_VER}" == "latest" ]]; then
         log INFO "Resolving latest Forge version for MC ${VERSION}"
-        FORGE_VER="$(curl -fsSL "${FORGE_META_URL}" \
-          | grep -oP 'forge-\K[0-9\.]+' \
-          | head -n 1)" \
-          || die "Failed to resolve latest Forge version"
+
+        html="$(curl -fsSL "${FORGE_META_URL}" || true)"
+
+        FORGE_VER="$(printf '%s' "$html" \
+          | grep -oP 'forge-\K[0-9.]+' \
+          | head -n 1)"
+
+        [[ -n "${FORGE_VER}" ]] || {
+          log ERROR "Failed to resolve Forge version. Response was:"
+          log ERROR "$(echo "$html" | head -c 300)"
+          die "Invalid Forge version"
+        }
       fi
+
 
       [[ -n "${FORGE_VER}" ]] \
         || die "Invalid Forge version resolved: ${FORGE_VER}"
@@ -388,11 +400,23 @@ install_server() {
       NEO_VER="${NEOFORGE_VERSION:-latest}"
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
 
-      if [[ "${NEO_VER}" == "latest" ]]; then
-        log INFO "Resolving latest NeoForge version from Maven"
-        NEO_VER="$(curl -fsSL "${META_URL}" | jq -r '.versions[0]')" \
-          || die "Failed to resolve latest NeoForge version"
-      fi
+      json="$(curl -fsSL "${META_URL}" || true)"
+
+      NEO_VER="$(printf '%s' "$json" | jq -er '
+        if type=="object"
+          and has("versions")
+          and (.versions|type=="array")
+          and (.versions|length>0)
+        then .versions[0]
+        else empty
+        end
+      ')"
+        || true
+      [[ -n "${NEO_VER}" ]] || {
+        log ERROR "Failed to resolve NeoForge version. Response was:"
+        log ERROR "$(echo "$json" | head -c 300)"
+        die "Invalid NeoForge version"
+      }
 
       [[ -n "${NEO_VER}" && "${NEO_VER}" != "null" ]] \
         || die "Invalid NeoForge version resolved: ${NEO_VER}"
@@ -452,12 +476,25 @@ install_server() {
 
       BUILD="${PURPUR_BUILD:-latest}"
 
-      log INFO "Installing Purpur server (MC=${VERSION}, build=${BUILD})"
-
       if [[ "${BUILD}" == "latest" ]]; then
-        BUILD="$(curl -fsSL \
-          "https://api.purpurmc.org/v2/purpur/${VERSION}" \
-          | jq -r '.builds.latest')" || die "Failed to resolve Purpur build"
+        log INFO "Resolving latest Purpur build for MC ${VERSION}"
+
+        json="$(curl -fsSL "https://api.purpurmc.org/v2/purpur/${VERSION}" || true)"
+
+        BUILD="$(printf '%s' "$json" | jq -er '
+          if has("builds")
+            and (.builds|type=="object")
+            and (.builds|has("latest"))
+          then .builds.latest
+          else empty
+          end
+        ')"
+
+        [[ -n "${BUILD}" ]] || {
+          log ERROR "Failed to resolve Purpur build. Response was:"
+          log ERROR "$(echo "$json" | head -c 300)"
+          die "Invalid Purpur build"
+        }
       fi
 
       JAR_NAME="purpur-${VERSION}-${BUILD}.jar"
