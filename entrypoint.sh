@@ -398,6 +398,15 @@ install_server() {
       ;;
 
     neoforge)
+
+      # NEOFROGE_VERSION から期待される MC バージョンを算出
+      expected_mc="${NEOFORGE_VERSION%%.*}.${NEOFORGE_VERSION#*.}"
+      expected_mc="${expected_mc%%.*}.${expected_mc#*.}"
+
+      if [[ "$expected_mc" != "$VERSION" ]]; then
+        die "NEOFORGE_VERSION=${NEOFORGE_VERSION} does not match VERSION=${VERSION}"
+      fi
+
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for neoforge"
 
       NEO_VER="${NEOFORGE_VERSION:-latest}"
@@ -438,6 +447,14 @@ install_server() {
 
       touch "${MARKER}"
       log INFO "NeoForge installed marker created: ${MARKER}"
+
+      installed_ids="$(ls "${DATA_DIR}/versions" 2>/dev/null || true)"
+
+      if ! echo "$installed_ids" | grep -qx "${VERSION}"; then
+        log ERROR "Installed Minecraft versions:"
+        log ERROR "$installed_ids"
+        die "Installed Minecraft version does not match VERSION=${VERSION}"
+      fi
       ;;
 
     paper)
