@@ -348,10 +348,10 @@ install_server() {
     forge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
 
-      # ---- version resolution ----
       FORGE_VER="${FORGE_VERSION:-latest}"
       FORGE_META_URL="https://files.minecraftforge.net/net/minecraftforge/forge/index_${VERSION}.html"
 
+      # ---- resolve version FIRST ----
       if [[ "${FORGE_VER}" == "latest" ]]; then
         log INFO "Resolving latest Forge version for MC ${VERSION}"
 
@@ -367,6 +367,10 @@ install_server() {
           die "Invalid Forge version"
         }
       fi
+
+      # ---- sanity check ----
+      [[ -n "${FORGE_VER}" && "${FORGE_VER}" != "null" ]] \
+        || die "Invalid Forge version resolved: ${FORGE_VER}"
 
       # ---- marker AFTER resolution ----
       MARKER="${DATA_DIR}/.installed-forge-${VERSION}-${FORGE_VER}"
@@ -399,28 +403,25 @@ install_server() {
       NEO_VER="${NEOFORGE_VERSION:-latest}"
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
 
+      if [[ "${NEO_VER}" == "latest" ]]; then
+        json="$(curl -fsSL "${META_URL}" || true)"
+        NEO_VER="$(printf '%s' "$json" | jq -er '.versions[0]')"
+      fi
+
+      [[ -n "${NEO_VER}" && "${NEO_VER}" != "null" ]] \
+        || die "Invalid NeoForge version resolved: ${NEO_VER}"
+
+      # 🔒 craftmine ガード（強く推奨）
+      if [[ "$NEO_VER" == *craftmine* ]]; then
+        die "Refusing to install April Fools / craftmine NeoForge: ${NEO_VER}"
+      fi
+
       MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}-${NEO_VER}"
 
       if [[ -f "${MARKER}" ]]; then
         log INFO "NeoForge already installed (MC=${VERSION}, neoforge=${NEO_VER}), skipping"
         return
       fi
-
-      json="$(curl -fsSL "${META_URL}" || true)"
-
-      if [[ "${NEO_VER}" == "latest" ]]; then
-        json="$(curl -fsSL "${META_URL}" || true)"
-        NEO_VER="$(printf '%s' "$json" | jq -er '.versions[0]')"
-      fi
-
-      [[ -n "${NEO_VER}" ]] || {
-        log ERROR "Failed to resolve NeoForge version. Response was:"
-        log ERROR "$(echo "$json" | head -c 300)"
-        die "Invalid NeoForge version"
-      }
-
-      [[ -n "${NEO_VER}" && "${NEO_VER}" != "null" ]] \
-        || die "Invalid NeoForge version resolved: ${NEO_VER}"
 
       log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
 
