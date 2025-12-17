@@ -1428,9 +1428,14 @@ runtime() {
       # --- ② runtime not found, install phase ---
       log INFO "${TYPE} runtime not found, starting install phase"
 
-      # Install server.jar (forge/neoforge)
-      java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
-
+      # IMPORTANT:
+      # Do NOT launch Minecraft here.
+      # Installer must finish without touching worldgen.
+      java -jar "./server.jar" --installServer || {
+        log ERROR "Forge/NeoForge installer failed"
+        exit 1
+      }
+      
       # --- ③ run.sh should be generated after install ---
       if [[ ! -x "./run.sh" ]]; then
         log ERROR "Install finished but run.sh not found"
