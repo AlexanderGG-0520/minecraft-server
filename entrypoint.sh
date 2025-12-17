@@ -402,15 +402,18 @@ install_server() {
 
       json="$(curl -fsSL "${META_URL}" || true)"
 
-      NEO_VER="$(printf '%s' "$json" | jq -er '
-        if type=="object"
-          and has("versions")
-          and (.versions|type=="array")
-          and (.versions|length>0)
-        then .versions[0]
-        else empty
-        end
-      ')"
+      NEO_VER="$(
+        printf '%s' "$json" \
+        | jq -er '
+          if type=="object"
+            and has("versions")
+            and (.versions|type=="array")
+            and (.versions|length>0)
+          then .versions[0]
+          else empty
+          end
+        ' 2>/dev/null
+      )" || true
       [[ -n "${NEO_VER}" ]] || {
         log ERROR "Failed to resolve NeoForge version. Response was:"
         log ERROR "$(echo "$json" | head -c 300)"
