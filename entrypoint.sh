@@ -451,9 +451,25 @@ install_server() {
       log INFO "Installing Paper server (MC=${VERSION}, build=${BUILD})"
 
       if [[ "${BUILD}" == "latest" ]]; then
-        BUILD="$(curl -fsSL \
-          "https://api.papermc.io/v2/projects/paper/versions/${VERSION}" \
-          | jq -r '.builds[-1]')" || die "Failed to resolve Paper build"
+        log INFO "Resolving latest Paper build for MC ${VERSION}"
+
+        json="$(curl -fsSL \
+          "https://api.papermc.io/v2/projects/paper/versions/${VERSION}" || true)"
+
+        BUILD="$(printf '%s' "$json" | jq -er '
+          if has("builds")
+            and (.builds|type=="array")
+            and (.builds|length>0)
+          then .builds[-1]
+          else empty
+          end
+        ')"
+
+        [[ -n "${BUILD}" ]] || {
+          log ERROR "Failed to resolve Paper build. Response was:"
+          log ERROR "$(echo "$json" | head -c 300)"
+          die "Invalid Paper build"
+        }
       fi
 
       JAR_NAME="paper-${VERSION}-${BUILD}.jar"
