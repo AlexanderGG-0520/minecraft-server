@@ -93,12 +93,6 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${ENABLE_C2ME_HARDWARE_ACCELERATION:=false}"
 : "${I_KNOW_C2ME_IS_EXPERIMENTAL:=false}"
 
-: "${FABRIC_INSTALLER_VERSION:=latest}"
-: "${FORGE_VERSION:=latest}"
-: "${NEOFORGE_VERSION:=latest}"
-: "${PAPER_BUILD:=latest}"
-: "${PURPUR_BUILD:=latest}"
-
 preflight() {
   log INFO "Preflight checks..."
 
