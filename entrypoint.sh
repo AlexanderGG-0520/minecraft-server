@@ -342,14 +342,17 @@ install_server() {
     forge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
 
-      MARKER="${DATA_DIR}/.installed-forge-${VERSION}"
-      if [[ -f "${MARKER}" && -f "${DATA_DIR}/run.sh" ]]; then
-        log INFO "Forge already installed (${VERSION}), skipping"
-        return
-      fi
 
       FORGE_VER="${FORGE_VERSION:-latest}"
       FORGE_META_URL="https://files.minecraftforge.net/net/minecraftforge/forge/index_${VERSION}.html"
+
+      MARKER="${DATA_DIR}/.installed-forge-${VERSION}-${FORGE_VER}"
+
+      if [[ -f "${MARKER}" ]]; then
+        log INFO "Forge already installed (MC=${VERSION}, forge=${FORGE_VER}), skipping"
+        return
+      fi
+
 
       if [[ "${FORGE_VER}" == "latest" ]]; then
         log INFO "Resolving latest Forge version for MC ${VERSION}"
@@ -391,14 +394,15 @@ install_server() {
     neoforge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for neoforge"
 
-      MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}"
-      if [[ -f "${MARKER}" && -f "${DATA_DIR}/run.sh" ]]; then
-        log INFO "NeoForge already installed (${VERSION}), skipping"
-        return
-      fi
-
       NEO_VER="${NEOFORGE_VERSION:-latest}"
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
+
+      MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}-${NEO_VER}"
+
+      if [[ -f "${MARKER}" ]]; then
+        log INFO "NeoForge already installed (MC=${VERSION}, neoforge=${NEO_VER}), skipping"
+        return
+      fi
 
       json="$(curl -fsSL "${META_URL}" || true)"
 
