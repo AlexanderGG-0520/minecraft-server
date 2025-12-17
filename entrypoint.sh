@@ -1268,18 +1268,18 @@ detect_gpu() {
   log INFO "Detecting OpenCL GPU availability..."
 
   # ------------------------------------------------------------
-  # 1. NVIDIA device node
+  # 1. GPU device (Docker / WSL compatible)
   # ------------------------------------------------------------
-  if [ ! -e /dev/nvidia0 ]; then
-    log INFO "No NVIDIA device node found"
+  if [ ! -e /dev/nvidia0 ] && [ ! -e /dev/dxg ]; then
+    log INFO "No NVIDIA GPU device found (/dev/nvidia* or /dev/dxg)"
     return 1
   fi
-  log INFO "NVIDIA device node found"
+  log INFO "GPU device node found"
 
   # ------------------------------------------------------------
-  # 2. OpenCL loader
+  # 2. OpenCL loader (path-based, not ldconfig)
   # ------------------------------------------------------------
-  if ! ldconfig -p 2>/dev/null | grep -q "libOpenCL.so"; then
+  if ! ls /usr/lib*/libOpenCL.so* >/dev/null 2>&1; then
     log WARN "OpenCL loader (libOpenCL.so) not found"
     return 1
   fi
@@ -1294,25 +1294,10 @@ detect_gpu() {
   fi
 
   # ------------------------------------------------------------
-  # 4. clinfo sanity check
-  #   - platform must exist
-  #   - device type must be GPU
+  # 4. clinfo sanity (minimal & fast)
   # ------------------------------------------------------------
-  if ! clinfo 2>/dev/null | grep -q "Platform Name"; then
-    log WARN "clinfo did not report any OpenCL platform"
-    return 1
-  fi
-
-  if ! clinfo 2>/dev/null | grep -q "Device Type.*GPU"; then
-    log WARN "clinfo did not report a GPU device"
-    return 1
-  fi
-
-  # ------------------------------------------------------------
-  # 5. NVIDIA OpenCL platform guard
-  # ------------------------------------------------------------
-  if ! clinfo 2>/dev/null | grep -qi "NVIDIA"; then
-    log WARN "OpenCL platform is not NVIDIA"
+  if ! clinfo --raw 2>/dev/null | grep -qi "NVIDIA"; then
+    log WARN "OpenCL NVIDIA platform not detected"
     return 1
   fi
 
