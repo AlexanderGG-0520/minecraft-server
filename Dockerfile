@@ -97,6 +97,12 @@ RUN apt-get update && apt-get install -y \
     pciutils ocl-icd-libopencl1 clinfo jq \
  && rm -rf /var/lib/apt/lists/*
 
+# LWJGL expects libOpenCL.so (not only libOpenCL.so.1)
+RUN set -eux; \
+    if [ -e /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 ] && [ ! -e /usr/lib/x86_64-linux-gnu/libOpenCL.so ]; then \
+      ln -s /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so; \
+    fi
+
 # --- MinIO client (mc) ---
 RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
       -o /usr/local/bin/mc \

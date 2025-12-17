@@ -1304,6 +1304,47 @@ detect_gpu() {
   log INFO "OpenCL GPU detected and usable"
   return 0
 }
+prepare_opencl_icd() {
+  log INFO "Preparing OpenCL ICD (NVIDIA) ..."
+
+  mkdir -p /etc/OpenCL/vendors
+
+  # where to find libnvidia-opencl.so.1
+  local candidates=(
+    "/usr/lib/x86_64-linux-gnu/libnvidia-opencl.so.1"
+    "/usr/lib/wsl/lib/libnvidia-opencl.so.1"
+    "/usr/local/nvidia/lib64/libnvidia-opencl.so.1"
+    "/usr/lib64/libnvidia-opencl.so.1"
+  )
+
+  local found=""
+  for p in "${candidates[@]}"; do
+    if [ -e "$p" ]; then
+      found="$p"
+      break
+    fi
+  done
+
+  if [ -z "$found" ]; then
+    log WARN "NVIDIA OpenCL library not found (libnvidia-opencl.so.1)"
+    return 1
+  fi
+
+  echo "$found" > /etc/OpenCL/vendors/nvidia.icd
+  log INFO "Wrote ICD: /etc/OpenCL/vendors/nvidia.icd -> $found"
+
+  # LWJGL name fix (just in case)
+  if [ -e /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 ] && [ ! -e /usr/lib/x86_64-linux-gnu/libOpenCL.so ]; then
+    ln -s /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so || true
+  fi
+
+  # WSL libs path (if mounted)
+  if [ -d /usr/lib/wsl/lib ]; then
+    export LD_LIBRARY_PATH="/usr/lib/wsl/lib:${LD_LIBRARY_PATH:-}"
+  fi
+
+  return 0
+}
 
 configure_c2me_opencl() {
   if [[ "${C2ME_OPENCL_FORCE:-auto}" == "true" ]]; then
@@ -1328,29 +1369,31 @@ install() {
   install_eula
   handle_reset_world_flag
 
-  install_server        # サーバー本体
-  install_mods          # MOD確定（最重要）
+  install_server        # server jar
+  install_mods          # mods (most important)
 
   # -----------------------------
-  # worldgen 固定フェーズ（初回のみ）
+  # worldgen phase (first time only)
   # -----------------------------
   if [[ ! -f "${DATA_DIR}/world/level.dat" ]]; then
     log INFO "World not found, applying worldgen prerequisites"
     install_datapacks
-    generate_server_properties   # ← worldgen含む
+    generate_server_properties   # ← includes worldgen
   fi
 
   # -----------------------------
-  # runtime フェーズ（毎回OK）
+  # runtime phase (every time ok)
   # -----------------------------
   install_jvm_args
   install_c2me_jvm_args
   install_configs
   install_plugins
   install_resourcepacks
-  apply_server_properties_diff   # ← runtime系だけ
+  apply_server_properties_diff   # ← diff only
   install_whitelist
   install_ops
+  detect_gpu
+  prepare_opencl_icd
   configure_c2me_opencl
 
   log INFO "Install phase completed"
@@ -1399,7 +1442,7 @@ runtime() {
     forge|neoforge)
       cd "${DATA_DIR}"
 
-      # --- ① すでに実行環境があるなら install しない ---
+      # --- ① If runtime environment already exists, do not install ---
       if [[ -x "./run.sh" ]]; then
         log INFO "Detected existing ${TYPE} runtime (run.sh found)"
         log INFO "Launching ${TYPE} server"
@@ -1408,13 +1451,13 @@ runtime() {
         exec ./run.sh nogui
       fi
 
-      # --- ② run.sh が無い場合のみ install ---
+      # --- ② runtime not found, install phase ---
       log INFO "${TYPE} runtime not found, starting install phase"
 
-      # installer 実行
+      # Install server.jar (forge/neoforge)
       java @"${JVM_ARGS_FILE}" -jar "./server.jar" nogui
 
-      # --- ③ install 後に run.sh が生成されているはず ---
+      # --- ③ run.sh should be generated after install ---
       if [[ ! -x "./run.sh" ]]; then
         log ERROR "Install finished but run.sh not found"
         exit 1
