@@ -1354,7 +1354,7 @@ install() {
   configure_c2me_opencl
 
   log INFO "Install phase completed"
-}
+}sx
 
 # ==========================================================
 # Runtime
