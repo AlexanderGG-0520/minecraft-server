@@ -408,14 +408,6 @@ install_server() {
         die "Refusing to install April Fools / craftmine NeoForge: ${NEO_VER}"
       fi
 
-      # --- ここで初めて MC バージョン検証 ---
-      expected_mc="${NEO_VER%%.*}.${NEO_VER#*.}"
-      expected_mc="${expected_mc%%.*}.${expected_mc#*.}"
-
-      if [[ "$expected_mc" != "$VERSION" ]]; then
-        die "NEOFORGE_VERSION=${NEO_VER} does not match VERSION=${VERSION}"
-      fi
-
       MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}-${NEO_VER}"
 
       if [[ -f "${MARKER}" ]]; then
