@@ -1392,7 +1392,6 @@ install() {
   apply_server_properties_diff   # ← diff only
   install_whitelist
   install_ops
-  detect_gpu
   prepare_opencl_icd
   configure_c2me_opencl
 
