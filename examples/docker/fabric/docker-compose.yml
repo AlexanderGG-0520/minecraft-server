@@ -21,10 +21,11 @@ services:
     cpu_count: 2 
     tty: true  
     command: ["/entrypoint.sh"]
-    
+      
 networks:
   minecraft_network:
     driver: bridge  
 volumes:
   minecraft-data:
     name: minecraft-fabric-data
+
