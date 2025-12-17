@@ -411,7 +411,6 @@ install_server() {
         else empty
         end
       ')"
-        || true
       [[ -n "${NEO_VER}" ]] || {
         log ERROR "Failed to resolve NeoForge version. Response was:"
         log ERROR "$(echo "$json" | head -c 300)"
