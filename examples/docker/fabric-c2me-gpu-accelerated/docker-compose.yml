@@ -6,7 +6,7 @@ services:
     ports:
       - "25565:25565" 
     volumes:
-      - minecraft-data:/data
+      - ./data:/data
     environment:
       EULA: "true" 
       TYPE: "fabric" 
@@ -38,6 +38,4 @@ services:
 networks:
   minecraft_network:
     driver: bridge  
-volumes:
-  minecraft-data:
-    name: minecraft-fabric-gpu-c2me-data
+
