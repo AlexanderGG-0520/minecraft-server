@@ -392,19 +392,8 @@ install_server() {
       ;;
 
     neoforge)
-
-      [[ -n "${VERSION:-}" ]] || die "VERSION is required for neoforge"
-
       NEO_VER="${NEOFORGE_VERSION:-latest}"
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
-
-      # NEOFROGE_VERSION から期待される MC バージョンを算出
-      expected_mc="${NEO_VER%%.*}.${NEO_VER#*.}"
-      expected_mc="${expected_mc%%.*}.${expected_mc#*.}"
-
-      if [[ "$expected_mc" != "$VERSION" ]]; then
-        die "NEOFORGE_VERSION=${NEO_VER} does not match VERSION=${VERSION}"
-      fi
 
       if [[ "${NEO_VER}" == "latest" ]]; then
         json="$(curl -fsSL "${META_URL}" || true)"
@@ -414,9 +403,17 @@ install_server() {
       [[ -n "${NEO_VER}" && "${NEO_VER}" != "null" ]] \
         || die "Invalid NeoForge version resolved: ${NEO_VER}"
 
-      # 🔒 craftmine ガード（強く推奨）
+      # 🔒 craftmine ガード
       if [[ "$NEO_VER" == *craftmine* ]]; then
         die "Refusing to install April Fools / craftmine NeoForge: ${NEO_VER}"
+      fi
+
+      # --- ここで初めて MC バージョン検証 ---
+      expected_mc="${NEO_VER%%.*}.${NEO_VER#*.}"
+      expected_mc="${expected_mc%%.*}.${expected_mc#*.}"
+
+      if [[ "$expected_mc" != "$VERSION" ]]; then
+        die "NEOFORGE_VERSION=${NEO_VER} does not match VERSION=${VERSION}"
       fi
 
       MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}-${NEO_VER}"
