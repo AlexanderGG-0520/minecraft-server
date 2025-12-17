@@ -1258,22 +1258,37 @@ configure_c2me_opencl() {
 
 install() {
   log INFO "Install phase start"
+
   install_dirs
   install_eula
   handle_reset_world_flag
-  install_server
-  install_mods
+
+  install_server        # サーバー本体
+  install_mods          # MOD確定（最重要）
+
+  # -----------------------------
+  # worldgen 固定フェーズ（初回のみ）
+  # -----------------------------
+  if [[ ! -f "${DATA_DIR}/world/level.dat" ]]; then
+    log INFO "World not found, applying worldgen prerequisites"
+    install_datapacks
+    generate_server_properties   # ← worldgen含む
+  fi
+
+  # -----------------------------
+  # runtime フェーズ（毎回OK）
+  # -----------------------------
   install_jvm_args
   install_c2me_jvm_args
   install_configs
   install_plugins
-  install_datapacks
   install_resourcepacks
-  install_server_properties
+  apply_server_properties_diff   # ← runtime系だけ
   install_whitelist
   install_ops
   configure_c2me_opencl
-  log INFO "Install phase completed (partial)"
+
+  log INFO "Install phase completed"
 }
 
 # ==========================================================
