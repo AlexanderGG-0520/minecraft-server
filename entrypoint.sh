@@ -250,14 +250,6 @@ handle_reset_world_flag() {
     NOW=$(date +%s)
     MTIME=$(stat -c %Y "$FLAG")
 
-    log WARN "reset-world.flag detected, proceeding to reset world"
-
-    reset_world
-
-    # consume flag (ONE-SHOT)
-    rm -f "$FLAG"
-    log INFO "reset-world.flag consumed"
-
     if (( NOW - MTIME > MAX_AGE )); then
       log ERROR "reset-world.flag expired (older than ${MAX_AGE}s), resetting aborted"
       rm -f "$FLAG"
@@ -1385,17 +1377,19 @@ runtime() {
     # ======================================================
     fabric)
       log INFO "Launching Fabric server"
-      exec java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/fabric-server-launch.jar" nogui
+      java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/fabric-server-launch.jar" nogui &
+      MC_PID="$!"
+      wait "$MC_PID"
       ;;
 
     # ======================================================
     # Paper / Purpur / Spigot
     # ======================================================
-    paper|purpur|spigot)
+    paper|purpur)
       log INFO "Launching Paper-like server (${TYPE})"
-      exec java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/server.jar" nogui
+      java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/server.jar" nogui &
+      MC_PID="$!"
+      wait "$MC_PID"
       ;;
 
     # ======================================================
@@ -1406,8 +1400,9 @@ runtime() {
       [[ -f "${DATA_DIR}/server.jar" ]] || die "server.jar not found"
 
       log INFO "Launching Vanilla server"
-      exec java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/server.jar" nogui
+      java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/server.jar" nogui &
+      MC_PID="$!"
+      wait "$MC_PID"
       ;;
 
     # ==========================================================
@@ -1422,7 +1417,9 @@ runtime() {
         log INFO "Launching ${TYPE} server"
 
         chmod +x ./run.sh
-        exec ./run.sh nogui
+        ./run.sh nogui &
+        MC_PID="$!"
+        wait "$MC_PID"
       fi
 
       # --- ② runtime not found, install phase ---
@@ -1442,8 +1439,11 @@ runtime() {
         exit 1
       fi
 
-      log INFO "Install completed, restarting runtime"
-      exec "$0" run
+      log INFO "Install completed, launching ${TYPE} server"
+      chmod +x ./run.sh
+      ./run.sh nogui &
+      MC_PID="$!"
+      wait "$MC_PID"
       ;;
 
     # ======================================================
