@@ -395,17 +395,19 @@ install_server() {
       NEO_VER="${NEOFORGE_VERSION:-latest}"
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
 
-      if [[ "${NEO_VER}" == "latest" ]]; then
-        json="$(curl -fsSL "${META_URL}" || true)"
-        NEO_VER="$(printf '%s' "$json" | jq -er '.versions[0]')"
-      fi
+      NEO_VER="${NEOFORGE_VERSION:-}"
 
-      [[ -n "${NEO_VER}" && "${NEO_VER}" != "null" ]] \
-        || die "Invalid NeoForge version resolved: ${NEO_VER}"
+      if [[ -z "$NEO_VER" || "$NEO_VER" == "latest" ]]; then
+        log INFO "Resolving latest NeoForge (non-craftmine only)"
+        json="$(curl -fsSL "$META_URL")"
 
-      # 🔒 craftmine ガード
-      if [[ "$NEO_VER" == *craftmine* ]]; then
-        die "Refusing to install April Fools / craftmine NeoForge: ${NEO_VER}"
+        NEO_VER="$(
+          printf '%s' "$json" | jq -r '
+            .versions[]
+            | select(test("craftmine") | not)
+            | select(test("^21\\.1\\."))
+          ' | head -n 1
+        )"
       fi
 
       MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}-${NEO_VER}"
