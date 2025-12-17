@@ -260,8 +260,14 @@ handle_reset_world_flag() {
 
     if (( NOW - MTIME > MAX_AGE )); then
       log ERROR "reset-world.flag expired (older than ${MAX_AGE}s), resetting aborted"
-      return  # Stop further execution but do not die
+      rm -f "$FLAG"
+      return
     fi
+
+    log WARN "reset-world.flag valid, proceeding to reset world"
+    reset_world
+    rm -f "$FLAG"
+    log INFO "reset-world.flag consumed"
   else
     log INFO "No reset-world.flag detected, skipping world reset"
   fi
@@ -580,7 +586,10 @@ install_mods() {
     "${MODS_DIR}" \
     || die "Failed to sync mods from MinIO"
 
-  log INFO "Mods installed: $(ls "${MODS_DIR}"/*.jar | wc -l)"
+  shopt -s nullglob
+  jars=("${MODS_DIR}"/*.jar)
+  log INFO "Mods installed: ${#jars[@]}"
+  shopt -u nullglob
 }
 
 detect_optimize_mod() {
@@ -924,6 +933,12 @@ declare -A PROP_MAP=(
   [RESOURCE_PACK]="resource-pack"
   [RESOURCE_PACK_SHA1]="resource-pack-sha1"
   [REQUIRE_RESOURCE_PACK]="require-resource-pack"
+
+  # --- Phase D: Worldgen ---
+  [LEVEL]="level-name"
+  [LEVEL_SEED]="level-seed"
+  [LEVEL_TYPE]="level-type"
+  [GENERATE_STRUCTURES]="generate-structures"
 )
 
 generate_server_properties() {
@@ -1334,11 +1349,13 @@ install() {
   # -----------------------------
   # worldgen phase (first time only)
   # -----------------------------
-  if [[ ! -f "${DATA_DIR}/world/level.dat" ]]; then
-    log INFO "World not found, applying worldgen prerequisites"
+  if [[ ! -f "${DATA_DIR}/.worldgen.done" ]]; then
     install_datapacks
-    generate_server_properties   # ← includes worldgen
+    generate_server_properties   # worldgen relevant
+    log INFO "World generation phase completed"
+    touch "${DATA_DIR}/.worldgen.done"
   fi
+
 
   # -----------------------------
   # runtime phase (every time ok)
@@ -1354,7 +1371,7 @@ install() {
   configure_c2me_opencl
 
   log INFO "Install phase completed"
-}sx
+}
 
 # ==========================================================
 # Runtime
