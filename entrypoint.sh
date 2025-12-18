@@ -274,6 +274,44 @@ handle_reset_world_flag() {
   fi
 }
 
+bootstrap_server_properties() {
+  local props="${DATA_DIR}/server.properties"
+
+  if [[ -f "$props" ]]; then
+    log INFO "server.properties already exists"
+    return 0
+  fi
+
+  log INFO "server.properties not found, bootstrapping via official server"
+
+  case "${TYPE}" in
+    vanilla|paper|purpur)
+      timeout 15s java -jar "${DATA_DIR}/server.jar" nogui || true
+      ;;
+    fabric)
+      timeout 15s java -jar "${DATA_DIR}/fabric-server-launch.jar" nogui || true
+      ;;
+    forge|neoforge)
+      # NeoForge / Forge は run.sh 経由でないとダメ
+      if [[ -x "${DATA_DIR}/run.sh" ]]; then
+        timeout 15s "${DATA_DIR}/run.sh" nogui || true
+      else
+        log WARN "run.sh not found, cannot bootstrap properties yet"
+        return 1
+      fi
+      ;;
+    *)
+      die "bootstrap_server_properties: unsupported TYPE=${TYPE}"
+      ;;
+  esac
+
+  if [[ ! -f "$props" ]]; then
+    die "server.properties still not generated after bootstrap"
+  fi
+
+  log INFO "server.properties successfully bootstrapped"
+}
+
 install_server() {
   log INFO "Resolving server (TYPE=${TYPE}, VERSION=${VERSION:-auto})"
 
@@ -295,6 +333,7 @@ install_server() {
       curl -fL "https://piston-data.mojang.com/v1/objects/${sha1}/server.jar" \
         -o ${DATA_DIR}/server.jar \
         || die "Failed to download vanilla server.jar"
+      bootstrap_server_properties
       ;;
 
     fabric)
@@ -343,8 +382,8 @@ install_server() {
         || die "Fabric installer failed"
 
       log INFO "Fabric server.jar ready"
+      bootstrap_server_properties
       ;;
-
 
     forge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
@@ -373,32 +412,33 @@ install_server() {
       [[ -n "${FORGE_VER}" && "${FORGE_VER}" != "null" ]] \
         || die "Invalid Forge version resolved: ${FORGE_VER}"
 
-      # ---- marker AFTER resolution ----
       MARKER="${DATA_DIR}/.installed-forge-${VERSION}-${FORGE_VER}"
 
       if [[ -f "${MARKER}" ]]; then
         log INFO "Forge already installed (MC=${VERSION}, forge=${FORGE_VER}), skipping"
-        return
+      else
+        log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
+
+        INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
+        curl -fL \
+          "https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}" \
+          -o "/tmp/${INSTALLER}" \
+          || die "Failed to download Forge installer"
+
+        java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
+          || die "Forge installer failed"
+
+        [[ -x "${DATA_DIR}/run.sh" ]] || die "Forge install finished but run.sh not found"
+
+        touch "${MARKER}"
+        log INFO "Forge installed marker created: ${MARKER}"
       fi
-
-      log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
-
-      INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
-      curl -fL \
-        "https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}" \
-        -o "/tmp/${INSTALLER}" \
-        || die "Failed to download Forge installer"
-
-      java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
-        || die "Forge installer failed"
-
-      [[ -f "${DATA_DIR}/run.sh" ]] || die "Forge install finished but run.sh not found"
-
-      touch "${MARKER}"
-      log INFO "Forge installed marker created: ${MARKER}"
+      bootstrap_server_properties
       ;;
 
     neoforge)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for neoforge"
+
       NEO_VER="${NEOFORGE_VERSION:-latest}"
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
 
@@ -419,32 +459,24 @@ install_server() {
 
       if [[ -f "${MARKER}" ]]; then
         log INFO "NeoForge already installed (MC=${VERSION}, neoforge=${NEO_VER}), skipping"
-        return
+      else
+        log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
+
+        INSTALLER="neoforge-${NEO_VER}-installer.jar"
+        curl -fL \
+          "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/${INSTALLER}" \
+          -o "/tmp/${INSTALLER}" \
+          || die "Failed to download NeoForge installer"
+
+        java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
+          || die "NeoForge installer failed"
+
+        [[ -x "${DATA_DIR}/run.sh" ]] || die "NeoForge install finished but run.sh not found"
+
+        touch "${MARKER}"
+        log INFO "NeoForge installed marker created: ${MARKER}"
       fi
-
-      log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
-
-      INSTALLER="neoforge-${NEO_VER}-installer.jar"
-      curl -fL \
-        "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/${INSTALLER}" \
-        -o "/tmp/${INSTALLER}" \
-        || die "Failed to download NeoForge installer"
-
-      java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
-        || die "NeoForge installer failed"
-
-      [[ -f "${DATA_DIR}/run.sh" ]] || die "NeoForge install finished but run.sh not found"
-
-      touch "${MARKER}"
-      log INFO "NeoForge installed marker created: ${MARKER}"
-
-      installed_ids="$(ls "${DATA_DIR}/versions" 2>/dev/null || true)"
-
-      if ! echo "$installed_ids" | grep -qx "${VERSION}"; then
-        log ERROR "Installed Minecraft versions:"
-        log ERROR "$installed_ids"
-        die "Installed Minecraft version does not match VERSION=${VERSION}"
-      fi
+      bootstrap_server_properties
       ;;
 
     paper)
