@@ -937,9 +937,11 @@ declare -A PROP_MAP=(
 apply_server_properties_diff() {
   local props_file="${DATA_DIR}/server.properties"
 
+  # ------------------------------------------------------------
   # Guard
+  # ------------------------------------------------------------
   if [[ ! -f "$props_file" ]]; then
-    log WARN "server.properties not found, skipping diff apply"
+    log INFO "server.properties not found, skipping diff apply"
     return 0
   fi
 
@@ -948,52 +950,37 @@ apply_server_properties_diff() {
     return 0
   fi
 
-  log INFO "Applying server.properties diff (safe mode)"
+  log INFO "Applying server.properties diff (runtime-only)"
 
   # ------------------------------------------------------------
-  # Worldgen-related properties (NEVER change after world creation)
-  # ------------------------------------------------------------
-  local WORLDGEN_PROPS=(
-    "level-seed"
-    "level-type"
-    "generator-settings"
-    "generate-structures"
-    "level-name"
-  )
-
-  # ------------------------------------------------------------
-  # Apply ENV-based overrides only
+  # Apply ENV-based overrides
   # ------------------------------------------------------------
   for ENV_KEY in "${!PROP_MAP[@]}"; do
     local PROP_KEY="${PROP_MAP[$ENV_KEY]}"
-    local ENV_VAL="${!ENV_KEY:-}"
+    local ENV_VAL
 
-    # Skip empty env
+    # set -u safe
+    ENV_VAL="${!ENV_KEY:-}"
+
+    # Skip unset / empty envs
     [[ -z "$ENV_VAL" ]] && continue
 
-    # Protect worldgen props after world creation
-    if [[ -f "${DATA_DIR}/.worldgen.done" ]]; then
-      for forbidden in "${WORLDGEN_PROPS[@]}"; do
-        if [[ "$PROP_KEY" == "$forbidden" ]]; then
-          log WARN "Skipping worldgen property change: ${PROP_KEY}"
-          continue 2
-        fi
-      done
-    fi
-
-    # Read current value
+    # Read current value (may be empty)
     local CURRENT_VAL
     CURRENT_VAL="$(grep -E "^${PROP_KEY}=" "$props_file" | cut -d= -f2- || true)"
 
-    # Apply only if changed
-    if [[ "$CURRENT_VAL" != "$ENV_VAL" ]]; then
-      if grep -qE "^${PROP_KEY}=" "$props_file"; then
-        sed -i "s|^${PROP_KEY}=.*|${PROP_KEY}=${ENV_VAL}|" "$props_file"
-        log INFO "Updated property: ${PROP_KEY}=${ENV_VAL}"
-      else
-        echo "${PROP_KEY}=${ENV_VAL}" >> "$props_file"
-        log INFO "Added property: ${PROP_KEY}=${ENV_VAL}"
-      fi
+    # No change needed
+    if [[ "$CURRENT_VAL" == "$ENV_VAL" ]]; then
+      continue
+    fi
+
+    # Update or append
+    if grep -qE "^${PROP_KEY}=" "$props_file"; then
+      sed -i "s|^${PROP_KEY}=.*|${PROP_KEY}=${ENV_VAL}|" "$props_file"
+      log INFO "Updated property: ${PROP_KEY}=${ENV_VAL}"
+    else
+      echo "${PROP_KEY}=${ENV_VAL}" >> "$props_file"
+      log INFO "Added property: ${PROP_KEY}=${ENV_VAL}"
     fi
   done
 
