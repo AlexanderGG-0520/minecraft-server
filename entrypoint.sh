@@ -962,45 +962,40 @@ apply_server_properties_diff() {
   )
 
   # ------------------------------------------------------------
-  # Apply diff line by line
+  # Apply ENV-based overrides only
   # ------------------------------------------------------------
-  while IFS='=' read -r key value; do
-    # Skip invalid lines
-    [[ -z "$key" ]] && continue
-    [[ "$key" =~ ^# ]] && continue
+  for ENV_KEY in "${!PROP_MAP[@]}"; do
+    local PROP_KEY="${PROP_MAP[$ENV_KEY]}"
+    local ENV_VAL="${!ENV_KEY:-}"
 
-    # ----------------------------------------------------------
-    # Protect worldgen properties after initial generation
-    # ----------------------------------------------------------
+    # Skip empty env
+    [[ -z "$ENV_VAL" ]] && continue
+
+    # Protect worldgen props after world creation
     if [[ -f "${DATA_DIR}/.worldgen.done" ]]; then
       for forbidden in "${WORLDGEN_PROPS[@]}"; do
-        if [[ "$key" == "$forbidden" ]]; then
-          log WARN "Skipping worldgen property change: ${key}"
+        if [[ "$PROP_KEY" == "$forbidden" ]]; then
+          log WARN "Skipping worldgen property change: ${PROP_KEY}"
           continue 2
         fi
       done
     fi
 
-    # ----------------------------------------------------------
     # Read current value
-    # ----------------------------------------------------------
-    local current
-    current="$(grep -E "^${key}=" "$props_file" | cut -d= -f2- || true)"
+    local CURRENT_VAL
+    CURRENT_VAL="$(grep -E "^${PROP_KEY}=" "$props_file" | cut -d= -f2- || true)"
 
-    # ----------------------------------------------------------
     # Apply only if changed
-    # ----------------------------------------------------------
-    if [[ "$current" != "$value" ]]; then
-      if grep -qE "^${key}=" "$props_file"; then
-        sed -i "s|^${key}=.*|${key}=${value}|" "$props_file"
-        log INFO "Updated property: ${key}=${value}"
+    if [[ "$CURRENT_VAL" != "$ENV_VAL" ]]; then
+      if grep -qE "^${PROP_KEY}=" "$props_file"; then
+        sed -i "s|^${PROP_KEY}=.*|${PROP_KEY}=${ENV_VAL}|" "$props_file"
+        log INFO "Updated property: ${PROP_KEY}=${ENV_VAL}"
       else
-        echo "${key}=${value}" >> "$props_file"
-        log INFO "Added property: ${key}=${value}"
+        echo "${PROP_KEY}=${ENV_VAL}" >> "$props_file"
+        log INFO "Added property: ${PROP_KEY}=${ENV_VAL}"
       fi
     fi
-
-  done <<< "$desired"
+  done
 
   log INFO "server.properties diff apply completed"
 }
