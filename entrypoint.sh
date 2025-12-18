@@ -934,85 +934,6 @@ declare -A PROP_MAP=(
   [GENERATE_STRUCTURES]="generate-structures"
 )
 
-generate_server_properties() {
-  log INFO "Generating server.properties"
-
-  PROPS_FILE="${DATA_DIR}/server.properties"
-
-  # defaults
-  : "${MOTD:=Welcome to the server}"
-  : "${DIFFICULTY:=easy}"
-  : "${GAMEMODE:=survival}"
-  : "${HARDCORE:=false}"
-  : "${FORCE_GAMEMODE:=false}"
-  : "${ALLOW_FLIGHT:=false}"
-  : "${SPAWN_PROTECTION:=16}"
-  : "${MAX_PLAYERS:=20}"
-  : "${VIEW_DISTANCE:=10}"
-  : "${SIMULATION_DISTANCE:=10}"
-
-  # --- Phase A defaults ---
-  : "${ENABLE_WHITELIST:=false}"
-  : "${WHITE_LIST:=false}"
-  : "${ENFORCE_WHITELIST:=false}"
-  : "${OP_PERMISSION_LEVEL:=4}"
-  : "${FUNCTION_PERMISSION_LEVEL:=2}"
-  : "${LOG_IPS:=true}"
-  : "${BROADCAST_CONSOLE_TO_OPS:=true}"
-  : "${BROADCAST_RCON_TO_OPS:=true}"
-
-  # --- Phase B defaults ---
-  : "${MAX_TICK_TIME:=60000}"
-  : "${SYNC_CHUNK_WRITES:=true}"
-  : "${ENTITY_BROADCAST_RANGE_PERCENTAGE:=100}"
-  : "${MAX_CHAINED_NEIGHBOR_UPDATES:=1000000}"
-
-  # --- Phase C defaults ---
-  : "${ENABLE_QUERY:=false}"
-  : "${QUERY_PORT:=25565}"
-
-  : "${ENABLE_RCON:=false}"
-  : "${RCON_PORT:=25575}"
-  : "${RCON_PASSWORD:=}"
-
-  : "${RESOURCE_PACK:=}"
-  : "${RESOURCE_PACK_SHA1:=}"
-  : "${REQUIRE_RESOURCE_PACK:=false}"
-
-  # --- Phase D: World / Gameplay ---
-  : "${LEVEL_SEED:=}"
-  : "${LEVEL:=world}"
-  : "${LEVEL_TYPE:=minecraft:normal}"
-  : "${GENERATE_STRUCTURES:=true}"
-  : "${ALLOW_NETHER:=true}"
-  : "${ALLOW_END:=true}"
-  : "${ENABLE_COMMAND_BLOCK:=false}"
-  : "${SPAWN_ANIMALS:=true}"
-  : "${SPAWN_MONSTERS:=true}"
-
-  # --- Phase E: Networking / Connections ---
-  : "${ONLINE_MODE:=true}"
-  : "${MAX_WORLD_SIZE:=29999984}"
-  : "${SNOOPER_ENABLED:=true}"
-  : "${USE_NATIVE_TRANSPORT:=true}"
-  : "${NETWORK_COMPRESSION_THRESHOLD:=256}"
-
-  # --- Phase F: Rcon ---
-  : "${ENABLE_RCON:=true}"
-  : "${RCON_PORT:=25575}"
-  : "${RCON_PASSWORD:=changeme}"
-
-  {
-    for ENV_KEY in "${!PROP_MAP[@]}"; do
-      PROP_KEY="${PROP_MAP[$ENV_KEY]}"
-      ENV_VAL="${!ENV_KEY}"
-      echo "${PROP_KEY}=${ENV_VAL}"
-    done
-  } > "${PROPS_FILE}"
-
-  log INFO "server.properties generated"
-}
-
 apply_server_properties_diff() {
   local props_file="${DATA_DIR}/server.properties"
 
@@ -1039,12 +960,6 @@ apply_server_properties_diff() {
     "generate-structures"
     "level-name"
   )
-
-  # ------------------------------------------------------------
-  # Generate desired properties (stdout: key=value)
-  # ------------------------------------------------------------
-  local desired
-  desired="$(generate_server_properties)"
 
   # ------------------------------------------------------------
   # Apply diff line by line
@@ -1092,16 +1007,6 @@ apply_server_properties_diff() {
 
 install_server_properties() {
   PROPS_FILE="${DATA_DIR}/server.properties"
-
-  if [[ ! -f "${PROPS_FILE}" ]]; then
-    generate_server_properties
-    return
-  fi
-
-  if [[ "${OVERRIDE_SERVER_PROPERTIES:-false}" == "true" ]]; then
-    generate_server_properties
-    return
-  fi
 
   if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-false}" == "true" ]]; then
     apply_server_properties_diff
@@ -1403,7 +1308,6 @@ install() {
     log WARN "C2ME disabled for initial world generation"
 
     install_datapacks
-    generate_server_properties   # worldgen relevant
     log INFO "World generation phase completed"
 
     touch "${DATA_DIR}/.worldgen.done"
@@ -1417,7 +1321,7 @@ install() {
   install_configs
   install_plugins
   install_resourcepacks
-  apply_server_properties_diff
+  install_server_properties
   install_whitelist
   install_ops
   configure_c2me_opencl
