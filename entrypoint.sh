@@ -153,7 +153,7 @@ should_enable_c2me() {
   [[ "${RUNTIME_GPU}" != "none" ]] || return 1
 
   # ---- Device guard ----
-  [[ -d /dev/dri || -e /dev/nvidia0 ]] || return 1
+  [[ -d /dev/dri || -e /dev/nvidia0 || -e /dev/dxg ]] || return 1
 
   return 0
 }
