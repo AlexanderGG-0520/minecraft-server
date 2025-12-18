@@ -234,6 +234,7 @@ reset_world() {
   # ---- Step 3: delete world directory completely ----
   log INFO "Deleting world directory"
   rm -rf "${WORLD_DIR}"
+  rm -f "${DATA_DIR}/.worldgen.done"  # also remove worldgen marker if exists
   mkdir -p "${WORLD_DIR}"
 
   # ---- Step 4: delete the FLAG file to prevent repeated resets ----
