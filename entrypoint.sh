@@ -333,7 +333,6 @@ install_server() {
       curl -fL "https://piston-data.mojang.com/v1/objects/${sha1}/server.jar" \
         -o ${DATA_DIR}/server.jar \
         || die "Failed to download vanilla server.jar"
-      bootstrap_server_properties
       ;;
 
     fabric)
@@ -382,7 +381,6 @@ install_server() {
         || die "Fabric installer failed"
 
       log INFO "Fabric server.jar ready"
-      bootstrap_server_properties
       ;;
 
     forge)
@@ -433,7 +431,6 @@ install_server() {
         touch "${MARKER}"
         log INFO "Forge installed marker created: ${MARKER}"
       fi
-      bootstrap_server_properties
       ;;
 
     neoforge)
@@ -476,7 +473,6 @@ install_server() {
         touch "${MARKER}"
         log INFO "NeoForge installed marker created: ${MARKER}"
       fi
-      bootstrap_server_properties
       ;;
 
     paper)
@@ -568,6 +564,94 @@ install_server() {
       die "install_server: TYPE=${TYPE} not implemented yet"
       ;;
   esac
+}
+
+install_server_properties() {
+  local props="${DATA_DIR}/server.properties"
+
+  log INFO "Ensuring server.properties exists"
+
+  # ------------------------------------------------------------
+  # Fast path: already exists
+  # ------------------------------------------------------------
+  if [[ -f "$props" ]]; then
+    log INFO "server.properties already exists, skipping bootstrap"
+    return 0
+  fi
+
+  log INFO "server.properties not found, bootstrapping via official server startup"
+
+  # ------------------------------------------------------------
+  # Safety: ensure required binaries exist
+  # ------------------------------------------------------------
+  case "${TYPE}" in
+    vanilla|paper|purpur)
+      [[ -f "${DATA_DIR}/server.jar" ]] \
+        || die "server.jar not found for TYPE=${TYPE}"
+      ;;
+    fabric)
+      [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]] \
+        || die "fabric-server-launch.jar not found"
+      ;;
+    forge|neoforge)
+      [[ -x "${DATA_DIR}/run.sh" ]] \
+        || die "run.sh not found for TYPE=${TYPE}"
+      ;;
+    *)
+      die "install_server_properties: unsupported TYPE=${TYPE}"
+      ;;
+  esac
+
+  # ------------------------------------------------------------
+  # JVM safety mode (NO parallelism, NO mods side effects)
+  # ------------------------------------------------------------
+  local JVM_ARGS_BAK=""
+  if [[ -f "${DATA_DIR}/jvm.args" ]]; then
+    JVM_ARGS_BAK="${DATA_DIR}/jvm.args.bak"
+    mv "${DATA_DIR}/jvm.args" "${JVM_ARGS_BAK}"
+  fi
+
+  cat > "${DATA_DIR}/jvm.args" <<EOF
+-Xms512M
+-Xmx512M
+-Dfile.encoding=UTF-8
+EOF
+
+  # ------------------------------------------------------------
+  # Bootstrap run (short-lived, no worldgen)
+  # ------------------------------------------------------------
+  log INFO "Starting short bootstrap run to generate server.properties"
+
+  case "${TYPE}" in
+    vanilla|paper|purpur)
+      timeout 20s java @"${DATA_DIR}/jvm.args" \
+        -jar "${DATA_DIR}/server.jar" nogui || true
+      ;;
+    fabric)
+      timeout 20s java @"${DATA_DIR}/jvm.args" \
+        -jar "${DATA_DIR}/fabric-server-launch.jar" nogui || true
+      ;;
+    forge|neoforge)
+      timeout 20s "${DATA_DIR}/run.sh" nogui || true
+      ;;
+  esac
+
+  # ------------------------------------------------------------
+  # Restore JVM args
+  # ------------------------------------------------------------
+  rm -f "${DATA_DIR}/jvm.args"
+  if [[ -n "${JVM_ARGS_BAK}" ]]; then
+    mv "${JVM_ARGS_BAK}" "${DATA_DIR}/jvm.args"
+  fi
+
+  # ------------------------------------------------------------
+  # Final verification
+  # ------------------------------------------------------------
+  if [[ ! -f "$props" ]]; then
+    die "server.properties still not generated after bootstrap"
+  fi
+
+  log INFO "server.properties successfully generated"
 }
 
 install_mods() {
