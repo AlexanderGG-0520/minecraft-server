@@ -234,7 +234,6 @@ reset_world() {
   # ---- Step 3: delete world directory completely ----
   log INFO "Deleting world directory"
   rm -rf "${WORLD_DIR}"
-  rm -f "${DATA_DIR}/.worldgen.done"  # also remove worldgen marker if exists
   mkdir -p "${WORLD_DIR}"
 
   # ---- Step 4: delete the FLAG file to prevent repeated resets ----
@@ -1039,7 +1038,7 @@ parse_csv() {
   echo "$1" | tr ',' '\n' | sed '/^$/d'
 }
 
-# transform 32桁UUID into hyphenated form
+# transform UUID into hyphenated form
 uuid_with_hyphen() {
   local u="$1"
   # format: 8-4-4-4-12
@@ -1274,26 +1273,7 @@ install() {
 
   install_server        # server jar
   install_mods          # mods (most important)
-
-  # -----------------------------
-  # worldgen phase (first time only)
-  # -----------------------------
-  if [[ ! -f "${DATA_DIR}/.worldgen.done" ]]; then
-
-    # ------------------------------------------------------------
-    # IMPORTANT:
-    # Disable C2ME during initial world generation.
-    # C2ME CPU backend is enabled just by having the mod present,
-    # and causes non-deterministic worldgen on NeoForge + k8s.
-    # ------------------------------------------------------------
-    export JVM_EXTRA_ARGS="${JVM_EXTRA_ARGS:-} -Dc2me.disable=true"
-    log WARN "C2ME disabled for initial world generation"
-
-    install_datapacks
-    log INFO "World generation phase completed"
-
-    touch "${DATA_DIR}/.worldgen.done"
-  fi
+  install_datapacks     # datapacks
 
   # -----------------------------
   # runtime phase (every time ok)
@@ -1311,6 +1291,18 @@ install() {
   log INFO "Install phase completed"
 }
 
+is_world_generated() {
+  [[ -f "${DATA_DIR}/world/level.dat" ]]
+}
+
+wait_for_worldgen() {
+  log INFO "Waiting for world generation to complete"
+  while ! is_world_generated; do
+    sleep 1
+  done
+  log INFO "World generation confirmed (level.dat found)"
+}
+
 # ==========================================================
 # Runtime
 # ==========================================================
@@ -1325,6 +1317,7 @@ runtime() {
       log INFO "Launching Fabric server"
       java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/fabric-server-launch.jar" nogui &
       MC_PID="$!"
+      wait_for_worldgen
       wait "$MC_PID"
       ;;
 
@@ -1335,6 +1328,7 @@ runtime() {
       log INFO "Launching Paper-like server (${TYPE})"
       java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/server.jar" nogui &
       MC_PID="$!"
+      wait_for_worldgen
       wait "$MC_PID"
       ;;
 
@@ -1348,16 +1342,16 @@ runtime() {
       log INFO "Launching Vanilla server"
       java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/server.jar" nogui &
       MC_PID="$!"
+      wait_for_worldgen
       wait "$MC_PID"
       ;;
 
     # ==========================================================
-    # Forge / NeoForge (runtime)
+    # Forge / NeoForge
     # ==========================================================
     forge|neoforge)
       cd "${DATA_DIR}"
 
-      # --- ① If runtime environment already exists, do not install ---
       if [[ -x "./run.sh" ]]; then
         log INFO "Detected existing ${TYPE} runtime (run.sh found)"
         log INFO "Launching ${TYPE} server"
@@ -1365,30 +1359,25 @@ runtime() {
         chmod +x ./run.sh
         ./run.sh nogui &
         MC_PID="$!"
+        wait_for_worldgen
         wait "$MC_PID"
+        return
       fi
 
-      # --- ② runtime not found, install phase ---
       log INFO "${TYPE} runtime not found, starting install phase"
 
-      # IMPORTANT:
-      # Do NOT launch Minecraft here.
-      # Installer must finish without touching worldgen.
       java -jar "./server.jar" --installServer || {
         log ERROR "Forge/NeoForge installer failed"
         exit 1
       }
-      
-      # --- ③ run.sh should be generated after install ---
-      if [[ ! -x "./run.sh" ]]; then
-        log ERROR "Install finished but run.sh not found"
-        exit 1
-      fi
+
+      [[ -x "./run.sh" ]] || die "Install finished but run.sh not found"
 
       log INFO "Install completed, launching ${TYPE} server"
       chmod +x ./run.sh
       ./run.sh nogui &
       MC_PID="$!"
+      wait_for_worldgen
       wait "$MC_PID"
       ;;
 
@@ -1400,6 +1389,7 @@ runtime() {
       ;;
   esac
 }
+
 
 main() {
   log INFO "Minecraft Runtime Booting..."
