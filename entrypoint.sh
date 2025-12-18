@@ -1346,24 +1346,14 @@ runtime() {
     forge|neoforge)
       cd "${DATA_DIR}"
 
-      if [[ ! -x "./run.sh" ]]; then
-        log INFO "${TYPE} runtime not found, running installer"
-
-        # IMPORTANT:
-        # installServer must be executed in the SAME lifecycle
-        # as the actual server launch.
-        java -jar "./server.jar" --installServer || {
-          log ERROR "Forge/NeoForge installer failed"
-          exit 1
-        }
-
-        [[ -x "./run.sh" ]] || die "run.sh not found after install"
-      fi
+      # installer は runtime では絶対に実行しない
+      [[ -x "./run.sh" ]] || die "NeoForge runtime not installed (run.sh missing)"
 
       log INFO "Launching ${TYPE} server (single JVM, exec)"
       chmod +x ./run.sh
       exec ./run.sh nogui
       ;;
+
 
     # ======================================================
     # Unknown
