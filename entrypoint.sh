@@ -1374,6 +1374,7 @@ runtime() {
   esac
 }
 
+
 main() {
   log INFO "Minecraft Runtime Booting..."
   preflight
