@@ -1397,6 +1397,7 @@ install() {
   handle_reset_world_flag
 
   install_server        # server jar
+  install_server_properties
   install_mods          # mods (most important)
   install_datapacks     # datapacks
 
@@ -1408,7 +1409,6 @@ install() {
   install_configs
   install_plugins
   install_resourcepacks
-  install_server_properties
   install_whitelist
   install_ops
   configure_c2me_opencl
