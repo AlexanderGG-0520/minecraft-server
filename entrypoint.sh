@@ -1314,22 +1314,18 @@ runtime() {
     # Fabric
     # ======================================================
     fabric)
-      log INFO "Launching Fabric server"
-      java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/fabric-server-launch.jar" nogui &
-      MC_PID="$!"
-      wait_for_worldgen
-      wait "$MC_PID"
+      log INFO "Launching Fabric server (single JVM)"
+      exec java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/fabric-server-launch.jar" nogui
       ;;
 
     # ======================================================
     # Paper / Purpur / Spigot
     # ======================================================
     paper|purpur)
-      log INFO "Launching Paper-like server (${TYPE})"
-      java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/server.jar" nogui &
-      MC_PID="$!"
-      wait_for_worldgen
-      wait "$MC_PID"
+      log INFO "Launching Paper-like server (${TYPE}) (single JVM)"
+      exec java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/server.jar" nogui
       ;;
 
     # ======================================================
@@ -1339,46 +1335,34 @@ runtime() {
       [[ "${EULA}" == "true" ]] || die "EULA not accepted"
       [[ -f "${DATA_DIR}/server.jar" ]] || die "server.jar not found"
 
-      log INFO "Launching Vanilla server"
-      java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/server.jar" nogui &
-      MC_PID="$!"
-      wait_for_worldgen
-      wait "$MC_PID"
+      log INFO "Launching Vanilla server (single JVM)"
+      exec java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/server.jar" nogui
       ;;
 
-    # ==========================================================
+    # ======================================================
     # Forge / NeoForge
-    # ==========================================================
+    # ======================================================
     forge|neoforge)
       cd "${DATA_DIR}"
 
-      if [[ -x "./run.sh" ]]; then
-        log INFO "Detected existing ${TYPE} runtime (run.sh found)"
-        log INFO "Launching ${TYPE} server"
+      if [[ ! -x "./run.sh" ]]; then
+        log INFO "${TYPE} runtime not found, running installer"
 
-        chmod +x ./run.sh
-        ./run.sh nogui &
-        MC_PID="$!"
-        wait_for_worldgen
-        wait "$MC_PID"
-        return
+        # IMPORTANT:
+        # installServer must be executed in the SAME lifecycle
+        # as the actual server launch.
+        java -jar "./server.jar" --installServer || {
+          log ERROR "Forge/NeoForge installer failed"
+          exit 1
+        }
+
+        [[ -x "./run.sh" ]] || die "run.sh not found after install"
       fi
 
-      log INFO "${TYPE} runtime not found, starting install phase"
-
-      java -jar "./server.jar" --installServer || {
-        log ERROR "Forge/NeoForge installer failed"
-        exit 1
-      }
-
-      [[ -x "./run.sh" ]] || die "Install finished but run.sh not found"
-
-      log INFO "Install completed, launching ${TYPE} server"
+      log INFO "Launching ${TYPE} server (single JVM, exec)"
       chmod +x ./run.sh
-      ./run.sh nogui &
-      MC_PID="$!"
-      wait_for_worldgen
-      wait "$MC_PID"
+      exec ./run.sh nogui
       ;;
 
     # ======================================================
@@ -1389,7 +1373,6 @@ runtime() {
       ;;
   esac
 }
-
 
 main() {
   log INFO "Minecraft Runtime Booting..."
