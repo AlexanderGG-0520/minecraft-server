@@ -982,7 +982,7 @@ generate_server_properties() {
   # --- Phase D: World / Gameplay ---
   : "${LEVEL_SEED:=}"
   : "${LEVEL:=world}"
-  : "${LEVEL_TYPE:=minecraft:default}"
+  : "${LEVEL_TYPE:=minecraft:normal}"
   : "${GENERATE_STRUCTURES:=true}"
   : "${ALLOW_NETHER:=true}"
   : "${ALLOW_END:=true}"
