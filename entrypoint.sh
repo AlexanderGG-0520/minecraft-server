@@ -1014,31 +1014,80 @@ generate_server_properties() {
 }
 
 apply_server_properties_diff() {
-  log INFO "Applying server.properties diff from environment"
+  local props_file="${DATA_DIR}/server.properties"
 
-  PROPS_FILE="${DATA_DIR}/server.properties"
-  TMP_FILE="${DATA_DIR}/server.properties.tmp"
+  # Guard
+  if [[ ! -f "$props_file" ]]; then
+    log WARN "server.properties not found, skipping diff apply"
+    return 0
+  fi
 
-  cp "${PROPS_FILE}" "${TMP_FILE}"
+  if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-true}" != "true" ]]; then
+    log INFO "APPLY_SERVER_PROPERTIES_DIFF=false, skipping"
+    return 0
+  fi
 
-  for ENV_KEY in "${!PROP_MAP[@]}"; do
-    if [[ -z "${!ENV_KEY+x}" ]]; then
-      continue
+  log INFO "Applying server.properties diff (safe mode)"
+
+  # ------------------------------------------------------------
+  # Worldgen-related properties (NEVER change after world creation)
+  # ------------------------------------------------------------
+  local WORLDGEN_PROPS=(
+    "level-seed"
+    "level-type"
+    "generator-settings"
+    "generate-structures"
+    "level-name"
+  )
+
+  # ------------------------------------------------------------
+  # Generate desired properties (stdout: key=value)
+  # ------------------------------------------------------------
+  local desired
+  desired="$(generate_server_properties)"
+
+  # ------------------------------------------------------------
+  # Apply diff line by line
+  # ------------------------------------------------------------
+  while IFS='=' read -r key value; do
+    # Skip invalid lines
+    [[ -z "$key" ]] && continue
+    [[ "$key" =~ ^# ]] && continue
+
+    # ----------------------------------------------------------
+    # Protect worldgen properties after initial generation
+    # ----------------------------------------------------------
+    if [[ -f "${DATA_DIR}/.worldgen.done" ]]; then
+      for forbidden in "${WORLDGEN_PROPS[@]}"; do
+        if [[ "$key" == "$forbidden" ]]; then
+          log WARN "Skipping worldgen property change: ${key}"
+          continue 2
+        fi
+      done
     fi
 
-    ENV_VAL="${!ENV_KEY}"
-    PROP_KEY="${PROP_MAP[$ENV_KEY]}"
+    # ----------------------------------------------------------
+    # Read current value
+    # ----------------------------------------------------------
+    local current
+    current="$(grep -E "^${key}=" "$props_file" | cut -d= -f2- || true)"
 
-    if grep -q "^${PROP_KEY}=" "${TMP_FILE}"; then
-      sed -i "s|^${PROP_KEY}=.*|${PROP_KEY}=${ENV_VAL}|" "${TMP_FILE}"
-    else
-      echo "${PROP_KEY}=${ENV_VAL}" >> "${TMP_FILE}"
+    # ----------------------------------------------------------
+    # Apply only if changed
+    # ----------------------------------------------------------
+    if [[ "$current" != "$value" ]]; then
+      if grep -qE "^${key}=" "$props_file"; then
+        sed -i "s|^${key}=.*|${key}=${value}|" "$props_file"
+        log INFO "Updated property: ${key}=${value}"
+      else
+        echo "${key}=${value}" >> "$props_file"
+        log INFO "Added property: ${key}=${value}"
+      fi
     fi
-  done
 
+  done <<< "$desired"
 
-  mv "${TMP_FILE}" "${PROPS_FILE}"
-  log INFO "server.properties diff applied"
+  log INFO "server.properties diff apply completed"
 }
 
 install_server_properties() {
@@ -1343,12 +1392,22 @@ install() {
   # worldgen phase (first time only)
   # -----------------------------
   if [[ ! -f "${DATA_DIR}/.worldgen.done" ]]; then
+
+    # ------------------------------------------------------------
+    # IMPORTANT:
+    # Disable C2ME during initial world generation.
+    # C2ME CPU backend is enabled just by having the mod present,
+    # and causes non-deterministic worldgen on NeoForge + k8s.
+    # ------------------------------------------------------------
+    export JVM_EXTRA_ARGS="${JVM_EXTRA_ARGS:-} -Dc2me.disable=true"
+    log WARN "C2ME disabled for initial world generation"
+
     install_datapacks
     generate_server_properties   # worldgen relevant
     log INFO "World generation phase completed"
+
     touch "${DATA_DIR}/.worldgen.done"
   fi
-
 
   # -----------------------------
   # runtime phase (every time ok)
@@ -1358,7 +1417,7 @@ install() {
   install_configs
   install_plugins
   install_resourcepacks
-  apply_server_properties_diff   # ← diff only
+  apply_server_properties_diff
   install_whitelist
   install_ops
   configure_c2me_opencl
