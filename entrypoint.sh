@@ -191,6 +191,15 @@ install_eula() {
   esac
 }
 
+ensure_server_properties() {
+  local props="${DATA_DIR}/server.properties"
+
+  if [[ ! -f "$props" ]]; then
+    log INFO "server.properties not found, creating empty placeholder"
+    touch "$props"
+  fi
+}
+
 reset_world() {
   log INFO "Requested world reset"
 
@@ -392,8 +401,6 @@ install_server() {
     neoforge)
       NEO_VER="${NEOFORGE_VERSION:-latest}"
       META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
-
-      NEO_VER="${NEOFORGE_VERSION:-}"
 
       if [[ -z "$NEO_VER" || "$NEO_VER" == "latest" ]]; then
         log INFO "Resolving latest NeoForge (non-craftmine only)"
@@ -1269,6 +1276,8 @@ install() {
 
   install_dirs
   install_eula
+  ensure_server_properties
+
   handle_reset_world_flag
 
   install_server        # server jar
