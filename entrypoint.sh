@@ -1287,24 +1287,23 @@ init_uuid_cache() {
 # get UUID for a given player name
 uuid_for_player() {
   local name="$1"
-
-  # cache hit check
   local cached
+  local uuid
+
+  init_uuid_cache
+
   cached=$(jq -r --arg n "$name" '.[$n] // empty' "$UUID_CACHE_FILE")
   if [[ -n "$cached" ]]; then
     echo "$cached"
-    return
+    return 0
   fi
 
-  # get from Mojang API
-  local uuid
   uuid=$(curl -fsSL \
     "https://api.mojang.com/users/profiles/minecraft/${name}" \
-    | jq -r '.id // empty')
+    | jq -r '.id // empty') || return 1
 
-  [[ -z "$uuid" ]] && return
+  [[ -z "$uuid" ]] && return 1
 
-  # update cache
   jq --arg n "$name" --arg u "$uuid" \
     '. + {($n): $u}' \
     "$UUID_CACHE_FILE" > "${UUID_CACHE_FILE}.tmp" \
@@ -1315,7 +1314,10 @@ uuid_for_player() {
 
 # transform CSV string into newline-separated list
 parse_csv() {
-  echo "$1" | tr ',' '\n' | sed '/^$/d'
+  echo "$1" \
+    | tr ',' '\n' \
+    | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+    | sed '/^$/d'
 }
 
 # transform UUID into hyphenated form
@@ -1340,7 +1342,7 @@ install_ops() {
     local first=true
     for name in $(parse_csv "${OPS_USERS}"); do
       # get UUID for a given player name
-      uuid=$(uuid_for_player "$name")
+      uuid=$(uuid_for_player "$name") || continue
       [[ -z "$uuid" ]] && continue
 
       # first user skip comma
@@ -1377,7 +1379,7 @@ install_whitelist() {
     local first=true
     for name in $(parse_csv "${WHITELIST_USERS}"); do
       # get UUID for a given player name
-      uuid=$(uuid_for_player "$name")
+      uuid=$(uuid_for_player "$name") || continue
       [[ -z "$uuid" ]] && continue
 
       # first user skip comma
