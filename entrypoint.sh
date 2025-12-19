@@ -929,7 +929,7 @@ install_configs() {
   : "${CONFIGS_SYNC_ONCE:=true}"
   : "${CONFIGS_REMOVE_EXTRA:=true}"
 
-  CONFIG_DIR="${INPUT_CONFIGS_DIR}"
+  CONFIG_DIR="${INPUT_CONFIGS_DIR:-/configs}"
   mkdir -p "${CONFIG_DIR}"
 
   # now already configs present and sync once mode, skipping
