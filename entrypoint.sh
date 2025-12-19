@@ -103,6 +103,13 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${INPUT_RESOURCEPACKS_DIR:=/resourcepacks}"
 # ============================================================
 
+# RCON
+: "${RCON_ENABLE:=true}"
+: "${RCON_PORT:=25575}"
+: "${RCON_PASSWORD:=changeme}"
+: "${STOP_SERVER_ANNOUNCE_DELAY:=0}"
+# ============================================================
+
 preflight() {
   log INFO "Preflight checks..."
 
@@ -1306,6 +1313,22 @@ apply_server_properties_diff() {
   log INFO "server.properties diff apply completed"
 }
 
+apply_rcon_settings() {
+  if [[ "${ENABLE_RCON}" == "true" ]]; then
+    set_prop enable-rcon true
+    set_prop rcon.port "${RCON_PORT:-25575}"
+
+    if [[ -z "${RCON_PASSWORD}" ]]; then
+      log ERROR "ENABLE_RCON=true but RCON_PASSWORD is empty"
+      exit 1
+    fi
+
+    set_prop rcon.password "${RCON_PASSWORD}"
+  else
+    set_prop enable-rcon false
+  fi
+}
+
 install_server_properties() {
   PROPS_FILE="${DATA_DIR}/server.properties"
 
@@ -1314,6 +1337,8 @@ install_server_properties() {
   else
     log INFO "server.properties exists, no changes applied"
   fi
+
+  apply_rcon_settings
 }
 
 # path to UUID cache file
@@ -1714,6 +1739,37 @@ runtime() {
   esac
 }
 
+rcon_say() {
+  rcon_exec say "$*"
+}
+
+rcon_save() {
+  rcon_exec save-all
+}
+
+rcon_stop() {
+  rcon_exec save-all
+  rcon_exec say "Waiting ${STOP_SERVER_ANNOUNCE_DELAY:-5}s before stopping server"
+  sleep ${STOP_SERVER_ANNOUNCE_DELAY:-5}
+  rcon_exec stop
+}
+
+case "$1" in
+  rcon)
+    shift
+    rcon_exec "$@"
+    exit $?
+    ;;
+  rcon-say)
+    shift
+    rcon_say "$@"
+    exit $?
+    ;;
+  rcon-stop)
+    rcon_stop
+    exit $?
+    ;;
+esac
 
 main() {
   log INFO "Minecraft Runtime Booting..."
