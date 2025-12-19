@@ -93,6 +93,25 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${ENABLE_C2ME_HARDWARE_ACCELERATION:=false}"
 : "${I_KNOW_C2ME_IS_EXPERIMENTAL:=false}"
 
+# ============================================================
+# External input separation (NEW)
+# ============================================================
+
+# ---- Mods ----
+: "${INPUT_MODS_DIR:=/mods}"
+: "${RUNTIME_MODS_DIR:=${DATA_DIR}/mods}"
+: "${STAGING_MODS_DIR:=${DATA_DIR}/.mods.new}"
+
+# ---- Plugins ----
+: "${INPUT_PLUGINS_DIR:=/plugins}"
+: "${RUNTIME_PLUGINS_DIR:=${DATA_DIR}/plugins}"
+: "${STAGING_PLUGINS_DIR:=${DATA_DIR}/.plugins.new}"
+
+# ---- Configs ----
+: "${INPUT_CONFIGS_DIR:=/configs}"
+: "${RUNTIME_CONFIGS_DIR:=${DATA_DIR}/configs}"
+: "${STAGING_CONFIGS_DIR:=${DATA_DIR}/.configs.new}"
+
 preflight() {
   log INFO "Preflight checks..."
 
@@ -102,13 +121,13 @@ preflight() {
 
   [[ -n "${EULA:-}" ]] || die "EULA is not set"
 
-  case "${TYPE:-auto}" in
-    auto|fabric|forge|neoforge|quilt|paper|vanilla) ;;
+  case "${TYPE:-vanilla}" in
+    fabric|forge|mohist|neoforge|paper|purpur|quilt|taiyitist|vanilla|velocity|youer) ;;
     *) die "Invalid TYPE: ${TYPE}" ;;
   esac
 
-  if [[ "${TYPE:-auto}" != "auto" && -z "${VERSION:-}" ]]; then
-    die "VERSION must be set when TYPE is not auto"
+  if [[ "${TYPE:-vanilla}" != "vanilla" && -z "${VERSION:-}" ]]; then
+    die "VERSION must be set when TYPE is not vanilla"
   fi
 
   rm -f ${DATA_DIR}/.ready
@@ -163,9 +182,16 @@ install_dirs() {
 
   mkdir -p \
     ${DATA_DIR}/logs \
-    ${DATA_DIR}/mods \
     ${DATA_DIR}/config \
     ${DATA_DIR}/world
+
+  if [[ "${TYPE}" == "paper" || "${TYPE}" == "purpur" ]]; then
+    mkdir -p ${DATA_DIR}/plugins
+  fi
+
+  if [[ "${TYPE}" == "fabric" || "${TYPE}" == "forge" || "${TYPE}" == "neoforge" ]]; then
+    mkdir -p "${INPUT_MODS_DIR}"
+  fi
 
   # Permissions check
   touch ${DATA_DIR}/logs/.perm_test 2>/dev/null || die "${DATA_DIR}/logs is not writable"
@@ -383,6 +409,24 @@ install_server() {
       log INFO "Fabric server.jar ready"
       ;;
 
+    quilt)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for quilt"
+
+      if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      log INFO "Installing Quilt server ${VERSION}"
+
+      curl -fL \
+        "https://meta.quiltmc.org/v3/versions/loader/${VERSION}/latest/server/jar" \
+        -o "${DATA_DIR}/server.jar" \
+        || die "Failed to download Quilt server.jar"
+
+      log INFO "Quilt server.jar ready"
+      ;;
+
     forge)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
 
@@ -563,6 +607,81 @@ install_server() {
     *)
       die "install_server: TYPE=${TYPE} not implemented yet"
       ;;
+
+    mohist)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for mohist"
+
+      if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      log INFO "Installing Mohist server ${VERSION}"
+
+      curl -fL \
+        "https://mohistmc.com/api/v2/projects/mohist/${VERSION}/builds/latest/download" \
+        -o "${DATA_DIR}/server.jar" \
+        || die "Failed to download Mohist server.jar"
+
+      log INFO "Mohist server.jar ready"
+      ;;
+
+    taiyitist)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for taiyitist"
+
+      if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      log INFO "Installing Taiyitist server ${VERSION}"
+
+      curl -fL \
+        "https://api.taiyitist.org/v1/projects/taiyitist/${VERSION}/builds/latest/download" \
+        -o "${DATA_DIR}/server.jar" \
+        || die "Failed to download Taiyitist server.jar"
+
+      log INFO "Taiyitist server.jar ready"
+      ;;
+
+    youer)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for youer"
+
+      if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        log INFO "server.jar already exists, skipping"
+        return
+      fi
+
+      log INFO "Installing Youer server ${VERSION}"
+
+      curl -fL \
+        "https://api.youer.org/v1/projects/youer/${VERSION}/builds/latest/download" \
+        -o "${DATA_DIR}/server.jar" \
+        || die "Failed to download Youer server.jar"
+
+      log INFO "Youer server.jar ready"
+      ;;
+
+    velocity)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for velocity"
+
+      if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
+        log INFO "velocity.jar already exists, skipping"
+        return
+      fi
+
+      log INFO "Installing Velocity ${VERSION}"
+
+      curl -fL \
+        "https://api.papermc.io/v2/projects/velocity/versions/${VERSION}/builds/latest/downloads/velocity-${VERSION}.jar" \
+        -o "${DATA_DIR}/velocity.jar" \
+        || die "Failed to download Velocity jar"
+
+      log INFO "Velocity jar ready"
+      ;;
+    *)
+      die "install_server: TYPE=${TYPE} not implemented yet"
+      ;;
   esac
 }
 
@@ -671,7 +790,7 @@ install_mods() {
   : "${MODS_SYNC_ONCE:=true}"
   : "${MODS_REMOVE_EXTRA:=true}"
 
-  MODS_DIR="${DATA_DIR}/mods"
+  MODS_DIR="${INPUT_MODS_DIR}"
   mkdir -p "${MODS_DIR}"
 
   if [[ "${MODS_SYNC_ONCE}" == "true" ]] \
@@ -705,6 +824,43 @@ install_mods() {
   jars=("${MODS_DIR}"/*.jar)
   log INFO "Mods installed: ${#jars[@]}"
   shopt -u nullglob
+}
+
+activate_mods() {
+  log INFO "Activating mods from ${INPUT_MODS_DIR} -> ${RUNTIME_MODS_DIR}"
+
+  [[ -d "${INPUT_MODS_DIR}" ]] || {
+    log INFO "No external mods directory, skipping activation"
+    return
+  }
+
+  shopt -s nullglob
+  local jars=("${INPUT_MODS_DIR}"/*.jar)
+  shopt -u nullglob
+
+  if [[ ${#jars[@]} -eq 0 ]]; then
+    log INFO "No mod jars found in ${INPUT_MODS_DIR}"
+    return
+  fi
+
+  # ---- validation ----
+  for jar in "${jars[@]}"; do
+    log INFO "Validating mod jar: $(basename "$jar")"
+    unzip -t "$jar" >/dev/null \
+      || die "Invalid mod jar detected: $jar"
+  done
+
+  # ---- staging ----
+  rm -rf "${STAGING_MODS_DIR}"
+  mkdir -p "${STAGING_MODS_DIR}"
+
+  cp -a "${INPUT_MODS_DIR}/." "${STAGING_MODS_DIR}/"
+
+  # ---- atomic switch ----
+  rm -rf "${RUNTIME_MODS_DIR}"
+  mv "${STAGING_MODS_DIR}" "${RUNTIME_MODS_DIR}"
+
+  log INFO "Mods activated successfully (${#jars[@]} mods)"
 }
 
 detect_optimize_mod() {
@@ -799,7 +955,7 @@ install_configs() {
   : "${CONFIGS_SYNC_ONCE:=true}"
   : "${CONFIGS_REMOVE_EXTRA:=true}"
 
-  CONFIG_DIR="${DATA_DIR}/config"
+  CONFIG_DIR="${INPUT_CONFIGS_DIR}"
   mkdir -p "${CONFIG_DIR}"
 
   # now already configs present and sync once mode, skipping
@@ -834,6 +990,25 @@ install_configs() {
   log INFO "Configs installed successfully"
 }
 
+activate_configs() {
+  log INFO "Activating configs from ${INPUT_CONFIGS_DIR} -> ${RUNTIME_CONFIGS_DIR}"
+
+  [[ -d "${INPUT_CONFIGS_DIR}" ]] || {
+    log INFO "No external configs directory, skipping activation"
+    return
+  }
+
+  rm -rf "${STAGING_CONFIGS_DIR}"
+  mkdir -p "${STAGING_CONFIGS_DIR}"
+
+  cp -a "${INPUT_CONFIGS_DIR}/." "${STAGING_CONFIGS_DIR}/"
+
+  rm -rf "${RUNTIME_CONFIGS_DIR}"
+  mv "${STAGING_CONFIGS_DIR}" "${RUNTIME_CONFIGS_DIR}"
+
+  log INFO "Configs activated successfully"
+}
+
 install_plugins() {
   log INFO "Install plugins (Paper only)"
 
@@ -857,7 +1032,7 @@ install_plugins() {
   : "${PLUGINS_SYNC_ONCE:=true}"
   : "${PLUGINS_REMOVE_EXTRA:=true}"
 
-  PLUGINS_DIR="${DATA_DIR}/plugins"
+  PLUGINS_DIR="${INPUT_PLUGINS_DIR}"
   mkdir -p "${PLUGINS_DIR}"
 
   # now already plugins present and sync once mode, skipping
@@ -890,6 +1065,40 @@ mc mirror \
     || die "Failed to sync plugins from MinIO"
 
   log INFO "Plugins installed successfully"
+}
+
+activate_plugins() {
+  log INFO "Activating plugins from ${INPUT_PLUGINS_DIR} -> ${RUNTIME_PLUGINS_DIR}"
+
+  [[ -d "${INPUT_PLUGINS_DIR}" ]] || {
+    log INFO "No external plugins directory, skipping activation"
+    return
+  }
+
+  shopt -s nullglob
+  local jars=("${INPUT_PLUGINS_DIR}"/*.jar)
+  shopt -u nullglob
+
+  if [[ ${#jars[@]} -eq 0 ]]; then
+    log INFO "No plugin jars found"
+    return
+  fi
+
+  for jar in "${jars[@]}"; do
+    log INFO "Validating plugin jar: $(basename "$jar")"
+    unzip -t "$jar" >/dev/null \
+      || die "Invalid plugin jar detected: $jar"
+  done
+
+  rm -rf "${STAGING_PLUGINS_DIR}"
+  mkdir -p "${STAGING_PLUGINS_DIR}"
+
+  cp -a "${INPUT_PLUGINS_DIR}/." "${STAGING_PLUGINS_DIR}/"
+
+  rm -rf "${RUNTIME_PLUGINS_DIR}"
+  mv "${STAGING_PLUGINS_DIR}" "${RUNTIME_PLUGINS_DIR}"
+
+  log INFO "Plugins activated successfully (${#jars[@]} plugins)"
 }
 
 install_datapacks() {
@@ -1399,6 +1608,7 @@ install() {
   install_server        # server jar
   install_server_properties
   install_mods          # mods (most important)
+  activate_mods         # activate mods
   install_datapacks     # datapacks
 
   # -----------------------------
@@ -1445,9 +1655,18 @@ runtime() {
       ;;
 
     # ======================================================
-    # Paper / Purpur / Spigot
+    # Quilt
     # ======================================================
-    paper|purpur)
+    quilt)
+      log INFO "Launching Quilt server (single JVM)"
+      exec java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/server.jar" nogui
+      ;;
+
+    # ======================================================
+    # Paper / Purpur / Mohist / Taiyitist / Youer
+    # ======================================================
+    paper|purpur|mohist|taiyitist|youer)
       log INFO "Launching Paper-like server (${TYPE}) (single JVM)"
       exec java @"${JVM_ARGS_FILE}" \
         -jar "${DATA_DIR}/server.jar" nogui
@@ -1479,6 +1698,16 @@ runtime() {
       exec ./run.sh nogui
       ;;
 
+    # ======================================================
+    # Velocity (Proxy)
+    # ======================================================
+    velocity)
+      [[ -f "${DATA_DIR}/velocity.jar" ]] || die "velocity.jar not found"
+
+      log INFO "Launching Velocity proxy"
+      exec java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/velocity.jar"
+      ;;
 
     # ======================================================
     # Unknown
