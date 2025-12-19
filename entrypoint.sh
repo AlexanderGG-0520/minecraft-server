@@ -245,6 +245,7 @@ reset_world() {
   fi
 
   WORLD_DIR="${DATA_DIR}/world"
+  MODS_DIR="${DATA_DIR}/mods"
 
   # ---- Safety check 2: directory sanity ----
   if [[ ! -d "${WORLD_DIR}" ]]; then
@@ -277,6 +278,9 @@ reset_world() {
   log INFO "Deleting world directory"
   rm -rf "${WORLD_DIR}"
   mkdir -p "${WORLD_DIR}"
+  rm -rf "${MODS_DIR}"
+  mkdir -p "${MODS_DIR}"
+  log INFO "World directory reset complete"
 
   # ---- Step 4: delete the FLAG file to prevent repeated resets ----
   rm -f "${FLAG_FILE}"
