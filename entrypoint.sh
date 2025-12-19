@@ -965,7 +965,7 @@ install_configs() {
 }
 
 activate_configs() {
-  activate_dir "/configs" "${DATA_DIR}/configs" "configs"
+  activate_dir "/config" "${DATA_DIR}/config" "config"
 }
 
 install_plugins() {
