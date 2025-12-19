@@ -1659,6 +1659,64 @@ wait_for_worldgen() {
   log INFO "World generation confirmed (level.dat found)"
 }
 
+RCON_STOP_LOCK="${DATA_DIR:-/data}/.rcon-stop.lockdir"
+RCON_STOP_IN_PROGRESS=0
+
+acquire_rcon_stop_lock() {
+  mkdir "${RCON_STOP_LOCK}" 2>/dev/null
+}
+
+rcon_stop_once() {
+  # 同一プロセス内の再入防止
+  if [ "${RCON_STOP_IN_PROGRESS}" = "1" ]; then
+    return 0
+  fi
+  RCON_STOP_IN_PROGRESS=1
+
+  # preStop / trap の二重実行防止
+  if ! acquire_rcon_stop_lock; then
+    log INFO "rcon_stop already executed, skipping"
+    return 0
+  fi
+
+  rcon_stop || true
+}
+
+rcon_stop() {
+  local delay="${STOP_SERVER_ANNOUNCE_DELAY:-5}"
+
+  rcon_exec save-all
+  rcon_exec say "Waiting ${delay}s before stopping server"
+  sleep "${delay}"
+  rcon_exec stop
+}
+
+rcon_say() {
+  local message="$*"
+  rcon_exec "say ${message}"
+}
+
+SERVER_PID=""
+
+on_term() {
+  log INFO "Received SIGTERM"
+  rcon_stop_once
+
+  # Java が生きてたら念のため伝播
+  if [ -n "${SERVER_PID}" ] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    kill -TERM "${SERVER_PID}" 2>/dev/null || true
+  fi
+}
+
+trap 'on_term' TERM INT
+
+run_server() {
+  "$@" &
+  SERVER_PID="$!"
+  wait "${SERVER_PID}"
+  return $?
+}
+
 # ==========================================================
 # Runtime
 # ==========================================================
@@ -1666,92 +1724,37 @@ runtime() {
   log INFO "Starting runtime (TYPE=${TYPE})"
 
   case "${TYPE}" in
-    # ======================================================
-    # Fabric
-    # ======================================================
     fabric)
       log INFO "Launching Fabric server (single JVM)"
-      exec java @"${JVM_ARGS_FILE}" \
+      run_server java @"${JVM_ARGS_FILE}" \
         -jar "${DATA_DIR}/fabric-server-launch.jar" nogui
       ;;
 
-    # ======================================================
-    # Quilt
-    # ======================================================
-    quilt)
-      log INFO "Launching Quilt server (single JVM)"
-      exec java @"${JVM_ARGS_FILE}" \
+    quilt|paper|purpur|mohist|taiyitist|youer|vanilla)
+      log INFO "Launching ${TYPE} server (single JVM)"
+      run_server java @"${JVM_ARGS_FILE}" \
         -jar "${DATA_DIR}/server.jar" nogui
       ;;
 
-    # ======================================================
-    # Paper / Purpur / Mohist / Taiyitist / Youer
-    # ======================================================
-    paper|purpur|mohist|taiyitist|youer)
-      log INFO "Launching Paper-like server (${TYPE}) (single JVM)"
-      exec java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/server.jar" nogui
-      ;;
-
-    # ======================================================
-    # Vanilla
-    # ======================================================
-    vanilla)
-      [[ "${EULA}" == "true" ]] || die "EULA not accepted"
-      [[ -f "${DATA_DIR}/server.jar" ]] || die "server.jar not found"
-
-      log INFO "Launching Vanilla server (single JVM)"
-      exec java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/server.jar" nogui
-      ;;
-
-    # ======================================================
-    # Forge / NeoForge
-    # ======================================================
     forge|neoforge)
       cd "${DATA_DIR}"
-
-      # installer は runtime では絶対に実行しない
       [[ -x "./run.sh" ]] || die "NeoForge runtime not installed (run.sh missing)"
-
-      log INFO "Launching ${TYPE} server (single JVM, exec)"
       chmod +x ./run.sh
-      exec ./run.sh nogui
+
+      log INFO "Launching ${TYPE} server"
+      run_server ./run.sh nogui
       ;;
 
-    # ======================================================
-    # Velocity (Proxy)
-    # ======================================================
     velocity)
-      [[ -f "${DATA_DIR}/velocity.jar" ]] || die "velocity.jar not found"
-
       log INFO "Launching Velocity proxy"
-      exec java @"${JVM_ARGS_FILE}" \
+      run_server java @"${JVM_ARGS_FILE}" \
         -jar "${DATA_DIR}/velocity.jar"
       ;;
 
-    # ======================================================
-    # Unknown
-    # ======================================================
     *)
       die "Unknown TYPE: ${TYPE}"
       ;;
   esac
-}
-
-rcon_say() {
-  rcon_exec say "$*"
-}
-
-rcon_save() {
-  rcon_exec save-all
-}
-
-rcon_stop() {
-  rcon_exec save-all
-  rcon_exec say "Waiting ${STOP_SERVER_ANNOUNCE_DELAY:-5}s before stopping server"
-  sleep ${STOP_SERVER_ANNOUNCE_DELAY:-5}
-  rcon_exec stop
 }
 
 case "$1" in
@@ -1766,8 +1769,8 @@ case "$1" in
     exit $?
     ;;
   rcon-stop)
-    rcon_stop
-    exit $?
+    rcon_stop_once
+    exit 0
     ;;
 esac
 
