@@ -79,13 +79,14 @@ ghcr.io/alexandergg-0520/minecraft-server:jre-*
 
 ### Available tags
 
-| Tag                  | Description                      |
-| -------------------- | -------------------------------- |
-| `runtime-jre8`               | Legacy runtime                   |
-| `runtime-jre11`              | Legacy LTS                       |
-| `runtime-jre17`              | LTS                              |
-| `runtime-jre21`              | **Recommended**                  |
-| `runtime-jre25-gpu` | Experimental runtime (C2ME only) |
+| Tag                  | Description                                    |
+| -------------------- | ---------------------------------------------- |
+| `runtime-jre8`       | Legacy runtime                                 |
+| `runtime-jre11`      | Legacy LTS                                     |
+| `runtime-jre17`      | LTS                                            |
+| `runtime-jre21`      | **Recommended (Stable)**                       |
+| `runtime-jre25`      | Next-generation runtime (Early support)        |
+| `runtime-jre25-gpu`  | Experimental runtime (C2ME only)               |
 
 > ℹ️ Java version is selected **only by the image tag**.
 > The container never auto-switches Java versions.
@@ -568,14 +569,19 @@ preventing accidental data loss.
 
 ## Supported Server Types
 
-| Type     | Supported |
-| -------- | --------- |
-| Vanilla  | ✅         |
-| Fabric   | ✅         |
-| Forge    | ✅         |
-| NeoForge | ✅         |
-| Paper    | ✅         |
-| Purpur   | ✅         |
+| Type        | Supported | Notes                               |
+| ----------- | --------- | ----------------------------------- |
+| Vanilla     | ✅        | Official Mojang server              |
+| Fabric      | ✅        | Modded (Fabric Loader)              |
+| Forge       | ✅        | Modded (Forge Installer)            |
+| NeoForge    | ✅        | Modded (NeoForge Installer)         |
+| Quilt       | ✅        | Modded (Quilt Loader)               |
+| Paper       | ✅        | Plugin-based                        |
+| Purpur      | ✅        | Paper fork                          |
+| Mohist      | ✅        | Hybrid (Forge + Bukkit plugins)     |
+| Taiyitist   | ✅        | Hybrid (Forge + Bukkit plugins)     |
+| Youer       | ✅        | Hybrid (Forge + Bukkit plugins)     |
+| Velocity    | ✅        | Proxy (no world data)               |
 
 ---
 
