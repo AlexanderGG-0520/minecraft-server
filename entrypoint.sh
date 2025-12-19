@@ -98,7 +98,7 @@ trap graceful_shutdown SIGTERM SIGINT
 # ============================================================
 : "${INPUT_MODS_DIR:=/mods}"
 : "${INPUT_PLUGINS_DIR:=/plugins}"
-: "${INPUT_CONFIGS_DIR:=/configs}"
+: "${INPUT_CONFIG_DIR:=/config}"
 : "${INPUT_DATAPACKS_DIR:=/datapacks}"
 : "${INPUT_RESOURCEPACKS_DIR:=/resourcepacks}"
 # ============================================================
@@ -929,7 +929,7 @@ install_configs() {
   : "${CONFIGS_SYNC_ONCE:=true}"
   : "${CONFIGS_REMOVE_EXTRA:=true}"
 
-  CONFIG_DIR="${INPUT_CONFIGS_DIR:-/configs}"
+  CONFIG_DIR="${INPUT_CONFIG_DIR:-/config}"
   mkdir -p "${CONFIG_DIR}"
 
   # now already configs present and sync once mode, skipping
