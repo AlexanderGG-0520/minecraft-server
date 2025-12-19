@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash curl ca-certificates tini procps \
-    pciutils ocl-icd-libopencl1 jq rsync \
+    pciutils ocl-icd-libopencl1 jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
 # --- MinIO client (mc) ---
@@ -104,7 +104,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash ca-certificates curl tini procps \
-    pciutils ocl-icd-libopencl1 clinfo jq rsync \
+    pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
 # LWJGL expects libOpenCL.so (not only libOpenCL.so.1)
