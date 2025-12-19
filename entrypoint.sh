@@ -1555,8 +1555,10 @@ install() {
   activate_configs
   install_plugins
   activate_plugins
-  install_resourcepacks
-  activate_resourcepacks
+  if [[ ! "${TYPE}" == "velocity" ]]; then
+    install_resourcepacks
+    activate_resourcepacks
+  fi
   install_whitelist
   install_ops
   configure_c2me_opencl
