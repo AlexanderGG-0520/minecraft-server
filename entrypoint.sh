@@ -201,10 +201,33 @@ activate_dir() {
     return
   }
 
-  mkdir -p "$dst"
+  local parent
+  parent="$(dirname "$dst")"
+  local base
+  base="$(basename "$dst")"
 
-  log INFO "Activating ${name} (${src} -> ${dst})"
-  rsync -a --delete "$src"/ "$dst"/
+  local staging="${parent}/.${base}.staging"
+  local backup="${parent}/.${base}.old"
+
+  log INFO "Activating ${name} (atomic) (${src} -> ${dst})"
+
+  # 1. prepare staging
+  rm -rf "$staging"
+  mkdir -p "$staging"
+
+  # 2. sync into staging (delete OK here)
+  rsync -a --delete "$src"/ "$staging"/
+
+  # 3. atomic switch
+  if [[ -d "$dst" ]]; then
+    rm -rf "$backup"
+    mv "$dst" "$backup"
+  fi
+
+  mv "$staging" "$dst"
+
+  # 4. cleanup backup
+  rm -rf "$backup"
 }
 
 install_eula() {
@@ -900,6 +923,11 @@ install_c2me_jvm_args() {
     return 0
   fi
 
+  if ! detect_gpu; then
+    log INFO "CPU-only environment detected, skipping ALL C2ME optimizations"
+    return 0
+  fi
+
   if should_enable_c2me; then
     log WARN "C2ME Hardware Acceleration ENABLED (EXPERIMENTAL)"
     log WARN "This may cause instability or data corruption"
@@ -1535,6 +1563,10 @@ detect_gpu() {
 }
 
 configure_c2me_opencl() {
+    if ! has_c2me_mod; then
+    return
+  fi
+
   if [[ "${C2ME_OPENCL_FORCE:-auto}" == "true" ]]; then
     log WARN "C2ME OpenCL FORCE ENABLED"
     export C2ME_OPENCL_ENABLED=true
