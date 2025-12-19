@@ -964,8 +964,8 @@ install_configs() {
   log INFO "Configs installed successfully"
 }
 
-activate_plugins() {
-  activate_dir "/plugins" "${DATA_DIR}/plugins" "plugins"
+activate_configs() {
+  activate_dir "/configs" "${DATA_DIR}/configs" "configs"
 }
 
 install_plugins() {
