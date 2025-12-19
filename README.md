@@ -569,19 +569,41 @@ preventing accidental data loss.
 
 ## Supported Server Types
 
-| Type        | Supported | Notes                               |
-| ----------- | --------- | ----------------------------------- |
-| Vanilla     | ✅        | Official Mojang server              |
-| Fabric      | ✅        | Modded (Fabric Loader)              |
-| Forge       | ✅        | Modded (Forge Installer)            |
-| NeoForge    | ✅        | Modded (NeoForge Installer)         |
-| Quilt       | ✅        | Modded (Quilt Loader)               |
-| Paper       | ✅        | Plugin-based                        |
-| Purpur      | ✅        | Paper fork                          |
-| Mohist      | ✅        | Hybrid (Forge + Bukkit plugins)     |
-| Taiyitist   | ✅        | Hybrid (Forge + Bukkit plugins)     |
-| Youer       | ✅        | Hybrid (Forge + Bukkit plugins)     |
-| Velocity    | ✅        | Proxy (no world data)               |
+### Official / Vanilla
+
+| Type    | Supported |
+| ------- | --------- |
+| Vanilla | ✅        |
+
+### Modded Servers
+
+| Type      | Supported |
+| --------- | --------- |
+| Fabric    | ✅        |
+| Forge     | ✅        |
+| NeoForge  | ✅        |
+| Quilt     | ✅        |
+
+### Plugin-based Servers
+
+| Type    | Supported |
+| ------- | --------- |
+| Paper   | ✅        |
+| Purpur  | ✅        |
+
+### Hybrid (Mods + Plugins)
+
+| Type        | Supported |
+| ----------- | --------- |
+| Mohist      | ✅        |
+| Taiyitist   | ✅        |
+| Youer       | ✅        |
+
+### Proxy
+
+| Type      | Supported | Notes                |
+| --------- | --------- | -------------------- |
+| Velocity  | ✅        | No world data        |
 
 ---
 
