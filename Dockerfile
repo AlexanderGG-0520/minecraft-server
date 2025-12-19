@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash curl ca-certificates tini procps \
-    pciutils ocl-icd-libopencl1 jq \
+    pciutils ocl-icd-libopencl1 jq rsync \
  && rm -rf /var/lib/apt/lists/*
 
 # --- MinIO client (mc) ---
@@ -41,6 +41,7 @@ RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/rsync /usr/bin/rsync
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -52,6 +53,7 @@ RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/rsync /usr/bin/rsync
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -63,6 +65,7 @@ RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/rsync /usr/bin/rsync
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -74,6 +77,7 @@ RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/rsync /usr/bin/rsync
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -85,6 +89,7 @@ RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/rsync /usr/bin/rsync
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -99,7 +104,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash ca-certificates curl tini procps \
-    pciutils ocl-icd-libopencl1 clinfo jq \
+    pciutils ocl-icd-libopencl1 clinfo jq rsync \
  && rm -rf /var/lib/apt/lists/*
 
 # LWJGL expects libOpenCL.so (not only libOpenCL.so.1)
@@ -119,10 +124,11 @@ COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-# --- entrypoint & tini---
+# --- entrypoint & tini & rsync ---
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/bin/rsync /usr/bin/rsync
 
 ENV HOME=/data
 WORKDIR /data
