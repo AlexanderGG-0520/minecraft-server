@@ -93,6 +93,16 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${ENABLE_C2ME_HARDWARE_ACCELERATION:=false}"
 : "${I_KNOW_C2ME_IS_EXPERIMENTAL:=false}"
 
+# ============================================================
+# Input directories (external / immutable)
+# ============================================================
+: "${INPUT_MODS_DIR:=/mods}"
+: "${INPUT_PLUGINS_DIR:=/plugins}"
+: "${INPUT_CONFIGS_DIR:=/configs}"
+: "${INPUT_DATAPACKS_DIR:=/datapacks}"
+: "${INPUT_RESOURCEPACKS_DIR:=/resourcepacks}"
+# ============================================================
+
 preflight() {
   log INFO "Preflight checks..."
 
