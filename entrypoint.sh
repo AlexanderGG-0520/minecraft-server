@@ -93,25 +93,6 @@ trap graceful_shutdown SIGTERM SIGINT
 : "${ENABLE_C2ME_HARDWARE_ACCELERATION:=false}"
 : "${I_KNOW_C2ME_IS_EXPERIMENTAL:=false}"
 
-# ============================================================
-# External input separation (NEW)
-# ============================================================
-
-# ---- Mods ----
-: "${INPUT_MODS_DIR:=/mods}"
-: "${RUNTIME_MODS_DIR:=${DATA_DIR}/mods}"
-: "${STAGING_MODS_DIR:=${DATA_DIR}/.mods.new}"
-
-# ---- Plugins ----
-: "${INPUT_PLUGINS_DIR:=/plugins}"
-: "${RUNTIME_PLUGINS_DIR:=${DATA_DIR}/plugins}"
-: "${STAGING_PLUGINS_DIR:=${DATA_DIR}/.plugins.new}"
-
-# ---- Configs ----
-: "${INPUT_CONFIGS_DIR:=/configs}"
-: "${RUNTIME_CONFIGS_DIR:=${DATA_DIR}/configs}"
-: "${STAGING_CONFIGS_DIR:=${DATA_DIR}/.configs.new}"
-
 preflight() {
   log INFO "Preflight checks..."
 
@@ -198,6 +179,22 @@ install_dirs() {
   rm -f ${DATA_DIR}/logs/.perm_test
 
   log INFO "Directory structure ready"
+}
+
+activate_dir() {
+  local src="$1"
+  local dst="$2"
+  local name="$3"
+
+  [[ -d "$src" ]] || {
+    log INFO "No ${name} directory found (${src}), skipping"
+    return
+  }
+
+  mkdir -p "$dst"
+
+  log INFO "Activating ${name} (${src} -> ${dst})"
+  rsync -a --delete "$src"/ "$dst"/
 }
 
 install_eula() {
@@ -827,40 +824,7 @@ install_mods() {
 }
 
 activate_mods() {
-  log INFO "Activating mods from ${INPUT_MODS_DIR} -> ${RUNTIME_MODS_DIR}"
-
-  [[ -d "${INPUT_MODS_DIR}" ]] || {
-    log INFO "No external mods directory, skipping activation"
-    return
-  }
-
-  shopt -s nullglob
-  local jars=("${INPUT_MODS_DIR}"/*.jar)
-  shopt -u nullglob
-
-  if [[ ${#jars[@]} -eq 0 ]]; then
-    log INFO "No mod jars found in ${INPUT_MODS_DIR}"
-    return
-  fi
-
-  # ---- validation ----
-  for jar in "${jars[@]}"; do
-    log INFO "Validating mod jar: $(basename "$jar")"
-    unzip -t "$jar" >/dev/null \
-      || die "Invalid mod jar detected: $jar"
-  done
-
-  # ---- staging ----
-  rm -rf "${STAGING_MODS_DIR}"
-  mkdir -p "${STAGING_MODS_DIR}"
-
-  cp -a "${INPUT_MODS_DIR}/." "${STAGING_MODS_DIR}/"
-
-  # ---- atomic switch ----
-  rm -rf "${RUNTIME_MODS_DIR}"
-  mv "${STAGING_MODS_DIR}" "${RUNTIME_MODS_DIR}"
-
-  log INFO "Mods activated successfully (${#jars[@]} mods)"
+  activate_dir "/mods" "${DATA_DIR}/mods" "mods"
 }
 
 detect_optimize_mod() {
@@ -990,23 +954,8 @@ install_configs() {
   log INFO "Configs installed successfully"
 }
 
-activate_configs() {
-  log INFO "Activating configs from ${INPUT_CONFIGS_DIR} -> ${RUNTIME_CONFIGS_DIR}"
-
-  [[ -d "${INPUT_CONFIGS_DIR}" ]] || {
-    log INFO "No external configs directory, skipping activation"
-    return
-  }
-
-  rm -rf "${STAGING_CONFIGS_DIR}"
-  mkdir -p "${STAGING_CONFIGS_DIR}"
-
-  cp -a "${INPUT_CONFIGS_DIR}/." "${STAGING_CONFIGS_DIR}/"
-
-  rm -rf "${RUNTIME_CONFIGS_DIR}"
-  mv "${STAGING_CONFIGS_DIR}" "${RUNTIME_CONFIGS_DIR}"
-
-  log INFO "Configs activated successfully"
+activate_plugins() {
+  activate_dir "/plugins" "${DATA_DIR}/plugins" "plugins"
 }
 
 install_plugins() {
@@ -1068,37 +1017,7 @@ mc mirror \
 }
 
 activate_plugins() {
-  log INFO "Activating plugins from ${INPUT_PLUGINS_DIR} -> ${RUNTIME_PLUGINS_DIR}"
-
-  [[ -d "${INPUT_PLUGINS_DIR}" ]] || {
-    log INFO "No external plugins directory, skipping activation"
-    return
-  }
-
-  shopt -s nullglob
-  local jars=("${INPUT_PLUGINS_DIR}"/*.jar)
-  shopt -u nullglob
-
-  if [[ ${#jars[@]} -eq 0 ]]; then
-    log INFO "No plugin jars found"
-    return
-  fi
-
-  for jar in "${jars[@]}"; do
-    log INFO "Validating plugin jar: $(basename "$jar")"
-    unzip -t "$jar" >/dev/null \
-      || die "Invalid plugin jar detected: $jar"
-  done
-
-  rm -rf "${STAGING_PLUGINS_DIR}"
-  mkdir -p "${STAGING_PLUGINS_DIR}"
-
-  cp -a "${INPUT_PLUGINS_DIR}/." "${STAGING_PLUGINS_DIR}/"
-
-  rm -rf "${RUNTIME_PLUGINS_DIR}"
-  mv "${STAGING_PLUGINS_DIR}" "${RUNTIME_PLUGINS_DIR}"
-
-  log INFO "Plugins activated successfully (${#jars[@]} plugins)"
+  activate_dir "/plugins" "${DATA_DIR}/plugins" "plugins"
 }
 
 install_datapacks() {
@@ -1152,6 +1071,17 @@ install_datapacks() {
   log INFO "Datapacks installed successfully"
 }
 
+activate_datapacks() {
+  local world_dir="${DATA_DIR}/world"
+
+  [[ -d "$world_dir" ]] || {
+    log INFO "World directory not found, skipping datapacks activation"
+    return
+  }
+
+  activate_dir "/datapacks" "${world_dir}/datapacks" "datapacks"
+}
+
 install_resourcepacks() {
   log INFO "Install resourcepacks"
 
@@ -1171,12 +1101,12 @@ install_resourcepacks() {
   : "${RESOURCEPACKS_AUTO_APPLY:=true}"
   : "${RESOURCEPACK_REQUIRED:=false}"
 
-  RP_DIR="${DATA_DIR}/resourcepacks"
+  RP_DIR="${INPUT_RESOURCEPACKS_DIR}/resourcepacks"
   mkdir -p "${RP_DIR}"
 
   # now already resourcepacks present and sync once mode, skipping
   if [[ "${RESOURCEPACKS_SYNC_ONCE}" == "true" ]] \
-   && [[ -n "$(ls -A "${RP_DIR}")" ]] \
+   && find "${RP_DIR}" -mindepth 1 -maxdepth 1 -print -quit | grep -q . \
    && [[ "${RESOURCEPACKS_REMOVE_EXTRA}" != "true" ]]; then
   log INFO "Resourcepacks already present, skipping sync"
   return
@@ -1201,7 +1131,7 @@ install_resourcepacks() {
     || die "Failed to sync resourcepacks"
   
   # ---- server.properties linkage (optional) ----
-  if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]]; then
+  if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]] && [[ -f "${DATA_DIR}/server.properties" ]]; then
     log INFO "Applying resource-pack settings to server.properties"
 
     : "${RESOURCEPACK_SHA1:=}"
@@ -1213,7 +1143,15 @@ install_resourcepacks() {
       ${DATA_DIR}/server.properties || true
   fi
 
+  if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]] && [[ ! -f "${DATA_DIR}/server.properties" ]]; then
+    log WARN "server.properties not found, skipping resource-pack auto apply"
+  fi
+
   log INFO "Resourcepacks installed successfully"
+}
+
+activate_resourcepacks() {
+  activate_dir "${INPUT_RESOURCEPACKS_DIR:-/resourcepacks}" "${DATA_DIR}/resourcepacks" "resourcepacks"
 }
 
 # ===========================================
@@ -1610,15 +1548,15 @@ install() {
   install_mods          # mods (most important)
   activate_mods         # activate mods
   install_datapacks     # datapacks
-
-  # -----------------------------
-  # runtime phase (every time ok)
-  # -----------------------------
+  activate_datapacks    # activate datapacks
   install_jvm_args
   install_c2me_jvm_args
   install_configs
+  activate_configs
   install_plugins
+  activate_plugins
   install_resourcepacks
+  activate_resourcepacks
   install_whitelist
   install_ops
   configure_c2me_opencl
