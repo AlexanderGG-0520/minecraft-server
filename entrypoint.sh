@@ -1245,9 +1245,12 @@ declare -A PROP_MAP=(
   [GENERATE_STRUCTURES]="generate-structures"
 )
 
-escape_sed() {
-  printf '%s' "$1" | sed 's/[&\\/]/\\&/g'
+# escape string for safe sed usage
+# 実改行 → 文字列 \n に変換
+normalize_env_val() {
+  printf '%s' "$1" | sed ':a;N;$!ba;s/\n/\\n/g'
 }
+
 
 apply_server_properties_diff() {
   local props_file="${DATA_DIR}/server.properties"
@@ -1276,9 +1279,7 @@ apply_server_properties_diff() {
 
     # set -u safe
     ENV_VAL="${!ENV_KEY:-}"
-
-    local SAFE_VAL
-    SAFE_VAL="$(escape_sed "$ENV_VAL")"
+    ENV_VAL="$(normalize_env_val "$ENV_VAL")"
 
     # Skip unset / empty envs
     [[ -z "$ENV_VAL" ]] && continue
@@ -1294,7 +1295,7 @@ apply_server_properties_diff() {
 
     # Update or append
     if grep -qE "^${PROP_KEY}=" "$props_file"; then
-      sed -i "s|^${PROP_KEY}=.*|${PROP_KEY}=${SAFE_VAL}|" "$props_file"
+      sed -i "s|^${PROP_KEY}=.*|${PROP_KEY}=${ENV_VAL}|" "$props_file"
       log INFO "Updated property: ${PROP_KEY}=${ENV_VAL}"
     else
       echo "${PROP_KEY}=${ENV_VAL}" >> "$props_file"
