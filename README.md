@@ -44,92 +44,40 @@ This project is intentionally **not**:
 
 If you want a server that "just works" with minimal understanding, this is probably not for you.
 
----
+## Documentation (Wiki)
 
-## Design philosophy
+This project has **extensive documentation** in the GitHub Wiki.
 
-* **Explicit configuration over abstraction**
-  Every behavior is controlled by clear environment variables. Nothing happens implicitly.
+The Wiki explains not only *how* to run the server, but *why* it is designed this way —  
+including lifecycle separation, persistent storage strategy, and world safety guarantees.
 
-* **Minimal startup logic**
-  Startup paths are kept short. If something is already correct, it is not re-validated.
+### Start here
 
-* **Fail fast, never hide errors**
-  Misconfiguration should crash early, not be silently corrected.
+**Wiki Home**  
+  https://github.com/AlexanderGG-0520/minecraft-server/wiki
 
-* **One entrypoint, predictable lifecycle**
-  No magic phases, no hidden state transitions.
+### Recommended reading order
 
-* **Performance is a feature**
-  Especially for world generation and large modpacks.
+1. **Getting Started / Quick Start**  
+   Fastest way to run the server safely
 
----
+2. **Lifecycle Design (Install Phase / Runtime Phase)**  
+   Core design philosophy and safety guarantees
 
-## Java runtime
+3. **Environment Variables**  
+   How configuration is classified and applied
 
-* Uses **Eclipse Temurin** exclusively
-* Java versions are selected **explicitly via image tags**
-* No runtime JVM switching
+4. **World Reset Mechanism**  
+   How destructive changes are made explicit and safe
 
-This avoids ambiguity and ensures reproducible behavior.
+5. **Storage & Persistence**  
+   PVC, volume strategy, and migration
 
----
+6. **FAQ**  
+   Differences vs itzg/minecraft-server and common pitfalls
 
-## Mod / Config synchronization
-
-* Mods, configs, datapacks, and resource packs can be synchronized from **S3-compatible storage** (e.g. MinIO)
-* Sync rules are **explicit and predictable**
-* Removed files can be pruned intentionally
-
-This model works well with immutable containers and externalized state.
-
----
-
-## GPU acceleration (Experimental)
-
-Experimental support for **C2ME GPU acceleration** is available, but:
-
-* Disabled by default
-* Requires explicit opt-in flags
-* Cannot be enabled accidentally
-
-Experimental features must always be *obviously experimental*.
-
----
-
-## Who should use this
-
-You might like this project if:
-
-* You have used feature-rich Minecraft images and felt they were "doing too much"
-* You care about startup time and world generation performance
-* You run servers as cattle, not pets
-* You prefer Linux-style tooling and philosophy
-
----
-
-## Who should NOT use this
-
-* First-time server operators
-* Users unfamiliar with Docker or JVM tuning
-* Anyone expecting automatic recovery from mistakes
-
----
-
-## Quick start
-
-```bash
-# Example: Java 21 runtime
-
-docker run \
-  -e EULA=true \
-  -e TYPE=FABRIC \
-  -e VERSION=1.21.1 \
-  -v ./data:/data \
-  ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21
-```
-
-You are expected to read the configuration options before running this in production.
+> ⚠️ If you skip the lifecycle documentation,  
+> you may misunderstand why some environment variables are intentionally ignored.
 
 ---
 
