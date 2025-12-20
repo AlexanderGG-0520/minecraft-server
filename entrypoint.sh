@@ -686,12 +686,13 @@ install_server() {
         return
       fi
 
-      log INFO "Installing Taiyitist server ${VERSION}"
+      log INFO "Installing Taiyitist server ${VERSION} from GitHub Releases"
 
-      curl -fL \
-        "https://api.taiyitist.org/v1/projects/taiyitist/${VERSION}/builds/latest/download" \
+      DOWNLOAD_URL="https://github.com/TaiyitistMC/Taiyitist/releases/download/${VERSION}/Taiyitist-${VERSION}.jar"
+
+      curl -fL "${DOWNLOAD_URL}" \
         -o "${DATA_DIR}/server.jar" \
-        || die "Failed to download Taiyitist server.jar"
+        || die "Failed to download Taiyitist server.jar from ${DOWNLOAD_URL}"
 
       log INFO "Taiyitist server.jar ready"
       ;;
