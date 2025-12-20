@@ -7,23 +7,6 @@ die() { log ERROR "$1"; exit 1; }
 
 MC_PID=""
 
-graceful_shutdown() {
-  log INFO "Received shutdown signal"
-
-  rm -f "${DATA_DIR}/.ready"
-
-
-  if [[ -n "${MC_PID}" ]] && kill -0 "${MC_PID}" 2>/dev/null; then
-    kill "${MC_PID}"
-    wait "${MC_PID}"
-  fi
-
-  log INFO "Shutdown complete"
-  exit 0
-}
-
-trap graceful_shutdown SIGTERM SIGINT
-
 # ============================================================
 # Environment defaults (non server.properties)
 # ============================================================
@@ -1702,11 +1685,26 @@ on_term() {
 trap 'on_term' TERM INT
 
 run_server() {
+  trap graceful_shutdown SIGTERM SIGINT
+
   "$@" &
-  SERVER_PID="$!"
-  wait "${SERVER_PID}"
-  return $?
+  SERVER_PID=$!
+
+  wait "$SERVER_PID"
 }
+
+graceful_shutdown() {
+  log INFO "SIGTERM received, starting graceful shutdown"
+
+  if [ "${STOP_SERVER_ANNOUNCE_DELAY:-0}" -gt 0 ]; then
+    log INFO "Announcing shutdown in ${STOP_SERVER_ANNOUNCE_DELAY}s"
+    sleep "${STOP_SERVER_ANNOUNCE_DELAY}"
+  fi
+
+  send_stop_command
+}
+
+trap graceful_shutdown SIGTERM SIGINT
 
 # ==========================================================
 # Runtime
