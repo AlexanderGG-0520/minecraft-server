@@ -53,8 +53,7 @@ including lifecycle separation, persistent storage strategy, and world safety gu
 
 ### Start here
 
-**Wiki Home**  
-  https://github.com/AlexanderGG-0520/minecraft-server/wiki
+[Wiki Home](https://github.com/AlexanderGG-0520/minecraft-server/wiki)
 
 ### Recommended reading order
 
