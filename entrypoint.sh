@@ -240,6 +240,18 @@ install_eula() {
       ;;
   esac
 }
+cleaer_fabric_cache() {
+# -----------------------------
+# Clean Fabric mapping cache
+# -----------------------------
+log INFO "Cleaning Fabric mapping/cache directories"
+
+rm -rf "${DATA_DIR}/.fabric" \
+       "${DATA_DIR}/.cache" \
+       "${DATA_DIR}/.mappings"
+
+log INFO "Fabric cache cleanup completed"
+}
 
 setup_server_icon() {
   if [[ -z "${SERVER_ICON_URL:-}" ]]; then
@@ -1629,6 +1641,7 @@ install() {
 
   install_dirs
   install_eula
+  cleaer_fabric_cache
   setup_server_icon
   ensure_server_properties
 
