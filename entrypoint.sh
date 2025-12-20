@@ -1032,15 +1032,15 @@ activate_configs() {
 }
 
 install_plugins() {
-  log INFO "Install plugins (Paper only)"
+  log INFO "Install plugins (Paper | Purpur | Mohist | Taiyitist | Youer only)"
 
   [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || {
     log INFO "Plugins disabled"
     return
   }
 
-  # disable if not paper
-  if [[ "${TYPE:-auto}" != "paper" ]]; then
+  # disable if not paper, purpur, mohist, taiyitist, or youer
+  if [[ "${TYPE:-auto}" != "paper" ]] && [[ "${TYPE:-auto}" != "purpur" ]] && [[ "${TYPE:-auto}" != "mohist" ]] && [[ "${TYPE:-auto}" != "taiyitist" ]] && [[ "${TYPE:-auto}" != "youer" ]]; then
     log INFO "TYPE=${TYPE}, skipping plugins"
     return
   fi
