@@ -54,7 +54,6 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -73,7 +72,6 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -92,7 +90,6 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -111,7 +108,6 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -130,7 +126,6 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
