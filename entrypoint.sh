@@ -93,6 +93,10 @@ MC_PID=""
 : "${STOP_SERVER_ANNOUNCE_DELAY:=0}"
 # ============================================================
 
+# Server Icon
+: "${SERVER_ICON_URL:=}"
+# ============================================================
+
 preflight() {
   log INFO "Preflight checks..."
 
@@ -235,6 +239,30 @@ install_eula() {
       die "Invalid EULA value: ${EULA} (expected true or false)"
       ;;
   esac
+}
+
+setup_server_icon() {
+  if [[ -z "${SERVER_ICON_URL:-}" ]]; then
+    log INFO "SERVER_ICON_URL not set, skipping server icon setup"
+    return 0
+  fi
+
+  local icon_path="${DATA_DIR}/server-icon.png"
+
+  if [[ -f "${icon_path}" ]]; then
+    log INFO "server-icon.png already exists, skipping overwrite"
+    return 0
+  fi
+
+  log INFO "Setting server icon from ${SERVER_ICON_URL}"
+
+  if ! curl -fsSL "${SERVER_ICON_URL}" -o "${icon_path}"; then
+    log ERROR "Failed to download server icon"
+    rm -f "${icon_path}"
+    return 1
+  fi
+
+  log INFO "Server icon installed: ${icon_path}"
 }
 
 ensure_server_properties() {
@@ -1594,6 +1622,7 @@ install() {
 
   install_dirs
   install_eula
+  setup_server_icon
   ensure_server_properties
 
   handle_reset_world_flag
