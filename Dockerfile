@@ -134,10 +134,9 @@ COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-# --- entrypoint & tini & rsync & libpopt0 & rcon-cli ---
+# --- entrypoint & rsync & libpopt0 & rcon-cli ---
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
-COPY --from=base /usr/bin/tini /usr/bin/tini
 COPY --from=base /usr/bin/rsync /usr/bin/rsync
 COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
 COPY --from=base /usr/lib/rcon-cli /usr/lib/rcon-cli
