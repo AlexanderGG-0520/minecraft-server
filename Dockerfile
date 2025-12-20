@@ -7,8 +7,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash curl ca-certificates tini procps \
-    pciutils ocl-icd-libopencl1 jq mcrcon \
+    pciutils ocl-icd-libopencl1 jq \
  && rm -rf /var/lib/apt/lists/*
+
+# --- mcrcon ---
+RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
+      -o /usr/local/bin/mcrcon \
+ && chmod +x /usr/local/bin/mcrcon \
+ && mcrcon -h || true
 
 # --- MinIO client (mc) ---
 RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
@@ -37,10 +43,11 @@ FROM eclipse-temurin:25-jre AS jre25
 
 # -------- Java 8 --------
 FROM jre8 AS runtime-jre8
-RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -48,10 +55,11 @@ CMD ["run"]
 
 # -------- Java 11 --------
 FROM jre11 AS runtime-jre11
-RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -59,10 +67,11 @@ CMD ["run"]
 
 # -------- Java 17 --------
 FROM jre17 AS runtime-jre17
-RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -70,10 +79,11 @@ CMD ["run"]
 
 # -------- Java 21 --------
 FROM jre21 AS runtime-jre21
-RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -81,10 +91,11 @@ CMD ["run"]
 
 # -------- Java 25 --------
 FROM jre25 AS runtime-jre25
-RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -99,7 +110,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash ca-certificates curl tini procps \
-    pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0 mcrcon \
+    pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
 # LWJGL expects libOpenCL.so (not only libOpenCL.so.1)
@@ -107,6 +118,12 @@ RUN set -eux; \
     if [ -e /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 ] && [ ! -e /usr/lib/x86_64-linux-gnu/libOpenCL.so ]; then \
       ln -s /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so; \
     fi
+
+# --- mcrcon ---
+RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
+      -o /usr/local/bin/mcrcon \
+ && chmod +x /usr/local/bin/mcrcon \
+ && mcrcon -h || true
 
 # --- MinIO client (mc) ---
 RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
