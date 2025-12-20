@@ -1313,6 +1313,19 @@ apply_server_properties_diff() {
   log INFO "server.properties diff apply completed"
 }
 
+set_prop() {
+  local key="$1"
+  local value="$2"
+  local file="${SERVER_PROPERTIES:-${DATA_DIR}/server.properties}"
+
+  # キーが存在する場合は置換、なければ追記
+  if grep -qE "^${key}=" "$file"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "$file"
+  else
+    echo "${key}=${value}" >> "$file"
+  fi
+}
+
 apply_rcon_settings() {
   if [[ "${ENABLE_RCON}" == "true" ]]; then
     set_prop enable-rcon true
