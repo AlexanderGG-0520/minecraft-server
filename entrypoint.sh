@@ -827,10 +827,6 @@ install_mods() {
     return
   }
 
-  : "${MODS_S3_PREFIX:=fabric/hardcore/mods}"
-  : "${MODS_SYNC_ONCE:=true}"
-  : "${MODS_REMOVE_EXTRA:=true}"
-
   MODS_DIR="${INPUT_MODS_DIR}"
   mkdir -p "${MODS_DIR}"
 
@@ -964,10 +960,6 @@ install_configs() {
     return
   }
 
-  : "${CONFIGS_S3_PREFIX:=configs/latest}"
-  : "${CONFIGS_SYNC_ONCE:=true}"
-  : "${CONFIGS_REMOVE_EXTRA:=true}"
-
   CONFIG_DIR="${INPUT_CONFIG_DIR:-/config}"
   mkdir -p "${CONFIG_DIR}"
 
@@ -1026,10 +1018,6 @@ install_plugins() {
     return
   }
 
-  : "${PLUGINS_S3_PREFIX:=plugins/latest}"
-  : "${PLUGINS_SYNC_ONCE:=true}"
-  : "${PLUGINS_REMOVE_EXTRA:=true}"
-
   PLUGINS_DIR="${INPUT_PLUGINS_DIR}"
   mkdir -p "${PLUGINS_DIR}"
 
@@ -1081,10 +1069,6 @@ install_datapacks() {
     log INFO "DATAPACKS_S3_BUCKET not set, skipping datapacks"
     return
   }
-
-  : "${DATAPACKS_S3_PREFIX:=datapacks/latest}"
-  : "${DATAPACKS_SYNC_ONCE:=true}"
-  : "${DATAPACKS_REMOVE_EXTRA:=true}"
 
   DATAPACKS_DIR="${DATA_DIR}/world/datapacks"
   mkdir -p "${DATAPACKS_DIR}"
@@ -1143,12 +1127,6 @@ install_resourcepacks() {
     log INFO "RESOURCEPACKS_S3_BUCKET not set, skipping resourcepacks"
     return
   }
-
-  : "${RESOURCEPACKS_S3_PREFIX:=resourcepacks/latest}"
-  : "${RESOURCEPACKS_SYNC_ONCE:=true}"
-  : "${RESOURCEPACKS_REMOVE_EXTRA:=true}"
-  : "${RESOURCEPACKS_AUTO_APPLY:=true}"
-  : "${RESOURCEPACK_REQUIRED:=false}"
 
   RP_DIR="${INPUT_RESOURCEPACKS_DIR}/resourcepacks"
   mkdir -p "${RP_DIR}"
