@@ -244,13 +244,15 @@ cleaer_fabric_cache() {
 # -----------------------------
 # Clean Fabric mapping cache
 # -----------------------------
-log INFO "Cleaning Fabric mapping/cache directories"
-
-rm -rf "${DATA_DIR}/.fabric" \
-       "${DATA_DIR}/.cache" \
-       "${DATA_DIR}/.mappings"
-
-log INFO "Fabric cache cleanup completed"
+case "${TYPE}" in
+  fabric|taiyitist|quilt)
+    log INFO "Cleaning Fabric mapping/cache directories (TYPE=${TYPE})"
+    rm -rf "${DATA_DIR}/.fabric" \
+           "${DATA_DIR}/.cache" \
+           "${DATA_DIR}/.mappings"
+    log INFO "Fabric mapping/cache directories cleaned"
+    ;;
+esac
 }
 
 setup_server_icon() {
