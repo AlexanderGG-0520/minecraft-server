@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash curl ca-certificates tini procps \
-    pciutils ocl-icd-libopencl1 jq \
+    pciutils ocl-icd-libopencl1 jq mcrcon \
  && rm -rf /var/lib/apt/lists/*
 
 # --- MinIO client (mc) ---
@@ -37,7 +37,7 @@ FROM eclipse-temurin:25-jre AS jre25
 
 # -------- Java 8 --------
 FROM jre8 AS runtime-jre8
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -48,7 +48,7 @@ CMD ["run"]
 
 # -------- Java 11 --------
 FROM jre11 AS runtime-jre11
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -59,7 +59,7 @@ CMD ["run"]
 
 # -------- Java 17 --------
 FROM jre17 AS runtime-jre17
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -70,7 +70,7 @@ CMD ["run"]
 
 # -------- Java 21 --------
 FROM jre21 AS runtime-jre21
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -81,7 +81,7 @@ CMD ["run"]
 
 # -------- Java 25 --------
 FROM jre25 AS runtime-jre25
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 mcrcon && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -99,7 +99,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash ca-certificates curl tini procps \
-    pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0  \
+    pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0 mcrcon \
  && rm -rf /var/lib/apt/lists/*
 
 # LWJGL expects libOpenCL.so (not only libOpenCL.so.1)

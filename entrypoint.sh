@@ -1656,6 +1656,22 @@ rcon_stop_once() {
   rcon_stop || true
 }
 
+rcon_exec() {
+  local cmd="$*"
+
+  log INFO "RCON >> ${cmd}"
+
+  if ! mcrcon \
+    -H 127.0.0.1 \
+    -P "${RCON_PORT:-25575}" \
+    -p "${RCON_PASSWORD:-minecraft}" \
+    "${cmd}"
+  then
+    log WARN "RCON failed: ${cmd}"
+    return 1
+  fi
+}
+
 rcon_stop() {
   local delay="${STOP_SERVER_ANNOUNCE_DELAY:-5}"
 
@@ -1698,7 +1714,6 @@ graceful_shutdown() {
 
   if [ "${STOP_SERVER_ANNOUNCE_DELAY:-0}" -gt 0 ]; then
     log INFO "Announcing server stop in ${STOP_SERVER_ANNOUNCE_DELAY}s"
-    rcon_say "Server is stopping in ${STOP_SERVER_ANNOUNCE_DELAY}s, please log off safely."
     sleep "${STOP_SERVER_ANNOUNCE_DELAY}"
   fi
 
