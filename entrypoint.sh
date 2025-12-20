@@ -684,7 +684,7 @@ install_server() {
 
       log INFO "Resolving Taiyitist ${VERSION} release asset"
 
-      ${TAIYITIST_VERSION:=${VERSION}-release}
+      TAIYITIST_VERSION="${VERSION}-release"
 
       ASSET_URL=$(
         curl -fsSL "https://api.github.com/repos/TaiyitistMC/Taiyitist/releases/tags/${TAIYITIST_VERSION}" \
