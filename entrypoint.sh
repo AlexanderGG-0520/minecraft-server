@@ -104,7 +104,7 @@ trap graceful_shutdown SIGTERM SIGINT
 # ============================================================
 
 # RCON
-: "${RCON_ENABLE:=true}"
+: "${ENABLE_RCON:=true}"
 : "${RCON_PORT:=25575}"
 : "${RCON_PASSWORD:=changeme}"
 : "${STOP_SERVER_ANNOUNCE_DELAY:=0}"
