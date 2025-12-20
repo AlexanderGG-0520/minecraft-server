@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash curl ca-certificates tini procps \
-    pciutils ocl-icd-libopencl1 jq rsync libpopt0 rcon-cli \
+    pciutils ocl-icd-libopencl1 jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
 # --- MinIO client (mc) ---
@@ -43,7 +43,6 @@ COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 COPY --from=base /usr/bin/rsync /usr/bin/rsync
 COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
-COPY --from=base /usr/lib/rcon-cli /usr/lib/rcon-cli
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -57,7 +56,6 @@ COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 COPY --from=base /usr/bin/rsync /usr/bin/rsync
 COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
-COPY --from=base /usr/lib/rcon-cli /usr/lib/rcon-cli
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -71,7 +69,6 @@ COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 COPY --from=base /usr/bin/rsync /usr/bin/rsync
 COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
-COPY --from=base /usr/lib/rcon-cli /usr/lib/rcon-cli
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -85,7 +82,6 @@ COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 COPY --from=base /usr/bin/rsync /usr/bin/rsync
 COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
-COPY --from=base /usr/lib/rcon-cli /usr/lib/rcon-cli
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -99,7 +95,6 @@ COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 COPY --from=base /usr/bin/rsync /usr/bin/rsync
 COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
-COPY --from=base /usr/lib/rcon-cli /usr/lib/rcon-cli
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -114,7 +109,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash ca-certificates curl tini procps \
-    pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0 rcon-cli \
+    pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0  \
  && rm -rf /var/lib/apt/lists/*
 
 # LWJGL expects libOpenCL.so (not only libOpenCL.so.1)
@@ -134,12 +129,11 @@ COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-# --- entrypoint & rsync & libpopt0 & rcon-cli ---
+# --- entrypoint & rsync & libpopt0 ---
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/rsync /usr/bin/rsync
 COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
-COPY --from=base /usr/lib/rcon-cli /usr/lib/rcon-cli
 
 ENV HOME=/data
 WORKDIR /data
