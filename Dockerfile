@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     bash curl ca-certificates tini procps \
-    pciutils ocl-icd-libopencl1 jq rsync libpopt0 \
+    pciutils ocl-icd-libopencl1 jq \
  && rm -rf /var/lib/apt/lists/*
 
 # --- MinIO client (mc) ---
@@ -37,12 +37,10 @@ FROM eclipse-temurin:25-jre AS jre25
 
 # -------- Java 8 --------
 FROM jre8 AS runtime-jre8
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/rsync /usr/bin/rsync
-COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -50,12 +48,10 @@ CMD ["run"]
 
 # -------- Java 11 --------
 FROM jre11 AS runtime-jre11
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/rsync /usr/bin/rsync
-COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -63,12 +59,10 @@ CMD ["run"]
 
 # -------- Java 17 --------
 FROM jre17 AS runtime-jre17
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/rsync /usr/bin/rsync
-COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -76,12 +70,10 @@ CMD ["run"]
 
 # -------- Java 21 --------
 FROM jre21 AS runtime-jre21
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/rsync /usr/bin/rsync
-COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -89,12 +81,10 @@ CMD ["run"]
 
 # -------- Java 25 --------
 FROM jre25 AS runtime-jre25
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
-COPY --from=base /usr/bin/rsync /usr/bin/rsync
-COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -129,11 +119,9 @@ COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
-# --- entrypoint & rsync & libpopt0 ---
+# --- entrypoint ---
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
-COPY --from=base /usr/bin/rsync /usr/bin/rsync
-COPY --from=base /usr/lib/x86_64-linux-gnu/libpopt.so.0 /usr/lib/x86_64-linux-gnu/libpopt.so.0
 
 ENV HOME=/data
 WORKDIR /data
