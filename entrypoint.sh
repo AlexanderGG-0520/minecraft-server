@@ -1697,7 +1697,7 @@ graceful_shutdown() {
   log INFO "SIGTERM received, starting graceful shutdown"
 
   if [ "${STOP_SERVER_ANNOUNCE_DELAY:-0}" -gt 0 ]; then
-    log INFO "Announcing shutdown in ${STOP_SERVER_ANNOUNCE_DELAY}s"
+    rcon_say "Server is stopping in ${STOP_SERVER_ANNOUNCE_DELAY}s, please log off safely."
     sleep "${STOP_SERVER_ANNOUNCE_DELAY}"
   fi
 
