@@ -656,10 +656,6 @@ install_server() {
       log INFO "Purpur server.jar ready"
       ;;
 
-    *)
-      die "install_server: TYPE=${TYPE} not implemented yet"
-      ;;
-
     mohist)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for mohist"
 
