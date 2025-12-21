@@ -279,6 +279,43 @@ setup_server_icon() {
   log INFO "Server icon installed: ${icon_path}"
 }
 
+generate_velocity_toml() {
+  local CONFIG_FILE="${DATA_DIR}/velocity.toml"
+
+  # ------------------------------------------------------------
+  # Guard
+  # ------------------------------------------------------------
+  if [[ -f "${CONFIG_FILE}" ]]; then
+    log INFO "velocity.toml already exists, skipping generation"
+    return 0
+  fi
+
+  [[ -n "${VELOCITY_SECRET:-}" ]] || die "VELOCITY_SECRET is required for Velocity"
+
+  log INFO "Generating velocity.toml (env-based)"
+
+  cat > "${CONFIG_FILE}" <<EOF
+# ==================================================
+# Velocity Configuration (auto-generated)
+# ==================================================
+
+bind = "${VELOCITY_BIND:-0.0.0.0:25577}"
+motd = "${VELOCITY_MOTD:-§6Velocity Network}"
+show-max-players = ${VELOCITY_MAX_PLAYERS:-50000}
+online-mode = ${VELOCITY_ONLINE_MODE:-true}
+
+player-info-forwarding-mode = "${VELOCITY_FORWARDING_MODE:-modern}"
+forwarding-secret = "${VELOCITY_SECRET}"
+
+force-key-authentication = false
+compression-threshold = ${VELOCITY_COMPRESSION_THRESHOLD:-256}
+login-ratelimit = ${VELOCITY_LOGIN_RATELIMIT:-3000}
+connection-timeout = ${VELOCITY_CONNECTION_TIMEOUT:-5000}
+EOF
+
+  log INFO "velocity.toml generated successfully"
+}
+
 ensure_server_properties() {
   local props="${DATA_DIR}/server.properties"
 
@@ -853,45 +890,6 @@ EOF
   log INFO "server.properties successfully generated"
 }
 
-generate_velocity_config() {
-  local CONFIG_FILE="${DATA_DIR}/velocity.toml"
-
-  if [[ -f "${CONFIG_FILE}" ]]; then
-    log INFO "velocity.toml already exists, skipping generation"
-    return
-  fi
-
-  log INFO "Generating velocity.toml from environment variables"
-
-  cat > "${CONFIG_FILE}" <<EOF
-# --------------------------------------------------
-# Velocity Configuration (auto-generated)
-# --------------------------------------------------
-
-bind = "${VELOCITY_BIND:-0.0.0.0:25577}"
-motd = "${VELOCITY_MOTD:-§6Velocity Network}"
-show-max-players = ${VELOCITY_SHOW_MAX_PLAYERS:-50000}
-online-mode = ${VELOCITY_ONLINE_MODE:-true}
-force-key-authentication = false
-player-info-forwarding-mode = "${VELOCITY_PLAYER_INFO_FORWARDING:-modern}"
-
-# --------------------------------------------------
-# Security
-# --------------------------------------------------
-forwarding-secret = "${VELOCITY_SECRET}"
-
-# --------------------------------------------------
-# Advanced
-# --------------------------------------------------
-compression-threshold = ${VELOCITY_COMPRESSION_THRESHOLD:-256}
-login-ratelimit = ${VELOCITY_LOGIN_RATELIMIT:-3000}
-connection-timeout = ${VELOCITY_CONNECTION_TIMEOUT:-5000}
-
-EOF
-
-  log INFO "velocity.toml generated successfully"
-}
-
 install_mods() {
   log INFO "Install mods (MinIO only)"
 
@@ -1320,7 +1318,6 @@ normalize_env_val() {
   printf '%s' "$1" | sed ':a;N;$!ba;s/\n/\\n/g'
 }
 
-
 apply_server_properties_diff() {
   local props_file="${DATA_DIR}/server.properties"
 
@@ -1697,6 +1694,7 @@ install() {
   install_eula
   cleaer_fabric_cache
   setup_server_icon
+  generate_velocity_toml
   ensure_server_properties
 
   handle_reset_world_flag
