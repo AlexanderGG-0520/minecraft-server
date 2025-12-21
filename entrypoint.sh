@@ -1085,8 +1085,8 @@ install_plugins() {
     return
   }
 
-  # disable if not paper, purpur, mohist, taiyitist, or youer
-  if [[ "${TYPE:-auto}" != "paper" ]] && [[ "${TYPE:-auto}" != "purpur" ]] && [[ "${TYPE:-auto}" != "mohist" ]] && [[ "${TYPE:-auto}" != "taiyitist" ]] && [[ "${TYPE:-auto}" != "youer" ]]; then
+  # disable if not paper, purpur, mohist, taiyitist, youer, or velocity
+  if [[ "${TYPE:-auto}" != "paper" ]] && [[ "${TYPE:-auto}" != "purpur" ]] && [[ "${TYPE:-auto}" != "mohist" ]] && [[ "${TYPE:-auto}" != "taiyitist" ]] && [[ "${TYPE:-auto}" != "youer" ]] && [[ "${TYPE:-auto}" != "velocity" ]]; then
     log INFO "TYPE=${TYPE}, skipping plugins"
     return
   fi
