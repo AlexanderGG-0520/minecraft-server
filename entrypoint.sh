@@ -286,10 +286,9 @@ generate_velocity_toml() {
   # Guard
   # ------------------------------------------------------------
   if [[ -f "${CONFIG_FILE}" ]]; then
-    log INFO "velocity.toml already exists, skipping generation"
-    return 0
+    rm -f "${CONFIG_FILE}"
+    log INFO "Existing velocity.toml found, regenerating"
   fi
-
   [[ -n "${VELOCITY_SECRET:-}" ]] || die "VELOCITY_SECRET is required for Velocity"
 
   log INFO "Generating velocity.toml (env-based)"
