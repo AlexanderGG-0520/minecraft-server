@@ -1306,6 +1306,12 @@ declare -A PROP_MAP=(
   [LEVEL_SEED]="level-seed"
   [LEVEL_TYPE]="level-type"
   [GENERATE_STRUCTURES]="generate-structures"
+
+  # --- Phase E: Networking / Connections ---
+  [ENFORCE_SECURE_PROFILE]="enforce-secure-profile"
+  [NETWORK_COMPRESSION_THRESHOLD]="network-compression-threshold"
+  [MAX_WORLD_SIZE]="max-world-size"
+  [MAX_BUILD_HEIGHT]="max-build-height"
 )
 
 # escape string for safe sed usage
