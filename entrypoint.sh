@@ -777,7 +777,7 @@ install_server_properties() {
   # Safety: ensure required binaries exist
   # ------------------------------------------------------------
   case "${TYPE}" in
-    vanilla|paper|purpur)
+    vanilla|paper|purpur|mohist|taiyitist|youer)
       [[ -f "${DATA_DIR}/server.jar" ]] \
         || die "server.jar not found for TYPE=${TYPE}"
       ;;
@@ -804,9 +804,9 @@ install_server_properties() {
   fi
 
   cat > "${DATA_DIR}/jvm.args" <<EOF
--Xms512M
--Xmx512M
--Dfile.encoding=UTF-8
+  -Xms512M
+  -Xmx512M
+  -Dfile.encoding=UTF-8
 EOF
 
   # ------------------------------------------------------------
@@ -844,6 +844,45 @@ EOF
   fi
 
   log INFO "server.properties successfully generated"
+}
+
+generate_velocity_config() {
+  local CONFIG_FILE="${DATA_DIR}/velocity.toml"
+
+  if [[ -f "${CONFIG_FILE}" ]]; then
+    log INFO "velocity.toml already exists, skipping generation"
+    return
+  fi
+
+  log INFO "Generating velocity.toml from environment variables"
+
+  cat > "${CONFIG_FILE}" <<EOF
+# --------------------------------------------------
+# Velocity Configuration (auto-generated)
+# --------------------------------------------------
+
+bind = "${VELOCITY_BIND:-0.0.0.0:25577}"
+motd = "${VELOCITY_MOTD:-§6Velocity Network}"
+show-max-players = ${VELOCITY_SHOW_MAX_PLAYERS:-50000}
+online-mode = ${VELOCITY_ONLINE_MODE:-true}
+force-key-authentication = false
+player-info-forwarding-mode = "${VELOCITY_PLAYER_INFO_FORWARDING:-modern}"
+
+# --------------------------------------------------
+# Security
+# --------------------------------------------------
+forwarding-secret = "${VELOCITY_SECRET}"
+
+# --------------------------------------------------
+# Advanced
+# --------------------------------------------------
+compression-threshold = ${VELOCITY_COMPRESSION_THRESHOLD:-256}
+login-ratelimit = ${VELOCITY_LOGIN_RATELIMIT:-3000}
+connection-timeout = ${VELOCITY_CONNECTION_TIMEOUT:-5000}
+
+EOF
+
+  log INFO "velocity.toml generated successfully"
 }
 
 install_mods() {
