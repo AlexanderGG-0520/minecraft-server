@@ -285,7 +285,7 @@ normalize_toml_key() {
 
 declare -A VELOCITY_SERVER_KEYS
 
-IFS=',' read -ra ENTRIES <<< "${VELOCITY_SERVERS}"
+IFS=',' read -ra ENTRIES <<< "${VELOCITY_SERVERS:-}"
 for entry in "${ENTRIES[@]}"; do
   raw_key="${entry%%=*}"
   key="$(normalize_toml_key "${raw_key}")"
