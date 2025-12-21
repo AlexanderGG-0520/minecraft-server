@@ -743,10 +743,17 @@ install_server() {
         return
       fi
 
-      log INFO "Installing Velocity ${VERSION}"
+      log INFO "Resolving Velocity ${VERSION} build"
+
+      BUILD=$(curl -fsSL \
+        "https://api.papermc.io/v2/projects/velocity/versions/${VERSION}" \
+        | jq -r '.builds[-1]') \
+        || die "Failed to resolve Velocity build"
+
+      log INFO "Installing Velocity ${VERSION} build ${BUILD}"
 
       curl -fL \
-        "https://api.papermc.io/v2/projects/velocity/versions/${VERSION}/builds/latest/downloads/velocity-${VERSION}.jar" \
+        "https://api.papermc.io/v2/projects/velocity/versions/${VERSION}/builds/${BUILD}/downloads/velocity-${VERSION}-${BUILD}.jar" \
         -o "${DATA_DIR}/velocity.jar" \
         || die "Failed to download Velocity jar"
 
