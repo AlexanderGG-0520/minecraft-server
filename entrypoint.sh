@@ -1861,17 +1861,12 @@ rcon_stop_once() {
 rcon_exec() {
   local cmd="$*"
 
-  log INFO "RCON >> ${cmd}"
+  mcrcon -H "$RCON_HOST" -P "$RCON_PORT" -p "$RCON_PASSWORD" \
+    "tellraw @a {\"text\":\"[RCON] $cmd\",\"color\":\"yellow\"}" \
+    >/dev/null 2>&1 || true
 
-  if ! mcrcon \
-    -H 127.0.0.1 \
-    -P "${RCON_PORT:-25575}" \
-    -p "${RCON_PASSWORD:-minecraft}" \
-    "${cmd}"
-  then
-    log WARN "RCON failed: ${cmd}"
-    return 1
-  fi
+  mcrcon -H "$RCON_HOST" -P "$RCON_PORT" -p "$RCON_PASSWORD" \
+    "$cmd"
 }
 
 rcon_stop() {
