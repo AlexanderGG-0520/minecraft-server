@@ -774,6 +774,7 @@ install_server() {
 
     velocity)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for velocity"
+      generate_velocity_toml
 
       if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
         log INFO "velocity.jar already exists, skipping"
@@ -1694,7 +1695,6 @@ install() {
   install_eula
   cleaer_fabric_cache
   setup_server_icon
-  generate_velocity_toml
   ensure_server_properties
 
   handle_reset_world_flag
