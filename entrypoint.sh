@@ -1411,6 +1411,7 @@ declare -A PROP_MAP=(
   [NETWORK_COMPRESSION_THRESHOLD]="network-compression-threshold"
   [MAX_WORLD_SIZE]="max-world-size"
   [MAX_BUILD_HEIGHT]="max-build-height"
+  [ONLINE_MODE]="online-mode"
 )
 
 # escape string for safe sed usage
