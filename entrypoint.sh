@@ -283,20 +283,29 @@ normalize_toml_key() {
   echo "$1" | sed 's/[^a-zA-Z0-9_]/_/g'
 }
 
+declare -A VELOCITY_SERVER_KEYS
+
+IFS=',' read -ra ENTRIES <<< "${VELOCITY_SERVERS}"
+for entry in "${ENTRIES[@]}"; do
+  raw_key="${entry%%=*}"
+  key="$(normalize_toml_key "${raw_key}")"
+  VELOCITY_SERVER_KEYS["${key}"]=1
+done
+
 generate_velocity_toml() {
   local CONFIG_FILE="${DATA_DIR}/velocity.toml"
 
-  [[ -f "${CONFIG_FILE}" ]] && {
-    rm -f "${CONFIG_FILE}"
-    log INFO "Existing velocity.toml removed"
-  }
+  rm -f "${CONFIG_FILE}"
 
   [[ -n "${VELOCITY_SERVERS:-}" ]] || die "VELOCITY_SERVERS is required"
-  [[ -n "${VELOCITY_SECRET:-}" ]] || die "VELOCITY_SECRET is required"
+  [[ -n "${VELOCITY_SECRET:-}" ]]  || die "VELOCITY_SECRET is required"
 
   log INFO "Generating velocity.toml"
 
   {
+    # -------------------------
+    # Core settings
+    # -------------------------
     cat <<EOF
 bind = "${VELOCITY_BIND:-0.0.0.0:25577}"
 motd = "${VELOCITY_MOTD:-<gold>Velocity</gold>}"
@@ -307,6 +316,9 @@ forwarding-secret = "${VELOCITY_SECRET}"
 
 EOF
 
+    # -------------------------
+    # Servers
+    # -------------------------
     echo "[servers]"
     IFS=',' read -ra ENTRIES <<< "${VELOCITY_SERVERS}"
     for entry in "${ENTRIES[@]}"; do
@@ -316,13 +328,38 @@ EOF
       echo "  ${key} = \"${val}\""
     done
 
-    echo
-    echo "try = [ \"$(normalize_toml_key "${VELOCITY_TRY:-lobby}")\" ]"
-  } > "${CONFIG_FILE}"
+    # -------------------------
+    # Try (fallback)
+    # -------------------------
+    local TRY_KEY
+    TRY_KEY="$(normalize_toml_key "${VELOCITY_TRY:-${raw_key}}")"
 
-  echo
-  echo "[forced-hosts]"
-  IFS=',' read -ra HOST_ENTRIES <<< "${VELOCITY_FORCED_HOSTS:-}"
+    [[ -n "${VELOCITY_SERVER_KEYS[${TRY_KEY}]:-}" ]] \
+      || die "VELOCITY_TRY '${TRY_KEY}' is not defined in VELOCITY_SERVERS"
+
+    echo
+    echo "try = [ \"${TRY_KEY}\" ]"
+
+    # -------------------------
+    # Forced hosts
+    # -------------------------
+    echo
+    echo "[forced-hosts]"
+
+    if [[ -n "${VELOCITY_FORCED_HOSTS:-}" ]]; then
+      IFS=',' read -ra HOSTS <<< "${VELOCITY_FORCED_HOSTS}"
+      for h in "${HOSTS[@]}"; do
+        domain="${h%%:*}"
+        srv_raw="${h#*:}"
+        srv="$(normalize_toml_key "${srv_raw}")"
+
+        [[ -n "${VELOCITY_SERVER_KEYS[${srv}]:-}" ]] \
+          || die "forced-host '${domain}' refers to unknown server '${srv}'"
+
+        echo "  \"${domain}\" = [ \"${srv}\" ]"
+      done
+    fi
+  } > "${CONFIG_FILE}"
 
   log INFO "velocity.toml generated"
 }
