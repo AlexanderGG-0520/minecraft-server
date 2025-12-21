@@ -320,6 +320,10 @@ EOF
     echo "try = [ \"$(normalize_toml_key "${VELOCITY_TRY:-lobby}")\" ]"
   } > "${CONFIG_FILE}"
 
+  echo
+  echo "[forced-hosts]"
+  IFS=',' read -ra HOST_ENTRIES <<< "${VELOCITY_FORCED_HOSTS:-}"
+
   log INFO "velocity.toml generated"
 }
 
