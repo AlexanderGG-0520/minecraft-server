@@ -279,6 +279,10 @@ setup_server_icon() {
   log INFO "Server icon installed: ${icon_path}"
 }
 
+normalize_toml_key() {
+  echo "$1" | sed 's/[^a-zA-Z0-9_]/_/g'
+}
+
 generate_velocity_toml() {
   local CONFIG_FILE="${DATA_DIR}/velocity.toml"
 
@@ -306,13 +310,14 @@ EOF
     echo "[servers]"
     IFS=',' read -ra ENTRIES <<< "${VELOCITY_SERVERS}"
     for entry in "${ENTRIES[@]}"; do
-      key="${entry%%=*}"
+      raw_key="${entry%%=*}"
       val="${entry#*=}"
+      key="$(normalize_toml_key "${raw_key}")"
       echo "  ${key} = \"${val}\""
     done
 
     echo
-    echo "try = [ \"${VELOCITY_TRY:-lobby}\" ]"
+    echo "try = [ \"$(normalize_toml_key "${VELOCITY_TRY:-lobby}")\" ]"
   } > "${CONFIG_FILE}"
 
   log INFO "velocity.toml generated"
