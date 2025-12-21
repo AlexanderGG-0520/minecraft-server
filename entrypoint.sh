@@ -282,37 +282,40 @@ setup_server_icon() {
 generate_velocity_toml() {
   local CONFIG_FILE="${DATA_DIR}/velocity.toml"
 
-  # ------------------------------------------------------------
-  # Guard
-  # ------------------------------------------------------------
-  if [[ -f "${CONFIG_FILE}" ]]; then
+  [[ -f "${CONFIG_FILE}" ]] && {
     rm -f "${CONFIG_FILE}"
-    log INFO "Existing velocity.toml found, regenerating"
-  fi
-  [[ -n "${VELOCITY_SECRET:-}" ]] || die "VELOCITY_SECRET is required for Velocity"
+    log INFO "Existing velocity.toml removed"
+  }
 
-  log INFO "Generating velocity.toml (env-based)"
+  [[ -n "${VELOCITY_SERVERS:-}" ]] || die "VELOCITY_SERVERS is required"
+  [[ -n "${VELOCITY_SECRET:-}" ]] || die "VELOCITY_SECRET is required"
 
-  cat > "${CONFIG_FILE}" <<EOF
-# ==================================================
-# Velocity Configuration (auto-generated)
-# ==================================================
+  log INFO "Generating velocity.toml"
 
+  {
+    cat <<EOF
 bind = "${VELOCITY_BIND:-0.0.0.0:25577}"
-motd = "${VELOCITY_MOTD:-§6Velocity Network}"
-show-max-players = ${VELOCITY_MAX_PLAYERS:-50000}
+motd = "${VELOCITY_MOTD:-<gold>Velocity</gold>}"
 online-mode = ${VELOCITY_ONLINE_MODE:-true}
 
-player-info-forwarding-mode = "${VELOCITY_FORWARDING_MODE:-modern}"
+player-info-forwarding-mode = "modern"
 forwarding-secret = "${VELOCITY_SECRET}"
 
-force-key-authentication = false
-compression-threshold = ${VELOCITY_COMPRESSION_THRESHOLD:-256}
-login-ratelimit = ${VELOCITY_LOGIN_RATELIMIT:-3000}
-connection-timeout = ${VELOCITY_CONNECTION_TIMEOUT:-5000}
 EOF
 
-  log INFO "velocity.toml generated successfully"
+    echo "[servers]"
+    IFS=',' read -ra ENTRIES <<< "${VELOCITY_SERVERS}"
+    for entry in "${ENTRIES[@]}"; do
+      key="${entry%%=*}"
+      val="${entry#*=}"
+      echo "  ${key} = \"${val}\""
+    done
+
+    echo
+    echo "try = [ \"${VELOCITY_TRY:-lobby}\" ]"
+  } > "${CONFIG_FILE}"
+
+  log INFO "velocity.toml generated"
 }
 
 ensure_server_properties() {
