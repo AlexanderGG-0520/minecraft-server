@@ -1412,6 +1412,8 @@ declare -A PROP_MAP=(
   [MAX_WORLD_SIZE]="max-world-size"
   [MAX_BUILD_HEIGHT]="max-build-height"
   [ONLINE_MODE]="online-mode"
+  [SERVER_PORT]="server-port"
+  [SERVER_IP]="server-ip"
 )
 
 # escape string for safe sed usage
