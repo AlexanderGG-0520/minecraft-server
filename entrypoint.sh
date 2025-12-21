@@ -744,11 +744,9 @@ install_server() {
       fi
 
       log INFO "Installing Velocity ${VERSION}"
-      
-      BUILD="${VELOCITY_BUILD:-latest}"
 
       curl -fL \
-        "https://api.papermc.io/v2/projects/velocity/versions/${VERSION}/builds/latest/downloads/velocity-${VERSION}-${BUILD}.jar" \
+        "https://api.papermc.io/v2/projects/velocity/versions/${VERSION}/builds/latest/downloads/velocity-${VERSION}.jar" \
         -o "${DATA_DIR}/velocity.jar" \
         || die "Failed to download Velocity jar"
 
