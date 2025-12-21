@@ -1136,6 +1136,58 @@ activate_plugins() {
   activate_dir "/plugins" "${DATA_DIR}/plugins" "plugins"
 }
 
+install_world() {
+  local WORLD_DIR="${DATA_DIR}/world"
+
+  # ------------------------------------------------------------
+  # Guard
+  # ------------------------------------------------------------
+  if [[ -d "${WORLD_DIR}" && ! -f "${DATA_DIR}/reset-world.flag" ]]; then
+    log INFO "World already exists, skipping world install"
+    return 0
+  fi
+
+  if [[ -z "${WORLD_S3_BUCKET:-}" || -z "${WORLD_S3_KEY:-}" ]]; then
+    log INFO "WORLD_S3_BUCKET or WORLD_S3_KEY not set, skipping world install"
+    return 0
+  fi
+
+  log INFO "Installing world from S3"
+
+  # ------------------------------------------------------------
+  # Prepare
+  # ------------------------------------------------------------
+  rm -rf "${WORLD_DIR}"
+  mkdir -p "${WORLD_DIR}"
+
+  local TMP_ZIP="/tmp/world.zip"
+
+  # ------------------------------------------------------------
+  # Download
+  # ------------------------------------------------------------
+  mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}"
+
+  mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}" \
+    || die "Failed to download world archive"
+
+  # ------------------------------------------------------------
+  # Extract
+  # ------------------------------------------------------------
+  unzip -q "${TMP_ZIP}" -d "${DATA_DIR}"
+
+  # zip の中が world/ 直下じゃない場合の保険
+  if [[ ! -d "${WORLD_DIR}" ]]; then
+    local EXTRACTED
+    EXTRACTED="$(find "${DATA_DIR}" -maxdepth 1 -type d -name "*world*" | head -n1 || true)"
+    [[ -n "${EXTRACTED}" ]] && mv "${EXTRACTED}" "${WORLD_DIR}"
+  fi
+
+  rm -f "${TMP_ZIP}"
+  rm -f "${DATA_DIR}/reset-world.flag"
+
+  log INFO "World installed successfully"
+}
+
 install_datapacks() {
   log INFO "Install datapacks"
 
