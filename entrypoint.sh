@@ -7,6 +7,15 @@ die() { log ERROR "$1"; exit 1; }
 
 MC_PID=""
 
+# ================================
+# Force IPv4 (IMPORTANT)
+# ================================
+export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS} \
+-Djava.net.preferIPv4Stack=true \
+-Djava.net.preferIPv4Addresses=true"
+
+echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
+
 # ============================================================
 # Environment defaults (non server.properties)
 # ============================================================
