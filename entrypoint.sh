@@ -10,7 +10,7 @@ MC_PID=""
 # ================================
 # Force IPv4 (IMPORTANT)
 # ================================
-export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS} \
+export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} \
 -Djava.net.preferIPv4Stack=true \
 -Djava.net.preferIPv4Addresses=true"
 
