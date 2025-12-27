@@ -1,4 +1,24 @@
 # ============================================================
+# mc builder (Go stdlib / x/crypto CVE 対策)
+# ============================================================
+ARG MC_RELEASE=RELEASE.2025-08-13T08-35-41Z
+ARG GO_VERSION=1.24.11
+
+FROM golang:${GO_VERSION}-bookworm AS mc-builder
+ARG MC_RELEASE
+
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+RUN git clone --depth 1 --branch ${MC_RELEASE} https://github.com/minio/mc.git .
+
+# x/crypto を脆弱性修正版へ（Scoutの表示: 0.43.0 以上）
+RUN go get golang.org/x/crypto@v0.43.0 && go mod tidy
+
+# なるべく小さく
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mc .
+# ============================================================
 # Base (共通ツール + entrypoint)
 # ============================================================
 FROM debian:stable-slim AS base
@@ -16,11 +36,9 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
  && chmod +x /usr/local/bin/mcrcon \
  && mcrcon -h || true
 
-# --- MinIO client (mc) ---
-RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
-      -o /usr/local/bin/mc \
- && chmod +x /usr/local/bin/mc \
- && mc --version
+# --- MinIO client (mc) (built) ---
+COPY --from=mc-builder /out/mc /usr/local/bin/mc
+RUN chmod +x /usr/local/bin/mc && mc --version
 
 ENV HOME=/data
 WORKDIR /data
@@ -205,11 +223,9 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
  && chmod +x /usr/local/bin/mcrcon \
  && mcrcon -h || true
 
-# --- MinIO client (mc) ---
-RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc \
-      -o /usr/local/bin/mc \
- && chmod +x /usr/local/bin/mc \
- && mc --version
+# --- MinIO client (mc) (built) ---
+COPY --from=mc-builder /out/mc /usr/local/bin/mc
+RUN chmod +x /usr/local/bin/mc && mc --version
 
 # --- Java 25 ---
 COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
