@@ -5,7 +5,7 @@ FROM debian:stable-slim AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     bash curl ca-certificates tini procps \
     pciutils ocl-icd-libopencl1 jq \
  && rm -rf /var/lib/apt/lists/*
@@ -43,7 +43,8 @@ FROM eclipse-temurin:25-jre AS jre25
 
 # -------- Java 8 --------
 FROM jre8 AS runtime-jre8
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
+ && rm -rf /var/lib/apt/lists/*
 
 # --- mcrcon ---
 RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
@@ -61,7 +62,8 @@ CMD ["run"]
 
 # -------- Java 11 --------
 FROM jre11 AS runtime-jre11
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
+ && rm -rf /var/lib/apt/lists/*
 
 # --- mcrcon ---
 RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
@@ -79,7 +81,8 @@ CMD ["run"]
 
 # -------- Java 17 --------
 FROM jre17 AS runtime-jre17
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends jq rsync libpopt0 \
+ && rm -rf /var/lib/apt/lists/*
 
 # --- mcrcon ---
 RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
@@ -97,7 +100,8 @@ CMD ["run"]
 
 # -------- Java 21 --------
 FROM jre21 AS runtime-jre21
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
+ && rm -rf /var/lib/apt/lists/*
 
 # --- mcrcon ---
 RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
@@ -115,7 +119,8 @@ CMD ["run"]
 
 # -------- Java 25 --------
 FROM jre25 AS runtime-jre25
-RUN apt-get update && apt-get install -y jq rsync libpopt0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
+ && rm -rf /var/lib/apt/lists/*
 
 # --- mcrcon ---
 RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
@@ -134,11 +139,11 @@ CMD ["run"]
 # ============================================================
 # GPU runtime (Java 25 only)
 # ============================================================
-FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04 AS runtime-jre25-gpu
+FROM nvidia/cuda:13.1.0-runtime-ubuntu24.04 AS runtime-jre25-gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     bash ca-certificates curl tini procps \
     pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
@@ -170,11 +175,20 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 
-ENV HOME=/data
-WORKDIR /data
-
 ENV RUNTIME_FLAVOR=gpu
 ENV ENABLE_C2ME_OPENCL=true
+
+ARG UID=10001
+ARG GID=10001
+
+RUN groupadd -g ${GID} mc \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
+ && mkdir -p /data \
+ && chown -R mc:mc /data
+
+USER mc:mc
+ENV HOME=/data
+WORKDIR /data
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["run"]
