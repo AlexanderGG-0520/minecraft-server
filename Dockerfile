@@ -55,6 +55,15 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+ARG UID=10001
+ARG GID=10001
+
+RUN groupadd -g ${GID} mc \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
+ && mkdir -p /data \
+ && chown -R mc:mc /data
+
+USER mc:mc
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -74,6 +83,15 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+ARG UID=10001
+ARG GID=10001
+
+RUN groupadd -g ${GID} mc \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
+ && mkdir -p /data \
+ && chown -R mc:mc /data
+
+USER mc:mc
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -93,6 +111,15 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+ARG UID=10001
+ARG GID=10001
+
+RUN groupadd -g ${GID} mc \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
+ && mkdir -p /data \
+ && chown -R mc:mc /data
+
+USER mc:mc
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -112,6 +139,15 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+ARG UID=10001
+ARG GID=10001
+
+RUN groupadd -g ${GID} mc \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
+ && mkdir -p /data \
+ && chown -R mc:mc /data
+
+USER mc:mc
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
@@ -131,6 +167,15 @@ RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
+ARG UID=10001
+ARG GID=10001
+
+RUN groupadd -g ${GID} mc \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
+ && mkdir -p /data \
+ && chown -R mc:mc /data
+
+USER mc:mc
 ENV HOME=/data
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
