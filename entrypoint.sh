@@ -378,7 +378,7 @@ apply_paper_override_item() {
 }
 
 configure_paper_configs() {
-  is_true "${PAPER:-false}" || return 0
+  is_true "${TYPE:-!paper}" || return 0
 
   local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
   mkdir -p "$cfg_dir"
@@ -421,6 +421,7 @@ trim_ws() {
 }
 
 generate_velocity_toml() {
+    is_true "${TYPE:-!velocity}" || return 0
   local CONFIG_FILE="${DATA_DIR}/velocity.toml"
 
   rm -f "${CONFIG_FILE}"
