@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -Eeuo pipefail
 
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
