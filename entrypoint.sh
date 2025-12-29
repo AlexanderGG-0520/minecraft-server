@@ -1994,6 +1994,9 @@ install() {
   install_eula
   cleaer_fabric_cache
   setup_server_icon
+
+  configure_paper_configs
+  generate_velocity_toml
   ensure_server_properties
 
   handle_reset_world_flag
