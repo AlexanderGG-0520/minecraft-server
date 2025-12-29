@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -Eeuo pipefail
 
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
@@ -301,15 +301,147 @@ for entry in "${ENTRIES[@]}"; do
   VELOCITY_SERVER_KEYS["${key}"]=1
 done
 
+is_true() {
+  case "${1,,}" in
+    1|true|yes|y|on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+require_yq() {
+  command -v yq >/dev/null 2>&1 || die "yq is required to edit YAML configs (install yq in the image)"
+}
+
+# Apply key=value to server.properties (replace if exists, append if not)
+set_server_properties_kv() {
+  local file="$1" key="$2" value="$3"
+  mkdir -p "$(dirname "$file")"
+  touch "$file"
+
+  # Replace only key lines without breaking comments
+  if grep -Eq "^[[:space:]]*${key}[[:space:]]*=" "$file"; then
+    # Use GNU sed (assuming Linux, not macOS -i'' format)
+    sed -i -E "s|^[[:space:]]*(${key})[[:space:]]*=.*$|\1=${value}|g" "$file"
+  else
+    printf "%s=%s\n" "$key" "$value" >> "$file"
+  fi
+}
+
+# Set value on YAML dot path (roughly detect true/false/number/string types)
+yq_set_yaml() {
+  local file="$1" path="$2" value="$3"
+
+  require_yq
+  mkdir -p "$(dirname "$file")"
+  touch "$file"
+
+  # Keep type-like values as-is, treat others as strings
+  if [[ "$value" =~ ^(true|false|null)$ ]] || [[ "$value" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+    yq -i ".${path} = ${value}" "$file"
+  else
+    # Escape double quotes
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    yq -i ".${path} = \"${value}\"" "$file"
+  fi
+}
+
+# Apply one "file:path=value" item
+apply_paper_override_item() {
+  local base_dir="$1" item="$2"
+  item="$(trim_ws "$item")"
+  [[ -n "$item" ]] || return 0
+
+  local left="${item%%=*}"
+  local value="${item#*=}"
+
+  local file="${left%%:*}"
+  local path="${left#*:}"
+
+  file="$(trim_ws "$file")"
+  path="$(trim_ws "$path")"
+  value="$(trim_ws "$value")"
+
+  [[ -n "$file" && -n "$path" && "$left" == *":"* && "$item" == *"="* ]] \
+    || die "Invalid PAPER_CONFIG_OVERRIDES item: '${item}' (expected file:path=value)"
+
+  local target="${base_dir}/${file}"
+
+  # Only server.properties is treated as properties file (path=key)
+  if [[ "${file}" == "server.properties" ]]; then
+    set_server_properties_kv "$target" "$path" "$value"
+    return 0
+  fi
+
+  # Treat other files as YAML (can add more branches by filename if needed)
+  yq_set_yaml "$target" "$path" "$value"
+}
+
+configure_paper_configs() {
+  is_true "${PAPER:-false}" || return 0
+
+  local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
+  mkdir -p "$cfg_dir"
+
+  # --- Purpose-specific convenience env (when under Velocity) ---
+  if is_true "${PAPER_VELOCITY:-false}"; then
+    local secret="${PAPER_VELOCITY_SECRET:-${VELOCITY_SECRET:-}}"
+    [[ -n "$secret" ]] || die "PAPER_VELOCITY=true but no PAPER_VELOCITY_SECRET or VELOCITY_SECRET"
+
+    # Absorb Paper version differences: replace only existing file (can use generic override if both missing)
+    if [[ -f "${cfg_dir}/paper-global.yml" ]]; then
+      yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.enabled" "true"
+      yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.secret" "$secret"
+    fi
+
+    # For environments with older paper.yml (write if exists)
+    if [[ -f "${cfg_dir}/paper.yml" ]]; then
+      yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.enabled" "true"
+      yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.secret" "$secret"
+    fi
+
+    # spigot.yml: support bungeecord config as some setups still require it
+    if [[ -f "${cfg_dir}/spigot.yml" ]]; then
+      yq_set_yaml "${cfg_dir}/spigot.yml" "settings.bungeecord" "true"
+    fi
+  fi
+
+  # --- Generic override ---
+  if [[ -n "${PAPER_CONFIG_OVERRIDES:-}" ]]; then
+    local -a items
+    IFS=',' read -ra items <<< "${PAPER_CONFIG_OVERRIDES}"
+    local it
+    for it in "${items[@]}"; do
+      apply_paper_override_item "$cfg_dir" "$it"
+    done
+  fi
+
+  log INFO "Paper configs applied under: ${cfg_dir}"
+}
+
+# Add to appropriate location if missing (bash assumed)
+trim_ws() {
+  local s="$1"
+  # leading
+  s="${s#"${s%%[![:space:]]*}"}"
+  # trailing
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
 generate_velocity_toml() {
   local CONFIG_FILE="${DATA_DIR}/velocity.toml"
 
   rm -f "${CONFIG_FILE}"
 
   [[ -n "${VELOCITY_SERVERS:-}" ]] || die "VELOCITY_SERVERS is required"
-  [[ -n "${VELOCITY_SECRET:-}" ]]  || die "VELOCITY_SECRET is required"
+  [[ -n "${VELOCITY_SECRET:-}"  ]] || die "VELOCITY_SECRET is required"
 
   log INFO "Generating velocity.toml"
+
+  # For checking servers existence (not needed if declared externally, but safer this way)
+  declare -gA VELOCITY_SERVER_KEYS 2>/dev/null || true
+  VELOCITY_SERVER_KEYS=()
 
   {
     # -------------------------
@@ -329,25 +461,70 @@ EOF
     # Servers
     # -------------------------
     echo "[servers]"
+
+    local raw_key val key entry
+    local -a ENTRIES
     IFS=',' read -ra ENTRIES <<< "${VELOCITY_SERVERS}"
+
+    local last_raw_key=""
     for entry in "${ENTRIES[@]}"; do
-      raw_key="${entry%%=*}"
-      val="${entry#*=}"
+      entry="$(trim_ws "$entry")"
+      [[ -n "$entry" ]] || continue
+
+      raw_key="$(trim_ws "${entry%%=*}")"
+      val="$(trim_ws "${entry#*=}")"
+
+      [[ -n "$raw_key" && -n "$val" && "$entry" == *"="* ]] \
+        || die "Invalid VELOCITY_SERVERS entry: '${entry}' (expected name=host:port)"
+
       key="$(normalize_toml_key "${raw_key}")"
+
+      # Minimal escaping for Velocity TOML output (" and \\)
+      val="${val//\\/\\\\}"
+      val="${val//\"/\\\"}"
+
       echo "  ${key} = \"${val}\""
+      VELOCITY_SERVER_KEYS["${key}"]=1
+
+      last_raw_key="${raw_key}"
     done
+
+    [[ -n "${last_raw_key}" ]] || die "VELOCITY_SERVERS parsed empty (check commas/spaces)"
 
     # -------------------------
     # Try (fallback)
     # -------------------------
-    local TRY_KEY
-    TRY_KEY="$(normalize_toml_key "${VELOCITY_TRY:-${raw_key}}")"
-
-    [[ -n "${VELOCITY_SERVER_KEYS[${TRY_KEY}]:-}" ]] \
-      || die "VELOCITY_TRY '${TRY_KEY}' is not defined in VELOCITY_SERVERS"
-
     echo
-    echo "try = [ \"${TRY_KEY}\" ]"
+
+    local try_src try_entry try_key
+    local -a TRY_ENTRIES TRY_KEYS
+
+    # If not specified, use last server as default (maintain original behavior)
+    try_src="${VELOCITY_TRY:-${last_raw_key}}"
+
+    IFS=',' read -ra TRY_ENTRIES <<< "${try_src}"
+    for try_entry in "${TRY_ENTRIES[@]}"; do
+      try_entry="$(trim_ws "$try_entry")"
+      [[ -n "$try_entry" ]] || continue
+
+      try_key="$(normalize_toml_key "${try_entry}")"
+
+      [[ -n "${VELOCITY_SERVER_KEYS[${try_key}]:-}" ]] \
+        || die "VELOCITY_TRY '${try_key}' is not defined in VELOCITY_SERVERS"
+
+      TRY_KEYS+=("${try_key}")
+    done
+
+    [[ "${#TRY_KEYS[@]}" -gt 0 ]] || die "VELOCITY_TRY parsed empty (check commas/spaces)"
+
+    # TOML array: try = [ "a", "b" ]
+    printf 'try = [ '
+    local i
+    for i in "${!TRY_KEYS[@]}"; do
+      [[ $i -gt 0 ]] && printf ', '
+      printf '"%s"' "${TRY_KEYS[$i]}"
+    done
+    printf ' ]\n'
 
     # -------------------------
     # Forced hosts
@@ -356,10 +533,20 @@ EOF
     echo "[forced-hosts]"
 
     if [[ -n "${VELOCITY_FORCED_HOSTS:-}" ]]; then
+      local -a HOSTS
+      local h domain srv_raw srv
       IFS=',' read -ra HOSTS <<< "${VELOCITY_FORCED_HOSTS}"
+
       for h in "${HOSTS[@]}"; do
-        domain="${h%%:*}"
-        srv_raw="${h#*:}"
+        h="$(trim_ws "$h")"
+        [[ -n "$h" ]] || continue
+
+        domain="$(trim_ws "${h%%:*}")"
+        srv_raw="$(trim_ws "${h#*:}")"
+
+        [[ -n "$domain" && -n "$srv_raw" && "$h" == *":"* ]] \
+          || die "Invalid VELOCITY_FORCED_HOSTS item: '${h}' (expected domain:server)"
+
         srv="$(normalize_toml_key "${srv_raw}")"
 
         [[ -n "${VELOCITY_SERVER_KEYS[${srv}]:-}" ]] \
@@ -478,7 +665,7 @@ bootstrap_server_properties() {
       timeout 15s java -jar "${DATA_DIR}/fabric-server-launch.jar" nogui || true
       ;;
     forge|neoforge)
-      # NeoForge / Forge は run.sh 経由でないとダメ
+      # NeoForge / Forge must go through run.sh
       if [[ -x "${DATA_DIR}/run.sh" ]]; then
         timeout 15s "${DATA_DIR}/run.sh" nogui || true
       else
@@ -1230,7 +1417,7 @@ install_world() {
   # ------------------------------------------------------------
   unzip -q "${TMP_ZIP}" -d "${DATA_DIR}"
 
-  # zip の中が world/ 直下じゃない場合の保険
+  # Safety check if world/ is not directly inside zip
   if [[ ! -d "${WORLD_DIR}" ]]; then
     local EXTRACTED
     EXTRACTED="$(find "${DATA_DIR}" -maxdepth 1 -type d -name "*world*" | head -n1 || true)"
@@ -1425,8 +1612,8 @@ declare -A PROP_MAP=(
   [SERVER_IP]="server-ip"
 )
 
-# escape string for safe sed usage
-# 実改行 → 文字列 \n に変換
+# Escape string for safe sed usage
+# Convert actual newlines to \n string
 normalize_env_val() {
   printf '%s' "$1" | sed ':a;N;$!ba;s/\n/\\n/g'
 }
@@ -1490,7 +1677,7 @@ set_prop() {
   local value="$2"
   local file="${SERVER_PROPERTIES:-${DATA_DIR}/server.properties}"
 
-  # キーが存在する場合は置換、なければ追記
+  # Replace if key exists, append if not
   if grep -qE "^${key}=" "$file"; then
     sed -i "s|^${key}=.*|${key}=${value}|" "$file"
   else
@@ -1854,13 +2041,13 @@ acquire_rcon_stop_lock() {
 }
 
 rcon_stop_once() {
-  # 同一プロセス内の再入防止
+  # Prevent re-entrance within same process
   if [ "${RCON_STOP_IN_PROGRESS}" = "1" ]; then
     return 0
   fi
   RCON_STOP_IN_PROGRESS=1
 
-  # preStop / trap の二重実行防止
+  # Prevent double execution from preStop / trap
   if ! acquire_rcon_stop_lock; then
     log INFO "rcon_stop already executed, skipping"
     return 0
@@ -1900,7 +2087,7 @@ on_term() {
   log INFO "Received SIGTERM"
   rcon_stop_once
 
-  # Java が生きてたら念のため伝播
+  # Propagate signal to Java process if still alive
   if [ -n "${SERVER_PID}" ] && kill -0 "${SERVER_PID}" 2>/dev/null; then
     kill -TERM "${SERVER_PID}" 2>/dev/null || true
   fi
