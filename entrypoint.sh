@@ -383,30 +383,21 @@ configure_paper_configs() {
   local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
   mkdir -p "$cfg_dir"
 
-  # --- Purpose-specific convenience env (when under Velocity) ---
   if is_true "${PAPER_VELOCITY:-false}"; then
     local secret="${PAPER_VELOCITY_SECRET:-${VELOCITY_SECRET:-}}"
     [[ -n "$secret" ]] || die "PAPER_VELOCITY=true but no PAPER_VELOCITY_SECRET or VELOCITY_SECRET"
 
-    # Absorb Paper version differences: replace only existing file (can use generic override if both missing)
-    if [[ -f "${cfg_dir}/paper-global.yml" ]]; then
-      yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.enabled" "true"
-      yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.secret" "$secret"
-    fi
+    # Always write these; yq_set_yaml assumes touch/creation
+    yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.enabled" "true"
+    yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.secret" "$secret"
 
-    # For environments with older paper.yml (write if exists)
-    if [[ -f "${cfg_dir}/paper.yml" ]]; then
-      yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.enabled" "true"
-      yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.secret" "$secret"
-    fi
+    # Do the same for legacy setups (regardless of file presence)
+    yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.enabled" "true"
+    yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.secret" "$secret"
 
-    # spigot.yml: support bungeecord config as some setups still require it
-    if [[ -f "${cfg_dir}/spigot.yml" ]]; then
-      yq_set_yaml "${cfg_dir}/spigot.yml" "settings.bungeecord" "true"
-    fi
+    yq_set_yaml "${cfg_dir}/spigot.yml" "settings.bungeecord" "true"
   fi
 
-  # --- Generic override ---
   if [[ -n "${PAPER_CONFIG_OVERRIDES:-}" ]]; then
     local -a items
     IFS=',' read -ra items <<< "${PAPER_CONFIG_OVERRIDES}"
