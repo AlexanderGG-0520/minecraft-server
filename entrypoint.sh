@@ -85,6 +85,13 @@ echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${ENABLE_C2ME_HARDWARE_ACCELERATION:=false}"
 : "${I_KNOW_C2ME_IS_EXPERIMENTAL:=false}"
 
+# RCON
+: "${ENABLE_RCON:=true}"
+: "${RCON_HOST:=127.0.0.1}"
+: "${RCON_PORT:=25575}"
+: "${RCON_PASSWORD:=changeme}"
+
+
 # ============================================================
 # Input directories (external / immutable)
 # ============================================================
@@ -1696,7 +1703,7 @@ apply_rcon_settings() {
 install_server_properties() {
   PROPS_FILE="${DATA_DIR}/server.properties"
 
-  if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-false}" == "true" ]]; then
+  if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-true}" == "true" ]]; then
     apply_server_properties_diff
   else
     log INFO "server.properties exists, no changes applied"
@@ -2051,15 +2058,36 @@ rcon_stop_once() {
   rcon_stop || true
 }
 
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  printf '%s' "$s"
+}
+
 rcon_exec() {
   local cmd="$*"
+  local host="${RCON_HOST:-127.0.0.1}"
+  local port="${RCON_PORT:-25575}"
+  local pass="${RCON_PASSWORD}"
 
-  mcrcon -H "$RCON_HOST" -P "$RCON_PORT" -p "$RCON_PASSWORD" \
-    "tellraw @a {\"text\":\"[RCON] $cmd\",\"color\":\"yellow\"}" \
+  # Do not fail on error (safe against set -u and -e)
+  local shown
+  shown="$(json_escape "$cmd")"
+
+  mcrcon -H "$host" -P "$port" -p "$pass" \
+    "tellraw @a {\"text\":\"[RCON] ${shown}\",\"color\":\"yellow\"}" \
     >/dev/null 2>&1 || true
 
-  mcrcon -H "$RCON_HOST" -P "$RCON_PORT" -p "$RCON_PASSWORD" \
-    "$cmd"
+  mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" || true
+}
+
+rcon_say() {
+  local message="$*"
+  local shown
+  shown="$(json_escape "$message")"
+  rcon_exec "tellraw @a {\"text\":\"${shown}\",\"color\":\"yellow\"}"
 }
 
 rcon_stop() {
@@ -2069,11 +2097,6 @@ rcon_stop() {
   rcon_exec say "Waiting ${delay}s before stopping server"
   sleep "${delay}"
   rcon_exec stop
-}
-
-rcon_say() {
-  local message="$*"
-  rcon_exec "say ${message}"
 }
 
 SERVER_PID=""
