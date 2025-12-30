@@ -26,13 +26,17 @@ ARG MCRCON_VERSION=0.7.2
 FROM debian:stable-slim AS mcrcon-builder
 ARG MCRCON_VERSION
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl unzip \
  && rm -rf /var/lib/apt/lists/*
 
 RUN install -d /out \
- && curl -fsSL "https://github.com/Tiiffi/mcrcon/releases/download/v${MCRCON_VERSION}/mcrcon-${MCRCON_VERSION}-linux-x86-64" \
-      -o /out/mcrcon \
- && chmod +x /out/mcrcon
+ && curl -fsSL \
+    "https://github.com/Tiiffi/mcrcon/releases/download/v${MCRCON_VERSION}/mcrcon-${MCRCON_VERSION}-linux-x86-64-static.zip" \
+    -o /tmp/mcrcon.zip \
+ && unzip -p /tmp/mcrcon.zip mcrcon > /out/mcrcon \
+ && chmod +x /out/mcrcon \
+ && /out/mcrcon -h >/dev/null || true
 
 # ============================================================
 # Base (共通ツール + entrypoint)
