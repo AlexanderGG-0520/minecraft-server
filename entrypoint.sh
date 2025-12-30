@@ -2182,13 +2182,16 @@ run_server() {
 
 graceful_shutdown() {
   log INFO "SIGTERM received, starting graceful shutdown"
+  rcon_stop_once   # Added to ensure graceful shutdown (critical)
 
+  # Optionally: extra delay before hard stop/exit
   if [ "${STOP_SERVER_ANNOUNCE_DELAY:-0}" -gt 0 ]; then
     log INFO "Announcing server stop in ${STOP_SERVER_ANNOUNCE_DELAY}s"
     sleep "${STOP_SERVER_ANNOUNCE_DELAY}"
   fi
 
-  send_stop_command
+  # If you have your own stop path, keep it
+  send_stop_command || true
 }
 
 trap graceful_shutdown SIGTERM SIGINT
