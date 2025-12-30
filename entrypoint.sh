@@ -2128,17 +2128,32 @@ rcon_exec() {
   local cmd="$*"
   local host="${RCON_HOST:-127.0.0.1}"
   local port="${RCON_PORT:-25575}"
-  local pass="${RCON_PASSWORD}"
+  local pass="${RCON_PASSWORD:-}"
 
-  # Do not fail on error (safe against set -u and -e)
+  # If mcrcon is not available, just skip (do not spam "command not found")
+  if ! command -v mcrcon >/dev/null 2>&1; then
+    log WARN "mcrcon not found; skipping RCON command: ${cmd}"
+    return 0
+  fi
+
+  # If password is missing, skip safely
+  if [ -z "${pass}" ]; then
+    log WARN "RCON_PASSWORD is empty; skipping RCON command: ${cmd}"
+    return 0
+  fi
+
+  # Escape for JSON preview message
   local shown
   shown="$(json_escape "$cmd")"
 
+  # 1) Best-effort preview in chat (do not block main command)
   mcrcon -H "$host" -P "$port" -p "$pass" \
     "tellraw @a {\"text\":\"[RCON] ${shown}\",\"color\":\"yellow\"}" \
-    >/dev/null 2>&1 || true
+    >/dev/null 2>&1 || log DEBUG "RCON tellraw failed (host=${host} port=${port})"
 
-  mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" || true
+  # 2) Execute the actual command (still non-fatal)
+  mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" \
+    >/dev/null 2>&1 || log WARN "RCON command failed: ${cmd}"
 }
 
 rcon_say() {
@@ -2152,7 +2167,7 @@ rcon_stop() {
   local delay="${STOP_SERVER_ANNOUNCE_DELAY:-5}"
 
   rcon_exec save-all
-  rcon_exec say "Waiting ${delay}s before stopping server"
+  rcon_exec "say Waiting ${delay}s before stopping server"
   sleep "${delay}"
   rcon_exec stop
 }
