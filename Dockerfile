@@ -64,13 +64,8 @@ FROM jre8 AS runtime-jre8
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-# --- mcrcon ---
-RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
-      -o /usr/local/bin/mcrcon \
- && chmod +x /usr/local/bin/mcrcon \
- && mcrcon -h || true
-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -92,13 +87,8 @@ FROM jre11 AS runtime-jre11
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-# --- mcrcon ---
-RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
-      -o /usr/local/bin/mcrcon \
- && chmod +x /usr/local/bin/mcrcon \
- && mcrcon -h || true
-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -120,13 +110,8 @@ FROM jre17 AS runtime-jre17
 RUN apt-get update && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-# --- mcrcon ---
-RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
-      -o /usr/local/bin/mcrcon \
- && chmod +x /usr/local/bin/mcrcon \
- && mcrcon -h || true
-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -148,13 +133,8 @@ FROM jre21 AS runtime-jre21
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-# --- mcrcon ---
-RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
-      -o /usr/local/bin/mcrcon \
- && chmod +x /usr/local/bin/mcrcon \
- && mcrcon -h || true
-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -176,13 +156,8 @@ FROM jre25 AS runtime-jre25
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-# --- mcrcon ---
-RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
-      -o /usr/local/bin/mcrcon \
- && chmod +x /usr/local/bin/mcrcon \
- && mcrcon -h || true
-
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -217,12 +192,6 @@ RUN set -eux; \
       ln -s /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so; \
     fi
 
-# --- mcrcon ---
-RUN curl -fsSL https://github.com/Tiiffi/mcrcon/releases/download/v0.7.2/mcrcon-0.7.2-linux-x86-64 \
-      -o /usr/local/bin/mcrcon \
- && chmod +x /usr/local/bin/mcrcon \
- && mcrcon -h || true
-
 # --- MinIO client (mc) (built) ---
 COPY --from=mc-builder /out/mc /usr/local/bin/mc
 RUN chmod +x /usr/local/bin/mc && mc --version
@@ -234,6 +203,7 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # --- entrypoint ---
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 
 ENV RUNTIME_FLAVOR=gpu
