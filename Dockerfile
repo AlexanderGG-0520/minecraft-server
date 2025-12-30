@@ -68,6 +68,9 @@ COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
 
+RUN chmod 0755 /entrypoint.sh \
+ && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
+
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
  && mkdir -p /data \
@@ -90,6 +93,9 @@ COPY entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
+
+RUN chmod 0755 /entrypoint.sh \
+ && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
@@ -114,6 +120,9 @@ COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
 
+RUN chmod 0755 /entrypoint.sh \
+ && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
+
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
  && mkdir -p /data \
@@ -137,6 +146,9 @@ COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
 
+RUN chmod 0755 /entrypoint.sh \
+ && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
+
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
  && mkdir -p /data \
@@ -159,6 +171,9 @@ COPY entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
+
+RUN chmod 0755 /entrypoint.sh \
+ && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
@@ -207,6 +222,9 @@ ENV ENABLE_C2ME_OPENCL=true
 
 ARG UID=10001
 ARG GID=10001
+
+RUN chmod 0755 /entrypoint.sh \
+ && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
