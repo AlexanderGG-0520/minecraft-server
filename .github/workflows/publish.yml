@@ -67,7 +67,9 @@ jobs:
                 # ベースイメージを最新に寄せる（CVE減らしに効く）
                 pull: true
 
-                no-cache: true
+                # キャッシュ（速く＆“変更反映されない”事故を減らす）
+                cache-from: type=gha
+                cache-to: type=gha,mode=max
 
                 tags: |
                     ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.target }}
