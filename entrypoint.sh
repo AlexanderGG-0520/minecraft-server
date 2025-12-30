@@ -1319,6 +1319,62 @@ activate_configs() {
   activate_dir "/config" "${DATA_DIR}/config" "config"
 }
 
+# --- YAML helper: escape a string for double-quoted YAML scalars ---
+yaml_escape_dq() {
+  local s="$1"
+  s="${s//\\/\\\\}"   # \  -> \\
+  s="${s//\"/\\\"}"   # "  -> \"
+  printf '%s' "$s"
+}
+
+# --- Paper: apply config/paper-global.yml from environment variables ---
+# Expected ENV:
+#   PAPER_VELOCITY=true
+#   PAPER_VELOCITY_SECRET=<must match Velocity forwarding.secret>
+#
+# Fallback:
+#   If PAPER_VELOCITY_SECRET is empty, VELOCITY_SECRET is used.
+#
+# Optional:
+#   PAPER_VELOCITY_ONLINE_MODE=true|false (usually true)
+#   PAPER_VELOCITY_ENABLED=true|false (usually true)
+apply_paper_global_from_env() {
+  is_true "${TYPE:-!paper}" || return 0
+  is_true "${PAPER_VELOCITY:-false}" || return 0
+
+  local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
+  local file="${cfg_dir}/paper-global.yml"
+
+  local enabled="${PAPER_VELOCITY_ENABLED:-true}"
+  local online_mode="${PAPER_VELOCITY_ONLINE_MODE:-true}"
+  local secret="${PAPER_VELOCITY_SECRET:-${VELOCITY_SECRET:-}}"
+
+  [[ -n "$secret" ]] || die "PAPER_VELOCITY=true but no PAPER_VELOCITY_SECRET (or VELOCITY_SECRET)"
+
+  mkdir -p "$cfg_dir"
+  touch "$file"
+
+  # If yq is available, update only the required keys without destroying other settings.
+  if command -v yq >/dev/null 2>&1; then
+    yq -i ".proxies.velocity.enabled = ${enabled}" "$file"
+    yq -i ".proxies.velocity.online-mode = ${online_mode}" "$file"
+    yq -i ".proxies.velocity.secret = \"$(yaml_escape_dq "$secret")\"" "$file"
+    log INFO "paper-global.yml updated via yq: $file"
+    return 0
+  fi
+
+  # If yq is not available, generate a minimal file via tee (this overwrites the file).
+  log WARN "yq not found; generating minimal paper-global.yml via tee (overwrites file): $file"
+  cat <<EOF | tee "$file" >/dev/null
+proxies:
+  velocity:
+    enabled: ${enabled}
+    online-mode: ${online_mode}
+    secret: "$(yaml_escape_dq "$secret")"
+EOF
+  log INFO "paper-global.yml generated via tee: $file"
+}
+
 install_plugins() {
   log INFO "Install plugins (Paper | Purpur | Mohist | Taiyitist | Youer only)"
 
@@ -1372,6 +1428,7 @@ mc mirror \
 
   log INFO "Plugins installed successfully"
 }
+
 
 activate_plugins() {
   activate_dir "/plugins" "${DATA_DIR}/plugins" "plugins"
@@ -2010,6 +2067,7 @@ install() {
   install_c2me_jvm_args
   install_configs
   activate_configs
+  apply_paper_global_from_env
   install_plugins
   activate_plugins
   if [[ ! "${TYPE}" == "velocity" ]]; then
