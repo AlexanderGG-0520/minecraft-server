@@ -20,48 +20,28 @@ RUN go get golang.org/x/crypto@v0.43.0 && go mod tidy
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mc .
 
 # ============================================================
-# mcrcon (build from source; avoid 404)
-# ============================================================
-ARG MCRCON_VERSION=0.7.2
-FROM debian:stable-slim AS mcrcon-builder
-ARG MCRCON_VERSION
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates git build-essential \
- && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /src
-RUN git clone --depth 1 --branch "v${MCRCON_VERSION}" https://github.com/Tiiffi/mcrcon.git .
-
-RUN make \
- && install -d /out \
- && install -m 0755 ./mcrcon /out/mcrcon \
- && strip /out/mcrcon || true
-
-# ============================================================
 # Base (共通ツール + entrypoint)
 # ============================================================
 FROM debian:stable-slim AS base
 
+ARG MCRCON_VERSION=0.7.2
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     bash curl ca-certificates tini procps \
-    pciutils ocl-icd-libopencl1 jq \
+    pciutils ocl-icd-libopencl1 jq unzip \
  && rm -rf /var/lib/apt/lists/*
 
-# --- MinIO client (mc) (built) ---
-COPY --from=mc-builder /out/mc /usr/local/bin/mc
-RUN chmod +x /usr/local/bin/mc && mc --version
-# --- mcrcon (built) ---
-COPY --from=mcrcon-builder /out/mcrcon /usr/local/bin/mcrcon
-RUN chmod +x /usr/local/bin/mcrcon && mcrcon -V
-# --- entrypoint ---
-ENV HOME=/data
-WORKDIR /data
-
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# --- mcrcon (static) ---
+RUN set -eux; \
+    curl -fsSL "https://github.com/Tiiffi/mcrcon/releases/download/v${MCRCON_VERSION}/mcrcon-${MCRCON_VERSION}-linux-x86-64-static.zip" -o /tmp/mcrcon.zip; \
+    mkdir -p /tmp/mcrcon; \
+    unzip -q /tmp/mcrcon.zip -d /tmp/mcrcon; \
+    mcrcon_path="$(find /tmp/mcrcon -type f -name mcrcon | head -n 1)"; \
+    test -n "${mcrcon_path}"; \
+    install -m 0755 "${mcrcon_path}" /usr/local/bin/mcrcon; \
+    rm -rf /tmp/mcrcon /tmp/mcrcon.zip; \
+    /usr/local/bin/mcrcon -h || true
 
 # ============================================================
 # Java base images
@@ -82,8 +62,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
-COPY --from=mcrcon-builder /out/mcrcon /usr/local/bin/mcrcon
-RUN chmod +x /usr/local/bin/mcrcon && mcrcon -h >/dev/null || true
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -106,8 +85,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
-COPY --from=mcrcon-builder /out/mcrcon /usr/local/bin/mcrcon
-RUN chmod +x /usr/local/bin/mcrcon && mcrcon -h >/dev/null || true
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -130,8 +108,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends jq rsync libpop
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
-COPY --from=mcrcon-builder /out/mcrcon /usr/local/bin/mcrcon
-RUN chmod +x /usr/local/bin/mcrcon && mcrcon -h >/dev/null || true
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -154,8 +131,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
-COPY --from=mcrcon-builder /out/mcrcon /usr/local/bin/mcrcon
-RUN chmod +x /usr/local/bin/mcrcon && mcrcon -h >/dev/null || true
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -178,8 +154,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
-COPY --from=mcrcon-builder /out/mcrcon /usr/local/bin/mcrcon
-RUN chmod +x /usr/local/bin/mcrcon && mcrcon -h >/dev/null || true
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
@@ -225,8 +200,7 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # --- entrypoint ---
 COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
-COPY --from=mcrcon-builder /out/mcrcon /usr/local/bin/mcrcon
-RUN chmod +x /usr/local/bin/mcrcon && mcrcon -h >/dev/null || true
+COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 
 ENV RUNTIME_FLAVOR=gpu
