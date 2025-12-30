@@ -61,7 +61,7 @@ FROM jre8 AS runtime-jre8
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -84,7 +84,7 @@ FROM jre11 AS runtime-jre11
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -107,7 +107,7 @@ FROM jre17 AS runtime-jre17
 RUN apt-get update && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -130,7 +130,7 @@ FROM jre21 AS runtime-jre21
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -153,7 +153,7 @@ FROM jre25 AS runtime-jre25
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
@@ -199,7 +199,7 @@ ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # --- entrypoint ---
-COPY --from=base /usr/local/bin/mc /usr/local/bin/mc
+COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY --from=base /entrypoint.sh /entrypoint.sh
 
