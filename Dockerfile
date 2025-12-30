@@ -63,7 +63,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
 
 COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
-COPY --from=base /entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
@@ -86,7 +86,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
 
 COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
-COPY --from=base /entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
@@ -109,7 +109,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends jq rsync libpop
 
 COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
-COPY --from=base /entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
@@ -132,7 +132,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
 
 COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
-COPY --from=base /entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
@@ -155,7 +155,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
 
 COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
-COPY --from=base /entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
@@ -201,7 +201,7 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 # --- entrypoint ---
 COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
-COPY --from=base /entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 
 ENV RUNTIME_FLAVOR=gpu
 ENV ENABLE_C2ME_OPENCL=true
