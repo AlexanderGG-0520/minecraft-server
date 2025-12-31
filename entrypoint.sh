@@ -2130,30 +2130,23 @@ rcon_exec() {
   local port="${RCON_PORT:-25575}"
   local pass="${RCON_PASSWORD:-}"
 
-  # If mcrcon is not available, just skip (do not spam "command not found")
   if ! command -v mcrcon >/dev/null 2>&1; then
     log WARN "mcrcon not found; skipping RCON command: ${cmd}"
     return 0
   fi
-
-  # If password is missing, skip safely
   if [ -z "${pass}" ]; then
     log WARN "RCON_PASSWORD is empty; skipping RCON command: ${cmd}"
     return 0
   fi
 
-  # Escape for JSON preview message
-  local shown
-  shown="$(json_escape "$cmd")"
-
-  # 1) Best-effort preview in chat (do not block main command)
-  mcrcon -H "$host" -P "$port" -p "$pass" \
-    "tellraw @a {\"text\":\"[RCON] ${shown}\",\"color\":\"yellow\"}" \
-    >/dev/null 2>&1 || log DEBUG "RCON tellraw failed (host=${host} port=${port})"
-
-  # 2) Execute the actual command (still non-fatal)
-  mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" \
-    >/dev/null 2>&1 || log WARN "RCON command failed: ${cmd}"
+  # まずは実行だけ（tellrawは一旦切ると切り分けが速い）
+  local out rc
+  out="$(mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" 2>&1)"; rc=$?
+  if [ "$rc" -ne 0 ]; then
+    log WARN "RCON failed rc=${rc} cmd=${cmd} err=${out}"
+    return 0
+  fi
+  return 0
 }
 
 rcon_say() {
