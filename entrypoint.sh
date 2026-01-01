@@ -1375,17 +1375,6 @@ EOF
   log INFO "paper-global.yml generated via tee: $file"
 }
 
-local tmp_remote=""
-local tmp_remote_jars=""
-
-cleanup_plugins_tmp() {
-  rm -f -- "${tmp_remote:-}" "${tmp_remote_jars:-}" 2>/dev/null || true
-}
-trap cleanup_plugins_tmp RETURN
-
-tmp_remote="$(mktemp)"
-tmp_remote_jars="$(mktemp)"
-
 install_plugins() {
   log INFO "Install plugins (Paper | Purpur | Mohist | Taiyitist | Youer | Velocity only)"
 
@@ -1413,6 +1402,17 @@ install_plugins() {
   local retry_base="${MC_RETRY_SLEEP:-1}"  # seconds (1,2,4,8...)
   local strict="${PLUGINS_STRICT:-false}"  # true: die on any error, false: best-effort
   local max_errors="${PLUGINS_MAX_ERRORS:-50}"
+
+  local tmp_remote=""
+  local tmp_remote_jars=""
+
+  cleanup_plugins_tmp() {
+    rm -f -- "${tmp_remote:-}" "${tmp_remote_jars:-}" 2>/dev/null || true
+  }
+  trap cleanup_plugins_tmp RETURN
+
+  tmp_remote="$(mktemp)"
+  tmp_remote_jars="$(mktemp)"
 
   mc_retry() {
     local n=0
