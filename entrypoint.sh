@@ -1657,6 +1657,7 @@ declare -A PROP_MAP=(
   [LEVEL_SEED]="level-seed"
   [LEVEL_TYPE]="level-type"
   [GENERATE_STRUCTURES]="generate-structures"
+  [GENERATOR_SETTINGS]="generator-settings"
 
   # --- Phase E: Networking / Connections ---
   [ENFORCE_SECURE_PROFILE]="enforce-secure-profile"
