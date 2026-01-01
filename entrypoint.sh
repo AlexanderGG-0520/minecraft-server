@@ -1395,32 +1395,28 @@ install_plugins() {
   local plugins_dir="${INPUT_PLUGINS_DIR}"
   mkdir -p "${plugins_dir}"
 
-  # ---- knobs (Cloudflare Tunnel friendly) ----
-  local mc_max_workers="${MC_MAX_WORKERS:-2}"        # 1〜2 推奨（Tunnelなら特に）
-  local mc_retry_max="${MC_RETRY_MAX:-6}"            # 5〜7 推奨
-  local mc_retry_base_sleep="${MC_RETRY_SLEEP:-1}"   # 秒
-  local plugins_strict="${PLUGINS_STRICT:-false}"    # trueにすると従来通り失敗で落とす
+  # ---- knobs ----
+  local retry_max="${MC_RETRY_MAX:-6}"          # 6〜8 推奨（Tunnelなら）
+  local retry_base="${MC_RETRY_SLEEP:-1}"       # 秒
+  local strict="${PLUGINS_STRICT:-false}"       # true: 従来通り失敗でdie / false: 失敗しても継続
+  local max_errors="${PLUGINS_MAX_ERRORS:-50}"  # 失敗が多すぎる時は諦めて落とす
 
   mc_retry() {
     local n=0
     while true; do
       "$@" && return 0
       n=$((n+1))
-      if (( n >= mc_retry_max )); then
+      if (( n >= retry_max )); then
         return 1
       fi
-      # exponential backoff: 1,2,4,8...
-      local s=$((mc_retry_base_sleep << (n-1)))
-      log WARN "mc failed (attempt ${n}/${mc_retry_max}), retry in ${s}s: $*"
+      local s=$((retry_base << (n-1)))  # 1,2,4,8...
+      log WARN "mc failed (attempt ${n}/${retry_max}), retry in ${s}s: $*"
       sleep "${s}"
     done
   }
 
   log INFO "Configuring MinIO client for plugins"
-  mc alias set s3 \
-    "${S3_ENDPOINT}" \
-    "${S3_ACCESS_KEY}" \
-    "${S3_SECRET_KEY}" \
+  mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}" \
     || die "Failed to configure MinIO client"
 
   # Build source path safely
@@ -1428,51 +1424,32 @@ install_plugins() {
   if [[ -n "${PLUGINS_S3_PREFIX:-}" ]]; then
     src="${src%/}/${PLUGINS_S3_PREFIX}"
   fi
-  src="${src%/}/"  # ensure trailing slash
+  src="${src%/}/"
 
   log INFO "Syncing plugins from ${src} -> ${plugins_dir}"
-  log INFO "Policy: .jar = always overwrite (bulk mirror), others = copy only if missing"
+  log INFO "Policy: .jar = always overwrite, others = copy only if missing"
 
-  # Temp files cleanup
-  local tmp_remote tmp_remote_jars
+  local tmp_remote
   tmp_remote="$(mktemp)"
-  tmp_remote_jars="$(mktemp)"
-  trap 'rm -f -- "${tmp_remote}" "${tmp_remote_jars}" 2>/dev/null || true' RETURN
+  trap 'rm -f -- "${tmp_remote}" 2>/dev/null || true' RETURN
 
-  # ---- Phase 1: JARs (bulk, overwrite OK) ----
-  # This drastically reduces "mc cp many times" for jars.
-  local remove_flag=""
-  [[ "${PLUGINS_REMOVE_EXTRA:-false}" == "true" ]] && remove_flag="--remove"
-
-  # mirror only *.jar (keep workers low for Tunnel stability)
-  if ! mc_retry mc mirror \
-      --overwrite \
-      ${remove_flag} \
-      --max-workers "${mc_max_workers}" \
-      --include "*.jar" \
-      --exclude "*" \
-      "${src}" \
-      "${plugins_dir}"; then
-    if [[ "${plugins_strict}" == "true" ]]; then
-      die "Failed to sync jars via mc mirror"
-    else
-      log WARN "Jar mirror failed (non-strict). Server will continue with existing jars."
-    fi
-  fi
-
-  # ---- Phase 2: non-JAR (seed only: never overwrite) ----
-  # List remote objects once (cheap), then cp only when missing locally.
+  # List remote objects once
   if ! mc_retry mc find "${src}" --print "{}" > "${tmp_remote}"; then
-    if [[ "${plugins_strict}" == "true" ]]; then
-      die "Failed to list objects from MinIO"
-    else
-      log WARN "Failed to list objects (non-strict). Skipping non-jar seeding."
-      return 0
-    fi
+    die "Failed to list objects from MinIO"
   fi
+
+  # Prepare remote jar list for optional remove-extra
+  local tmp_remote_jars
+  tmp_remote_jars="$(mktemp)"
+  awk -v s="${src}" '
+    index($0, s) == 1 {
+      rel = substr($0, length(s)+1)
+      if (rel ~ /\.jar$/) print rel
+    }
+  ' "${tmp_remote}" | sort -u > "${tmp_remote_jars}"
 
   local obj rel dest
-  local fail_count=0
+  local errors=0
 
   while IFS= read -r obj; do
     [[ -n "${obj}" ]] || continue
@@ -1482,33 +1459,59 @@ install_plugins() {
     [[ "${rel}" != "${obj}" ]] || continue
     [[ -n "${rel}" ]] || continue
 
-    # Skip jars here (already mirrored)
-    [[ "${rel}" == *.jar ]] && continue
-
     dest="${plugins_dir}/${rel}"
     mkdir -p "$(dirname "${dest}")"
 
-    # seed only if missing
-    if [[ -e "${dest}" ]]; then
-      continue
+    if [[ "${rel}" == *.jar ]]; then
+      # jar: always update (overwrite-like)
+      rm -f -- "${dest}" || true
+      if ! mc_retry mc cp "${obj}" "${dest}"; then
+        errors=$((errors+1))
+        log WARN "Failed to download jar: ${obj}"
+      fi
+    else
+      # non-jar: seed only (never overwrite)
+      [[ -e "${dest}" ]] && continue
+      if ! mc_retry mc cp "${obj}" "${dest}"; then
+        errors=$((errors+1))
+        log WARN "Failed to seed non-jar: ${obj}"
+      fi
     fi
 
-    if ! mc_retry mc cp "${obj}" "${dest}"; then
-      fail_count=$((fail_count+1))
-      log WARN "Failed to seed non-jar (will not overwrite anyway): ${obj}"
-      # non-jarは致命になりにくいので継続
+    if (( errors >= max_errors )); then
+      if [[ "${strict}" == "true" ]]; then
+        die "Too many errors while syncing plugins (${errors})"
+      else
+        log WARN "Too many errors while syncing plugins (${errors}); continue boot (non-strict)"
+        break
+      fi
     fi
   done < "${tmp_remote}"
 
-  if (( fail_count > 0 )); then
-    if [[ "${plugins_strict}" == "true" ]]; then
-      die "Non-jar seeding had ${fail_count} failures"
-    else
-      log WARN "Non-jar seeding had ${fail_count} failures (non-strict)."
-    fi
+  # Optional: remove extra LOCAL jars only (never touch non-jar)
+  if [[ "${PLUGINS_REMOVE_EXTRA:-false}" == "true" ]]; then
+    log INFO "PLUGINS_REMOVE_EXTRA=true: removing extra local *.jar only"
+    while IFS= read -r local_jar; do
+      [[ -n "${local_jar}" ]] || continue
+      rel="${local_jar#${plugins_dir}/}"
+      if ! grep -Fxq "${rel}" "${tmp_remote_jars}"; then
+        log INFO "Removing extra local jar: ${local_jar}"
+        rm -f -- "${local_jar}" || true
+      fi
+    done < <(find "${plugins_dir}" -type f -name "*.jar" 2>/dev/null)
   fi
 
-  log INFO "Plugins synced successfully"
+  rm -f -- "${tmp_remote_jars}" 2>/dev/null || true
+
+  if (( errors > 0 )); then
+    if [[ "${strict}" == "true" ]]; then
+      die "Plugins sync failed with ${errors} errors"
+    else
+      log WARN "Plugins sync completed with ${errors} errors (non-strict)"
+    fi
+  else
+    log INFO "Plugins synced successfully"
+  fi
 }
 
 activate_plugins() {
