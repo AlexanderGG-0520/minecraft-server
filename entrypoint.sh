@@ -1397,14 +1397,13 @@ install_plugins() {
   PLUGINS_DIR="${INPUT_PLUGINS_DIR}"
   mkdir -p "${PLUGINS_DIR}"
 
-  # now already plugins present and sync once mode, skipping
+  # ---- jar-only sync: "sync once" skip check should look only at *.jar ----
   if [[ "${PLUGINS_SYNC_ONCE}" == "true" ]] \
-    && [[ -n "$(ls -A "${PLUGINS_DIR}")" ]] \
+    && [[ -n "$(find "${PLUGINS_DIR}" -type f -name "*.jar" -print -quit 2>/dev/null)" ]] \
     && [[ "${PLUGINS_REMOVE_EXTRA}" != "true" ]]; then
-    log INFO "Plugins already present, skipping sync"
+    log INFO "Plugin jars already present, skipping sync (sync-once)"
     return
   fi
-
 
   log INFO "Configuring MinIO client for plugins"
   mc alias set s3 \
@@ -1413,22 +1412,65 @@ install_plugins() {
     "${S3_SECRET_KEY}" \
     || die "Failed to configure MinIO client"
 
+  # ---- build source path safely ----
+  local src="s3/${PLUGINS_S3_BUCKET}"
+  if [[ -n "${PLUGINS_S3_PREFIX:-}" ]]; then
+    src="${src}/${PLUGINS_S3_PREFIX}"
+  fi
+  # ensure trailing slash for prefix removal
+  src="${src%/}/"
 
-  REMOVE_FLAG=""
-  [[ "${PLUGINS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+  log INFO "Syncing ONLY .jar files from ${src} -> ${PLUGINS_DIR}"
 
-  log INFO "Syncing plugins from s3://${PLUGINS_S3_BUCKET}/${PLUGINS_S3_PREFIX}"
+  # ---- list remote jars ----
+  local tmp_remote
+  tmp_remote="$(mktemp)"
+  # mc find supports --name pattern matching and {} substitution. :contentReference[oaicite:1]{index=1}
+  mc find "${src}" --name "*.jar" --print "{}" > "${tmp_remote}" \
+    || die "Failed to list plugin jars from MinIO"
 
-mc mirror \
-  --overwrite \
-  ${REMOVE_FLAG} \
-  "s3/${PLUGINS_S3_BUCKET}/${PLUGINS_S3_PREFIX}" \
-  "${PLUGINS_DIR}" \
-    || die "Failed to sync plugins from MinIO"
+  # ---- download/update each jar (preserve subdirs if any) ----
+  local obj rel dest
+  while IFS= read -r obj; do
+    [[ -n "${obj}" ]] || continue
 
-  log INFO "Plugins installed successfully"
+    # make relative path under src
+    rel="${obj#${src}}"
+    # if something unexpected, skip safely
+    [[ "${rel}" != "${obj}" ]] || continue
+
+    dest="${PLUGINS_DIR}/${rel}"
+    mkdir -p "$(dirname "${dest}")"
+
+    mc cp --overwrite "${obj}" "${dest}" \
+      || die "Failed to download jar: ${obj}"
+  done < "${tmp_remote}"
+
+  # ---- remove extra LOCAL jars only (never touch yml/db/etc) ----
+  if [[ "${PLUGINS_REMOVE_EXTRA}" == "true" ]]; then
+    log INFO "PLUGINS_REMOVE_EXTRA=true: removing local *.jar not present in remote (jar-only)"
+
+    # build a fast lookup list of relative paths
+    local tmp_rel
+    tmp_rel="$(mktemp)"
+    sed -e "s|^${src}||" "${tmp_remote}" | sed '/^$/d' > "${tmp_rel}"
+
+    while IFS= read -r local_jar; do
+      [[ -n "${local_jar}" ]] || continue
+      rel="${local_jar#${PLUGINS_DIR}/"
+
+      if ! grep -Fxq "${rel}" "${tmp_rel}"; then
+        log INFO "Removing extra local jar: ${local_jar}"
+        rm -f -- "${local_jar}" || die "Failed to remove extra jar: ${local_jar}"
+      fi
+    done < <(find "${PLUGINS_DIR}" -type f -name "*.jar" 2>/dev/null)
+
+    rm -f "${tmp_rel}"
+  fi
+
+  rm -f "${tmp_remote}"
+  log INFO "Plugin jars installed successfully (jar-only sync)"
 }
-
 
 activate_plugins() {
   activate_dir "/plugins" "${DATA_DIR}/plugins" "plugins"
