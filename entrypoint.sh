@@ -1376,33 +1376,30 @@ EOF
 }
 
 install_plugins() {
-  log INFO "Install plugins (Paper | Purpur | Mohist | Taiyitist | Youer only)"
+  log INFO "Install plugins (Paper | Purpur | Mohist | Taiyitist | Youer | Velocity only)"
 
   [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || {
     log INFO "Plugins disabled"
-    return
+    return 0
   }
 
-  if [[ "${TYPE:-auto}" != "paper" ]] && [[ "${TYPE:-auto}" != "purpur" ]] && [[ "${TYPE:-auto}" != "mohist" ]] && [[ "${TYPE:-auto}" != "taiyitist" ]] && [[ "${TYPE:-auto}" != "youer" ]] && [[ "${TYPE:-auto}" != "velocity" ]]; then
+  if [[ "${TYPE:-auto}" != "paper" ]] \
+    && [[ "${TYPE:-auto}" != "purpur" ]] \
+    && [[ "${TYPE:-auto}" != "mohist" ]] \
+    && [[ "${TYPE:-auto}" != "taiyitist" ]] \
+    && [[ "${TYPE:-auto}" != "youer" ]] \
+    && [[ "${TYPE:-auto}" != "velocity" ]]; then
     log INFO "TYPE=${TYPE}, skipping plugins"
-    return
+    return 0
   fi
 
   [[ -n "${PLUGINS_S3_BUCKET:-}" ]] || {
     log INFO "PLUGINS_S3_BUCKET not set, skipping plugins"
-    return
+    return 0
   }
 
-  PLUGINS_DIR="${INPUT_PLUGINS_DIR}"
-  mkdir -p "${PLUGINS_DIR}"
-
-  # sync-once: jar が既にあるならスキップ（既存仕様を維持）
-  if [[ "${PLUGINS_SYNC_ONCE}" == "true" ]] \
-    && [[ -n "$(find "${PLUGINS_DIR}" -type f -name "*.jar" -print -quit 2>/dev/null)" ]] \
-    && [[ "${PLUGINS_REMOVE_EXTRA}" != "true" ]]; then
-    log INFO "Plugin jars already present, skipping sync (sync-once)"
-    return
-  fi
+  local plugins_dir="${INPUT_PLUGINS_DIR}"
+  mkdir -p "${plugins_dir}"
 
   log INFO "Configuring MinIO client for plugins"
   mc alias set s3 \
@@ -1411,37 +1408,42 @@ install_plugins() {
     "${S3_SECRET_KEY}" \
     || die "Failed to configure MinIO client"
 
-  # ---- source path ----
+  # Build source path safely
   local src="s3/${PLUGINS_S3_BUCKET}"
   if [[ -n "${PLUGINS_S3_PREFIX:-}" ]]; then
-    src="${src}/${PLUGINS_S3_PREFIX}"
+    src="${src%/}/${PLUGINS_S3_PREFIX}"
   fi
-  src="${src%/}/"   # ensure trailing slash
+  src="${src%/}/"  # ensure trailing slash
 
-  log INFO "Syncing plugins from ${src} -> ${PLUGINS_DIR} (jar: always overwrite, others: copy-if-missing)"
+  log INFO "Syncing plugins from ${src} -> ${plugins_dir}"
+  log INFO "Policy: .jar = always overwrite, others = copy only if missing"
 
-  # ---- list remote objects once ----
+  # List remote objects once
   local tmp_remote
   tmp_remote="$(mktemp)"
   mc find "${src}" --print "{}" > "${tmp_remote}" \
-    || die "Failed to list objects from MinIO"  # mc find --print は公式仕様 :contentReference[oaicite:1]{index=1}
+    || die "Failed to list objects from MinIO"
 
-  # ---- sync loop ----
+  # Download loop
   local obj rel dest
   while IFS= read -r obj; do
     [[ -n "${obj}" ]] || continue
 
+    # Skip "directory-like" entries defensively
+    [[ "${obj}" != */ ]] || continue
+
     rel="${obj#${src}}"
     [[ "${rel}" != "${obj}" ]] || continue
+    [[ -n "${rel}" ]] || continue
 
-    dest="${PLUGINS_DIR}/${rel}"
+    dest="${plugins_dir}/${rel}"
     mkdir -p "$(dirname "${dest}")"
 
     if [[ "${rel}" == *.jar ]]; then
-      # jar: always overwrite (mc cp は同名に書き込むので上書きになる)
-      mc cp "${obj}" "${dest}" || die "Failed to download jar: ${obj}"
+      # jar: always update
+      mc cp --overwrite "${obj}" "${dest}" || die "Failed to download jar: ${obj}"
     else
-      # non-jar: copy ONLY if missing (never overwrite)
+      # non-jar: seed only (never overwrite)
       if [[ -e "${dest}" ]]; then
         continue
       fi
@@ -1449,12 +1451,13 @@ install_plugins() {
     fi
   done < "${tmp_remote}"
 
-  # ---- remove extra LOCAL jars only ----
-  if [[ "${PLUGINS_REMOVE_EXTRA}" == "true" ]]; then
-    log INFO "PLUGINS_REMOVE_EXTRA=true: removing extra local *.jar (jar-only)"
+  # Optional: remove extra LOCAL jars only (never touch non-jar)
+  if [[ "${PLUGINS_REMOVE_EXTRA:-false}" == "true" ]]; then
+    log INFO "PLUGINS_REMOVE_EXTRA=true: removing extra local *.jar only"
 
     local tmp_remote_jars
     tmp_remote_jars="$(mktemp)"
+
     awk -v s="${src}" '
       index($0, s) == 1 {
         rel = substr($0, length(s)+1)
@@ -1464,18 +1467,19 @@ install_plugins() {
 
     while IFS= read -r local_jar; do
       [[ -n "${local_jar}" ]] || continue
-      rel="${local_jar#${PLUGINS_DIR}/}"
+      rel="${local_jar#${plugins_dir}/}"
+
       if ! grep -Fxq "${rel}" "${tmp_remote_jars}"; then
         log INFO "Removing extra local jar: ${local_jar}"
         rm -f -- "${local_jar}" || die "Failed to remove extra jar: ${local_jar}"
       fi
-    done < <(find "${PLUGINS_DIR}" -type f -name "*.jar" 2>/dev/null)
+    done < <(find "${plugins_dir}" -type f -name "*.jar" 2>/dev/null)
 
     rm -f "${tmp_remote_jars}"
   fi
 
   rm -f "${tmp_remote}"
-  log INFO "Plugins synced successfully (jar overwrite, non-jar seed-only)"
+  log INFO "Plugins synced successfully"
 }
 
 activate_plugins() {
