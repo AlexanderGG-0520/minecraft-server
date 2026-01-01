@@ -1375,6 +1375,17 @@ EOF
   log INFO "paper-global.yml generated via tee: $file"
 }
 
+local tmp_remote=""
+local tmp_remote_jars=""
+
+cleanup_plugins_tmp() {
+  rm -f -- "${tmp_remote:-}" "${tmp_remote_jars:-}" 2>/dev/null || true
+}
+trap cleanup_plugins_tmp RETURN
+
+tmp_remote="$(mktemp)"
+tmp_remote_jars="$(mktemp)"
+
 install_plugins() {
   log INFO "Install plugins (Paper | Purpur | Mohist | Taiyitist | Youer | Velocity only)"
 
@@ -1395,11 +1406,13 @@ install_plugins() {
   local plugins_dir="${INPUT_PLUGINS_DIR}"
   mkdir -p "${plugins_dir}"
 
-  # ---- knobs ----
-  local retry_max="${MC_RETRY_MAX:-6}"          # 6〜8 推奨（Tunnelなら）
-  local retry_base="${MC_RETRY_SLEEP:-1}"       # 秒
-  local strict="${PLUGINS_STRICT:-false}"       # true: 従来通り失敗でdie / false: 失敗しても継続
-  local max_errors="${PLUGINS_MAX_ERRORS:-50}"  # 失敗が多すぎる時は諦めて落とす
+  # -----------------------------------
+  # Stability knobs (Cloudflare Tunnel friendly)
+  # -----------------------------------
+  local retry_max="${MC_RETRY_MAX:-8}"     # 6-10 recommended
+  local retry_base="${MC_RETRY_SLEEP:-1}"  # seconds (1,2,4,8...)
+  local strict="${PLUGINS_STRICT:-false}"  # true: die on any error, false: best-effort
+  local max_errors="${PLUGINS_MAX_ERRORS:-50}"
 
   mc_retry() {
     local n=0
@@ -1409,7 +1422,7 @@ install_plugins() {
       if (( n >= retry_max )); then
         return 1
       fi
-      local s=$((retry_base << (n-1)))  # 1,2,4,8...
+      local s=$((retry_base << (n-1)))
       log WARN "mc failed (attempt ${n}/${retry_max}), retry in ${s}s: $*"
       sleep "${s}"
     done
@@ -1424,40 +1437,71 @@ install_plugins() {
   if [[ -n "${PLUGINS_S3_PREFIX:-}" ]]; then
     src="${src%/}/${PLUGINS_S3_PREFIX}"
   fi
-  src="${src%/}/"
+  src="${src%/}/"  # ensure trailing slash
+
+  # Skip condition (optional behavior)
+  if [[ "${PLUGINS_SYNC_ONCE:-false}" == "true" ]] \
+    && [[ -n "$(ls -A "${plugins_dir}" 2>/dev/null)" ]] \
+    && [[ "${PLUGINS_REMOVE_EXTRA:-false}" != "true" ]]; then
+    log INFO "Plugins already present, skipping sync (PLUGINS_SYNC_ONCE=true)"
+    return 0
+  fi
 
   log INFO "Syncing plugins from ${src} -> ${plugins_dir}"
   log INFO "Policy: .jar = always overwrite, others = copy only if missing"
+  log INFO "Safety: never touch .paper-remapped/, remove_extra only when sync has 0 errors, and only plugins/*.jar"
 
-  local tmp_remote
+  # -----------------------------------
+  # Temp files (safe under `set -u`)
+  # -----------------------------------
+  local tmp_remote=""         # list of all remote objects
+  local tmp_remote_topjars="" # list of remote top-level jars (plugins/*.jar only)
+
+  cleanup_plugins_tmp() {
+    rm -f -- "${tmp_remote:-}" "${tmp_remote_topjars:-}" 2>/dev/null || true
+  }
+  trap cleanup_plugins_tmp RETURN
+
   tmp_remote="$(mktemp)"
-  trap 'rm -f -- "${tmp_remote}" 2>/dev/null || true' RETURN
+  tmp_remote_topjars="$(mktemp)"
 
+  # -----------------------------------
   # List remote objects once
+  # -----------------------------------
   if ! mc_retry mc find "${src}" --print "{}" > "${tmp_remote}"; then
     die "Failed to list objects from MinIO"
   fi
 
-  # Prepare remote jar list for optional remove-extra
-  local tmp_remote_jars
-  tmp_remote_jars="$(mktemp)"
+  # Build remote "top-level jar" list for safe remove_extra (plugins/*.jar only)
   awk -v s="${src}" '
     index($0, s) == 1 {
       rel = substr($0, length(s)+1)
-      if (rel ~ /\.jar$/) print rel
+      # only "top-level" jars: no slash, ends with .jar
+      if (rel ~ /^[^/]+\.jar$/) print rel
     }
-  ' "${tmp_remote}" | sort -u > "${tmp_remote_jars}"
+  ' "${tmp_remote}" | sort -u > "${tmp_remote_topjars}"
 
+  # -----------------------------------
+  # Download loop
+  # -----------------------------------
   local obj rel dest
   local errors=0
 
   while IFS= read -r obj; do
     [[ -n "${obj}" ]] || continue
+
+    # Defensive: skip directory-like entries
     [[ "${obj}" != */ ]] || continue
 
     rel="${obj#${src}}"
     [[ "${rel}" != "${obj}" ]] || continue
     [[ -n "${rel}" ]] || continue
+
+    # Safety rule: NEVER manage Paper-generated cache directory
+    # (do not download, do not delete)
+    if [[ "${rel}" == .paper-remapped/* ]]; then
+      continue
+    fi
 
     dest="${plugins_dir}/${rel}"
     mkdir -p "$(dirname "${dest}")"
@@ -1471,47 +1515,67 @@ install_plugins() {
       fi
     else
       # non-jar: seed only (never overwrite)
-      [[ -e "${dest}" ]] && continue
+      if [[ -e "${dest}" ]]; then
+        continue
+      fi
       if ! mc_retry mc cp "${obj}" "${dest}"; then
         errors=$((errors+1))
-        log WARN "Failed to seed non-jar: ${obj}"
+        log WARN "Failed to seed non-jar file: ${obj}"
       fi
     fi
 
     if (( errors >= max_errors )); then
+      log WARN "Too many errors while syncing plugins (${errors})."
       if [[ "${strict}" == "true" ]]; then
-        die "Too many errors while syncing plugins (${errors})"
-      else
-        log WARN "Too many errors while syncing plugins (${errors}); continue boot (non-strict)"
-        break
+        die "Plugins sync exceeded error limit (${max_errors})"
       fi
+      break
     fi
   done < "${tmp_remote}"
 
-  # Optional: remove extra LOCAL jars only (never touch non-jar)
+  # -----------------------------------
+  # Safe remove_extra
+  #  - only when sync has 0 errors
+  #  - only plugins/*.jar (top-level)
+  #  - never touch .paper-remapped/
+  # -----------------------------------
   if [[ "${PLUGINS_REMOVE_EXTRA:-false}" == "true" ]]; then
-    log INFO "PLUGINS_REMOVE_EXTRA=true: removing extra local *.jar only"
-    while IFS= read -r local_jar; do
-      [[ -n "${local_jar}" ]] || continue
-      rel="${local_jar#${plugins_dir}/}"
-      if ! grep -Fxq "${rel}" "${tmp_remote_jars}"; then
-        log INFO "Removing extra local jar: ${local_jar}"
-        rm -f -- "${local_jar}" || true
-      fi
-    done < <(find "${plugins_dir}" -type f -name "*.jar" 2>/dev/null)
+    if (( errors == 0 )); then
+      log INFO "PLUGINS_REMOVE_EXTRA=true: removing extra local top-level *.jar only (sync had 0 errors)"
+
+      # local: only plugins/*.jar (maxdepth 1)
+      while IFS= read -r local_jar; do
+        [[ -n "${local_jar}" ]] || continue
+        local base
+        base="$(basename "${local_jar}")"
+
+        if ! grep -Fxq "${base}" "${tmp_remote_topjars}"; then
+          log INFO "Removing extra local jar: ${local_jar}"
+          rm -f -- "${local_jar}" || {
+            ((strict == true)) && die "Failed to remove extra jar: ${local_jar}"
+            log WARN "Failed to remove extra jar (non-strict): ${local_jar}"
+          }
+        fi
+      done < <(find "${plugins_dir}" -maxdepth 1 -type f -name "*.jar" 2>/dev/null)
+    else
+      log WARN "Skip PLUGINS_REMOVE_EXTRA because sync had ${errors} error(s)"
+    fi
   fi
 
-  rm -f -- "${tmp_remote_jars}" 2>/dev/null || true
-
+  # -----------------------------------
+  # Finalize
+  # -----------------------------------
   if (( errors > 0 )); then
     if [[ "${strict}" == "true" ]]; then
-      die "Plugins sync failed with ${errors} errors"
+      die "Plugins sync failed with ${errors} error(s)"
     else
-      log WARN "Plugins sync completed with ${errors} errors (non-strict)"
+      log WARN "Plugins sync completed with ${errors} error(s) (non-strict)"
     fi
   else
     log INFO "Plugins synced successfully"
   fi
+
+  return 0
 }
 
 activate_plugins() {
