@@ -1383,7 +1383,6 @@ install_plugins() {
     return
   }
 
-  # disable if not paper, purpur, mohist, taiyitist, youer, or velocity
   if [[ "${TYPE:-auto}" != "paper" ]] && [[ "${TYPE:-auto}" != "purpur" ]] && [[ "${TYPE:-auto}" != "mohist" ]] && [[ "${TYPE:-auto}" != "taiyitist" ]] && [[ "${TYPE:-auto}" != "youer" ]] && [[ "${TYPE:-auto}" != "velocity" ]]; then
     log INFO "TYPE=${TYPE}, skipping plugins"
     return
@@ -1397,7 +1396,7 @@ install_plugins() {
   PLUGINS_DIR="${INPUT_PLUGINS_DIR}"
   mkdir -p "${PLUGINS_DIR}"
 
-  # ---- jar-only sync: "sync once" skip check should look only at *.jar ----
+  # sync-once: jar が既にあるならスキップ（既存仕様を維持）
   if [[ "${PLUGINS_SYNC_ONCE}" == "true" ]] \
     && [[ -n "$(find "${PLUGINS_DIR}" -type f -name "*.jar" -print -quit 2>/dev/null)" ]] \
     && [[ "${PLUGINS_REMOVE_EXTRA}" != "true" ]]; then
@@ -1412,64 +1411,71 @@ install_plugins() {
     "${S3_SECRET_KEY}" \
     || die "Failed to configure MinIO client"
 
-  # ---- build source path safely ----
+  # ---- source path ----
   local src="s3/${PLUGINS_S3_BUCKET}"
   if [[ -n "${PLUGINS_S3_PREFIX:-}" ]]; then
     src="${src}/${PLUGINS_S3_PREFIX}"
   fi
-  # ensure trailing slash for prefix removal
-  src="${src%/}/"
+  src="${src%/}/"   # ensure trailing slash
 
-  log INFO "Syncing ONLY .jar files from ${src} -> ${PLUGINS_DIR}"
+  log INFO "Syncing plugins from ${src} -> ${PLUGINS_DIR} (jar: always overwrite, others: copy-if-missing)"
 
-  # ---- list remote jars ----
+  # ---- list remote objects once ----
   local tmp_remote
   tmp_remote="$(mktemp)"
-  # mc find supports --name pattern matching and {} substitution. :contentReference[oaicite:1]{index=1}
-  mc find "${src}" --name "*.jar" --print "{}" > "${tmp_remote}" \
-    || die "Failed to list plugin jars from MinIO"
+  mc find "${src}" --print "{}" > "${tmp_remote}" \
+    || die "Failed to list objects from MinIO"  # mc find --print は公式仕様 :contentReference[oaicite:1]{index=1}
 
-  # ---- download/update each jar (preserve subdirs if any) ----
+  # ---- sync loop ----
   local obj rel dest
   while IFS= read -r obj; do
     [[ -n "${obj}" ]] || continue
 
-    # make relative path under src
     rel="${obj#${src}}"
-    # if something unexpected, skip safely
     [[ "${rel}" != "${obj}" ]] || continue
 
     dest="${PLUGINS_DIR}/${rel}"
     mkdir -p "$(dirname "${dest}")"
 
-    mc cp --overwrite "${obj}" "${dest}" \
-      || die "Failed to download jar: ${obj}"
+    if [[ "${rel}" == *.jar ]]; then
+      # jar: always overwrite (mc cp は同名に書き込むので上書きになる)
+      mc cp "${obj}" "${dest}" || die "Failed to download jar: ${obj}"
+    else
+      # non-jar: copy ONLY if missing (never overwrite)
+      if [[ -e "${dest}" ]]; then
+        continue
+      fi
+      mc cp "${obj}" "${dest}" || die "Failed to seed non-jar file: ${obj}"
+    fi
   done < "${tmp_remote}"
 
-  # ---- remove extra LOCAL jars only (never touch yml/db/etc) ----
+  # ---- remove extra LOCAL jars only ----
   if [[ "${PLUGINS_REMOVE_EXTRA}" == "true" ]]; then
-    log INFO "PLUGINS_REMOVE_EXTRA=true: removing local *.jar not present in remote (jar-only)"
+    log INFO "PLUGINS_REMOVE_EXTRA=true: removing extra local *.jar (jar-only)"
 
-    # build a fast lookup list of relative paths
-    local tmp_rel
-    tmp_rel="$(mktemp)"
-    sed -e "s|^${src}||" "${tmp_remote}" | sed '/^$/d' > "${tmp_rel}"
+    local tmp_remote_jars
+    tmp_remote_jars="$(mktemp)"
+    awk -v s="${src}" '
+      index($0, s) == 1 {
+        rel = substr($0, length(s)+1)
+        if (rel ~ /\.jar$/) print rel
+      }
+    ' "${tmp_remote}" | sort -u > "${tmp_remote_jars}"
 
     while IFS= read -r local_jar; do
       [[ -n "${local_jar}" ]] || continue
-      rel="${local_jar#${PLUGINS_DIR}/"
-
-      if ! grep -Fxq "${rel}" "${tmp_rel}"; then
+      rel="${local_jar#${PLUGINS_DIR}/}"
+      if ! grep -Fxq "${rel}" "${tmp_remote_jars}"; then
         log INFO "Removing extra local jar: ${local_jar}"
         rm -f -- "${local_jar}" || die "Failed to remove extra jar: ${local_jar}"
       fi
     done < <(find "${PLUGINS_DIR}" -type f -name "*.jar" 2>/dev/null)
 
-    rm -f "${tmp_rel}"
+    rm -f "${tmp_remote_jars}"
   fi
 
   rm -f "${tmp_remote}"
-  log INFO "Plugin jars installed successfully (jar-only sync)"
+  log INFO "Plugins synced successfully (jar overwrite, non-jar seed-only)"
 }
 
 activate_plugins() {
