@@ -1579,7 +1579,56 @@ install_plugins() {
 }
 
 activate_plugins() {
-  activate_dir "/plugins" "${DATA_DIR}/plugins" "plugins"
+  local src="/plugins"
+  local dst="${DATA_DIR}/plugins"
+
+  log INFO "Activating plugins (merge, protect non-jar) (${src} -> ${dst})"
+  mkdir -p "${dst}"
+
+  # Safety: never touch Paper cache
+  local errors=0
+
+  # 1) Ensure directories exist (only create if missing)
+  while IFS= read -r -d '' d; do
+    [[ "${d}" == "." ]] && continue
+    mkdir -p "${dst}/${d#./}" || true
+  done < <(cd "${src}" && find . -type d ! -path './.paper-remapped*' -print0)
+
+  # 2) Copy files with policy
+  while IFS= read -r -d '' f; do
+    local rel="${f#./}"
+    local s="${src}/${rel}"
+    local t="${dst}/${rel}"
+    local td
+    td="$(dirname "${t}")"
+    mkdir -p "${td}"
+
+    # Skip Paper-generated cache
+    [[ "${rel}" == .paper-remapped/* ]] && continue
+
+    if [[ "${rel}" == *.jar ]]; then
+      # jar: always overwrite (atomic per-file)
+      local tmp="${t}.tmp.$$"
+      cp -a "${s}" "${tmp}" || { errors=$((errors+1)); log WARN "Failed to copy jar: ${s}"; continue; }
+      mv -f "${tmp}" "${t}" || { errors=$((errors+1)); log WARN "Failed to move jar into place: ${t}"; continue; }
+    else
+      # non-jar: seed only (never overwrite)
+      if [[ -e "${t}" ]]; then
+        continue
+      fi
+      local tmp="${t}.tmp.$$"
+      cp -a "${s}" "${tmp}" || { errors=$((errors+1)); log WARN "Failed to seed non-jar: ${s}"; continue; }
+      mv -f "${tmp}" "${t}" || { errors=$((errors+1)); log WARN "Failed to move non-jar into place: ${t}"; continue; }
+    fi
+  done < <(cd "${src}" && find . -type f -print0)
+
+  if (( errors > 0 )); then
+    log WARN "activate_plugins finished with errors=${errors} (non-jar protected; jars best-effort applied)"
+  else
+    log INFO "activate_plugins completed (non-jar protected)"
+  fi
+
+  return 0
 }
 
 install_world() {
