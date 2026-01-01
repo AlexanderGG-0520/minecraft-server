@@ -1440,8 +1440,9 @@ install_plugins() {
     mkdir -p "$(dirname "${dest}")"
 
     if [[ "${rel}" == *.jar ]]; then
-      # jar: always update
-      mc cp --overwrite "${obj}" "${dest}" || die "Failed to download jar: ${obj}"
+      # jar: always update (overwrite-like)
+      rm -f -- "${dest}" || die "Failed to remove existing jar: ${dest}"
+      mc cp "${obj}" "${dest}" || die "Failed to download jar: ${obj}"
     else
       # non-jar: seed only (never overwrite)
       if [[ -e "${dest}" ]]; then
