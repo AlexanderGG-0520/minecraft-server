@@ -2291,27 +2291,17 @@ wait_for_worldgen() {
   log INFO "World generation confirmed (level.dat found)"
 }
 
+# -------------------------
+# RCON graceful shutdown (fixed)
+# -------------------------
+
 RCON_STOP_LOCK="${DATA_DIR:-/data}/.rcon-stop.lockdir"
 RCON_STOP_IN_PROGRESS=0
+SERVER_PID=""
 
 acquire_rcon_stop_lock() {
+  # mkdir returns non-zero if already exists
   mkdir "${RCON_STOP_LOCK}" 2>/dev/null
-}
-
-rcon_stop_once() {
-  # Prevent re-entrance within same process
-  if [ "${RCON_STOP_IN_PROGRESS}" = "1" ]; then
-    return 0
-  fi
-  RCON_STOP_IN_PROGRESS=1
-
-  # Prevent double execution from preStop / trap
-  if ! acquire_rcon_stop_lock; then
-    log INFO "rcon_stop already executed, skipping"
-    return 0
-  fi
-
-  rcon_stop || true
 }
 
 json_escape() {
@@ -2330,24 +2320,29 @@ rcon_exec() {
 
   if ! command -v mcrcon >/dev/null 2>&1; then
     log WARN "mcrcon not found; skipping RCON command: ${cmd}"
-    return 0
+    return 1
   fi
   if [ -z "${pass}" ]; then
     log WARN "RCON_PASSWORD is empty; skipping RCON command: ${cmd}"
-    return 0
+    return 1
   fi
 
-  # まずは実行だけ（tellrawは一旦切ると切り分けが速い）
+  # Use timeout if available to avoid hanging during shutdown
   local out rc
-  out="$(mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" 2>&1)"; rc=$?
+  if command -v timeout >/dev/null 2>&1; then
+    out="$(timeout "${RCON_TIMEOUT:-3}" mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" 2>&1)"; rc=$?
+  else
+    out="$(mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" 2>&1)"; rc=$?
+  fi
+
   if [ "$rc" -ne 0 ]; then
     log WARN "RCON failed rc=${rc} cmd=${cmd} err=${out}"
-    return 0
+    return 1
   fi
   return 0
 }
 
-rcon_say() {
+rcon_tellraw_all() {
   local message="$*"
   local shown
   shown="$(json_escape "$message")"
@@ -2357,50 +2352,68 @@ rcon_say() {
 rcon_stop() {
   local delay="${STOP_SERVER_ANNOUNCE_DELAY:-5}"
 
-  rcon_exec save-all
-  rcon_exec "say Waiting ${delay}s before stopping server"
+  # Announce first (players will see it even if save-all takes time)
+  rcon_tellraw_all "Server will stop in ${delay}s. Please prepare to disconnect."
+
+  # Save world (try flush first, fallback to save-all)
+  rcon_exec "save-all flush" || rcon_exec "save-all" || true
+
   sleep "${delay}"
-  rcon_exec stop
+
+  # Final notice (best-effort)
+  rcon_tellraw_all "Stopping now."
+  rcon_exec "stop"
 }
 
-SERVER_PID=""
+rcon_stop_once() {
+  # Prevent re-entrance within same process
+  if [ "${RCON_STOP_IN_PROGRESS}" = "1" ]; then
+    return 0
+  fi
+  RCON_STOP_IN_PROGRESS=1
 
-on_term() {
-  log INFO "Received SIGTERM"
+  # Prevent double execution from preStop / multiple traps
+  if ! acquire_rcon_stop_lock; then
+    log INFO "rcon_stop already executed, skipping"
+    return 0
+  fi
+
+  rcon_stop || true
+}
+
+graceful_shutdown() {
+  log INFO "SIGTERM received, starting graceful shutdown"
+
+  # 1) Try graceful stop via RCON (best-effort)
   rcon_stop_once
 
-  # Propagate signal to Java process if still alive
+  # 2) Wait for Java process to exit naturally after 'stop'
+  local wait_sec="${STOP_SERVER_WAIT_SECONDS:-20}"
+  local i
+  for i in $(seq 1 "$wait_sec"); do
+    if [ -z "${SERVER_PID}" ] || ! kill -0 "${SERVER_PID}" 2>/dev/null; then
+      log INFO "Server process exited"
+      return 0
+    fi
+    sleep 1
+  done
+
+  # 3) If still alive, send TERM as a fallback (do NOT do this immediately)
   if [ -n "${SERVER_PID}" ] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    log WARN "Server still alive after ${wait_sec}s; sending TERM to Java process"
     kill -TERM "${SERVER_PID}" 2>/dev/null || true
   fi
 }
 
-trap 'on_term' TERM INT
+# Single source of truth for signals (no double trap!)
+trap 'graceful_shutdown' TERM INT
 
 run_server() {
-  trap graceful_shutdown SIGTERM SIGINT
-
   "$@" &
   SERVER_PID=$!
 
   wait "$SERVER_PID"
 }
-
-graceful_shutdown() {
-  log INFO "SIGTERM received, starting graceful shutdown"
-  rcon_stop_once   # Added to ensure graceful shutdown (critical)
-
-  # Optionally: extra delay before hard stop/exit
-  if [ "${STOP_SERVER_ANNOUNCE_DELAY:-0}" -gt 0 ]; then
-    log INFO "Announcing server stop in ${STOP_SERVER_ANNOUNCE_DELAY}s"
-    sleep "${STOP_SERVER_ANNOUNCE_DELAY}"
-  fi
-
-  # If you have your own stop path, keep it
-  send_stop_command || true
-}
-
-trap graceful_shutdown SIGTERM SIGINT
 
 # ==========================================================
 # Runtime
