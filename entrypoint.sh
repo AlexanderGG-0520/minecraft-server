@@ -2291,78 +2291,32 @@ wait_for_worldgen() {
   log INFO "World generation confirmed (level.dat found)"
 }
 
-# -------------------------
-# RCON graceful shutdown (fixed)
-# -------------------------
-
-RCON_STOP_LOCK="${DATA_DIR:-/data}/.rcon-stop.lockdir"
+# Put the lock on ephemeral filesystem (NOT on /data / PVC)
+RCON_STOP_LOCK="${RCON_STOP_LOCK:-/tmp/.rcon-stop.lockdir}"
 RCON_STOP_IN_PROGRESS=0
 SERVER_PID=""
 
+cleanup_rcon_lock_on_boot() {
+  # Remove stale lock from previous container runs (best-effort)
+  rm -rf "${RCON_STOP_LOCK}" 2>/dev/null || true
+}
+
 acquire_rcon_stop_lock() {
-  # mkdir returns non-zero if already exists
   mkdir "${RCON_STOP_LOCK}" 2>/dev/null
-}
-
-json_escape() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\"/\\\"}"
-  s="${s//$'\n'/\\n}"
-  printf '%s' "$s"
-}
-
-rcon_exec() {
-  local cmd="$*"
-  local host="${RCON_HOST:-127.0.0.1}"
-  local port="${RCON_PORT:-25575}"
-  local pass="${RCON_PASSWORD:-}"
-
-  if ! command -v mcrcon >/dev/null 2>&1; then
-    log WARN "mcrcon not found; skipping RCON command: ${cmd}"
-    return 1
-  fi
-  if [ -z "${pass}" ]; then
-    log WARN "RCON_PASSWORD is empty; skipping RCON command: ${cmd}"
-    return 1
-  fi
-
-  # Use timeout if available to avoid hanging during shutdown
-  local out rc
-  if command -v timeout >/dev/null 2>&1; then
-    out="$(timeout "${RCON_TIMEOUT:-3}" mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" 2>&1)"; rc=$?
-  else
-    out="$(mcrcon -H "$host" -P "$port" -p "$pass" "$cmd" 2>&1)"; rc=$?
-  fi
-
-  if [ "$rc" -ne 0 ]; then
-    log WARN "RCON failed rc=${rc} cmd=${cmd} err=${out}"
-    return 1
-  fi
-  return 0
 }
 
 rcon_tellraw_all() {
   local message="$*"
   local shown
   shown="$(json_escape "$message")"
-  rcon_exec "tellraw @a {\"text\":\"${shown}\",\"color\":\"yellow\"}"
-}
 
-rcon_stop() {
-  local delay="${STOP_SERVER_ANNOUNCE_DELAY:-5}"
-
-  # Announce first (players will see it even if save-all takes time)
-  rcon_tellraw_all "Server will stop in ${delay}s. Please prepare to disconnect."
-
-  # Save world (try flush first, fallback to save-all)
-  rcon_exec "save-all flush" || rcon_exec "save-all" || true
-
-  sleep "${delay}"
-
-  # Final notice (best-effort)
-  rcon_tellraw_all "Stopping now."
-  rcon_exec "stop"
+  # tellraw first; if it fails, fallback to say
+  if ! rcon_exec "tellraw @a {\"text\":\"${shown}\",\"color\":\"yellow\"}"; then
+    log WARN "tellraw failed; falling back to say"
+    rcon_exec "say ${message}" || true
+    return 1
+  fi
+  return 0
 }
 
 rcon_stop_once() {
@@ -2370,45 +2324,25 @@ rcon_stop_once() {
   if [ "${RCON_STOP_IN_PROGRESS}" = "1" ]; then
     return 0
   fi
-  RCON_STOP_IN_PROGRESS=1
 
-  # Prevent double execution from preStop / multiple traps
+  # Prevent double execution across preStop/trap (but allow first run)
   if ! acquire_rcon_stop_lock; then
-    log INFO "rcon_stop already executed, skipping"
+    log INFO "rcon_stop already running (lock exists), skipping"
     return 0
   fi
+
+  # Mark as in-progress ONLY after acquiring the lock
+  RCON_STOP_IN_PROGRESS=1
 
   rcon_stop || true
 }
 
-graceful_shutdown() {
-  log INFO "SIGTERM received, starting graceful shutdown"
-
-  # 1) Try graceful stop via RCON (best-effort)
-  rcon_stop_once
-
-  # 2) Wait for Java process to exit naturally after 'stop'
-  local wait_sec="${STOP_SERVER_WAIT_SECONDS:-20}"
-  local i
-  for i in $(seq 1 "$wait_sec"); do
-    if [ -z "${SERVER_PID}" ] || ! kill -0 "${SERVER_PID}" 2>/dev/null; then
-      log INFO "Server process exited"
-      return 0
-    fi
-    sleep 1
-  done
-
-  # 3) If still alive, send TERM as a fallback (do NOT do this immediately)
-  if [ -n "${SERVER_PID}" ] && kill -0 "${SERVER_PID}" 2>/dev/null; then
-    log WARN "Server still alive after ${wait_sec}s; sending TERM to Java process"
-    kill -TERM "${SERVER_PID}" 2>/dev/null || true
-  fi
-}
-
-# Single source of truth for signals (no double trap!)
+# Single source of truth for signals (make sure there is only ONE trap)
 trap 'graceful_shutdown' TERM INT
 
 run_server() {
+  cleanup_rcon_lock_on_boot
+
   "$@" &
   SERVER_PID=$!
 
