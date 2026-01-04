@@ -428,7 +428,8 @@ trim_ws() {
 }
 
 generate_velocity_toml() {
-    is_true "${TYPE:-!velocity}" || return 0
+  [[ "${TYPE:-}" == "velocity" ]] || return 0
+
   local CONFIG_FILE="${DATA_DIR}/velocity.toml"
 
   rm -f "${CONFIG_FILE}"
