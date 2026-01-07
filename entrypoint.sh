@@ -1626,6 +1626,24 @@ activate_plugins() {
   if (( errors > 0 )); then
     log WARN "activate_plugins finished with errors=${errors} (non-jar protected; jars best-effort applied)"
   else
+    if [[ "${PLUGINS_REMOVE_EXTRA:-false}" == "true" ]]; then
+      local tmp_src_jars=""
+      tmp_src_jars="$(mktemp)"
+
+      (cd "${src}" && find . -type f -name "*.jar" ! -path './.paper-remapped*' -print \
+        | sed 's|^\./||' | sort -u > "${tmp_src_jars}")
+
+      while IFS= read -r -d '' local_jar; do
+        local rel="${local_jar#${dst}/}"
+        if ! grep -Fxq "${rel}" "${tmp_src_jars}"; then
+          log INFO "Removing extra jar from ${dst}: ${rel}"
+          rm -f -- "${local_jar}" || log WARN "Failed to remove extra jar: ${local_jar}"
+        fi
+      done < <(find "${dst}" -type f -name "*.jar" ! -path "${dst}/.paper-remapped/*" -print0)
+
+      rm -f -- "${tmp_src_jars}"
+    fi
+
     log INFO "activate_plugins completed (non-jar protected)"
   fi
 
@@ -2290,6 +2308,89 @@ wait_for_worldgen() {
     sleep 1
   done
   log INFO "World generation confirmed (level.dat found)"
+}
+
+: "${RCON_RETRIES:=5}"
+: "${RCON_RETRY_DELAY:=1}"
+: "${RCON_TIMEOUT:=5}"
+
+json_escape() {
+  local s="$*"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  printf '%s' "$s"
+}
+
+rcon_exec() {
+  local command="$*"
+  local attempt=1
+
+  if [[ "${ENABLE_RCON}" != "true" ]]; then
+    log INFO "RCON disabled, skipping command: ${command}"
+    return 1
+  fi
+
+  if [[ -z "${RCON_PASSWORD:-}" ]]; then
+    log ERROR "RCON_PASSWORD is empty, cannot execute: ${command}"
+    return 1
+  fi
+
+  while true; do
+    if timeout "${RCON_TIMEOUT}" \
+      mcrcon -H "${RCON_HOST}" -P "${RCON_PORT}" -p "${RCON_PASSWORD}" "${command}"; then
+      return 0
+    fi
+
+    if (( attempt >= RCON_RETRIES )); then
+      log ERROR "RCON command failed after ${attempt} attempts: ${command}"
+      return 1
+    fi
+
+    log WARN "RCON command failed (attempt ${attempt}/${RCON_RETRIES}), retrying: ${command}"
+    attempt=$((attempt + 1))
+    sleep "${RCON_RETRY_DELAY}"
+  done
+}
+
+rcon_say() {
+  rcon_exec "say $*"
+}
+
+rcon_stop() {
+  if [[ "${ENABLE_RCON}" != "true" ]]; then
+    log INFO "RCON disabled, skipping rcon_stop"
+    return 0
+  fi
+
+  local delay="${STOP_SERVER_ANNOUNCE_DELAY:-0}"
+
+  if (( delay > 0 )); then
+    rcon_tellraw_all "Server shutting down in ${delay} seconds." || true
+    sleep "${delay}"
+  else
+    rcon_tellraw_all "Server shutting down now." || true
+  fi
+
+  if ! rcon_exec "save-all"; then
+    log WARN "save-all failed via RCON"
+  fi
+
+  if ! rcon_exec "stop"; then
+    log WARN "stop command failed via RCON"
+  fi
+}
+
+graceful_shutdown() {
+  log INFO "Shutdown signal received, attempting graceful shutdown"
+  rcon_stop_once
+
+  if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    log INFO "Waiting for server process ${SERVER_PID} to exit"
+    wait "${SERVER_PID}" 2>/dev/null || true
+  fi
+
+  exit 0
 }
 
 # Put the lock on ephemeral filesystem (NOT on /data / PVC)
