@@ -1626,6 +1626,24 @@ activate_plugins() {
   if (( errors > 0 )); then
     log WARN "activate_plugins finished with errors=${errors} (non-jar protected; jars best-effort applied)"
   else
+    if [[ "${PLUGINS_REMOVE_EXTRA:-false}" == "true" ]]; then
+      local tmp_src_jars=""
+      tmp_src_jars="$(mktemp)"
+
+      (cd "${src}" && find . -type f -name "*.jar" ! -path './.paper-remapped*' -print \
+        | sed 's|^\./||' | sort -u > "${tmp_src_jars}")
+
+      while IFS= read -r -d '' local_jar; do
+        local rel="${local_jar#${dst}/}"
+        if ! grep -Fxq "${rel}" "${tmp_src_jars}"; then
+          log INFO "Removing extra jar from ${dst}: ${rel}"
+          rm -f -- "${local_jar}" || log WARN "Failed to remove extra jar: ${local_jar}"
+        fi
+      done < <(find "${dst}" -type f -name "*.jar" ! -path "${dst}/.paper-remapped/*" -print0)
+
+      rm -f -- "${tmp_src_jars}"
+    fi
+
     log INFO "activate_plugins completed (non-jar protected)"
   fi
 
