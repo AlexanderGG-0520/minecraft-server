@@ -1449,7 +1449,7 @@ install_plugins() {
   fi
 
   log INFO "Syncing plugins from ${src} -> ${plugins_dir}"
-  log INFO "Policy: .jar = always overwrite, others = copy only if missing"
+  log INFO "Policy: sync top-level .jar only (no subdirectories)"
   log INFO "Safety: never touch .paper-remapped/, remove_extra only when sync has 0 errors, and only plugins/*.jar"
 
   # -----------------------------------
@@ -1483,7 +1483,7 @@ install_plugins() {
   ' "${tmp_remote}" | sort -u > "${tmp_remote_topjars}"
 
   # -----------------------------------
-  # Download loop
+  # Download loop (top-level jars only)
   # -----------------------------------
   local obj rel dest
   local errors=0
@@ -1498,31 +1498,16 @@ install_plugins() {
     [[ "${rel}" != "${obj}" ]] || continue
     [[ -n "${rel}" ]] || continue
 
-    # Safety rule: NEVER manage Paper-generated cache directory
-    # (do not download, do not delete)
-    if [[ "${rel}" == .paper-remapped/* ]]; then
+    # Only sync top-level jars
+    if [[ "${rel}" != *.jar || "${rel}" == */* ]]; then
       continue
     fi
 
     dest="${plugins_dir}/${rel}"
-    mkdir -p "$(dirname "${dest}")"
-
-    if [[ "${rel}" == *.jar ]]; then
-      # jar: always update (overwrite-like)
-      rm -f -- "${dest}" || true
-      if ! mc_retry mc cp "${obj}" "${dest}"; then
-        errors=$((errors+1))
-        log WARN "Failed to download jar: ${obj}"
-      fi
-    else
-      # non-jar: seed only (never overwrite)
-      if [[ -e "${dest}" ]]; then
-        continue
-      fi
-      if ! mc_retry mc cp "${obj}" "${dest}"; then
-        errors=$((errors+1))
-        log WARN "Failed to seed non-jar file: ${obj}"
-      fi
+    rm -f -- "${dest}" || true
+    if ! mc_retry mc cp "${obj}" "${dest}"; then
+      errors=$((errors+1))
+      log WARN "Failed to download jar: ${obj}"
     fi
 
     if (( errors >= max_errors )); then
