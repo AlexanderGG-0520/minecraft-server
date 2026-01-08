@@ -1624,7 +1624,7 @@ activate_plugins() {
           log INFO "Removing extra jar from ${dst}: ${rel}"
           rm -f -- "${local_jar}" || log WARN "Failed to remove extra jar: ${local_jar}"
         fi
-      done < <(find "${dst}" -maxdepth 1 -type f -name "*.jar" -print0)
+      done < <(find "${dst}" -type f -name "*.jar" ! -path "${dst}/.paper-remapped/*" -print0)
 
       rm -f -- "${tmp_src_jars}"
     fi
