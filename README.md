@@ -33,6 +33,16 @@ It is especially well-suited for:
 
 ---
 
+## Kubernetes shutdown recommendations
+
+For reliable shutdown behavior (including Citizens save), we recommend:
+
+* Set `terminationGracePeriodSeconds` to **120s or higher**.
+* Add a `preStop` hook when possible (e.g., call `entrypoint.sh rcon-stop`).
+* Ensure `ENABLE_RCON=true` and `RCON_PASSWORD` is set so shutdown commands can run.
+
+---
+
 ## What this is NOT
 
 This project is intentionally **not**:

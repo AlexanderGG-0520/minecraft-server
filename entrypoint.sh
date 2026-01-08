@@ -2301,6 +2301,8 @@ wait_for_worldgen() {
 : "${RCON_RETRIES:=5}"
 : "${RCON_RETRY_DELAY:=1}"
 : "${RCON_TIMEOUT:=5}"
+: "${SHUTDOWN_WAIT_TIMEOUT:=90}"
+: "${SHUTDOWN_TERM_WAIT:=10}"
 
 json_escape() {
   local s="$*"
@@ -2308,6 +2310,18 @@ json_escape() {
   s="${s//\"/\\\"}"
   s="${s//$'\n'/\\n}"
   printf '%s' "$s"
+}
+
+rcon_client() {
+  if command -v rcon-cli >/dev/null 2>&1; then
+    echo "rcon-cli"
+    return 0
+  fi
+  if command -v mcrcon >/dev/null 2>&1; then
+    echo "mcrcon"
+    return 0
+  fi
+  return 1
 }
 
 rcon_exec() {
@@ -2324,10 +2338,23 @@ rcon_exec() {
     return 1
   fi
 
+  local client
+  if ! client="$(rcon_client)"; then
+    log ERROR "No RCON client found (rcon-cli or mcrcon), cannot execute: ${command}"
+    return 1
+  fi
+
   while true; do
-    if timeout "${RCON_TIMEOUT}" \
-      mcrcon -H "${RCON_HOST}" -P "${RCON_PORT}" -p "${RCON_PASSWORD}" "${command}"; then
-      return 0
+    if [[ "${client}" == "rcon-cli" ]]; then
+      if timeout "${RCON_TIMEOUT}" \
+        rcon-cli --host "${RCON_HOST}" --port "${RCON_PORT}" --password "${RCON_PASSWORD}" "${command}"; then
+        return 0
+      fi
+    else
+      if timeout "${RCON_TIMEOUT}" \
+        mcrcon -H "${RCON_HOST}" -P "${RCON_PORT}" -p "${RCON_PASSWORD}" "${command}"; then
+        return 0
+      fi
     fi
 
     if (( attempt >= RCON_RETRIES )); then
@@ -2341,6 +2368,21 @@ rcon_exec() {
   done
 }
 
+wait_for_server_exit() {
+  local timeout="$1"
+  local elapsed=0
+
+  while [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; do
+    if (( elapsed >= timeout )); then
+      return 1
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  return 0
+}
+
 rcon_say() {
   rcon_exec "say $*"
 }
@@ -2348,10 +2390,17 @@ rcon_say() {
 rcon_stop() {
   if [[ "${ENABLE_RCON}" != "true" ]]; then
     log INFO "RCON disabled, skipping rcon_stop"
-    return 0
+    return 1
   fi
 
   local delay="${STOP_SERVER_ANNOUNCE_DELAY:-0}"
+  local citizens_file="${DATA_DIR}/plugins/Citizens/saves.yml"
+
+  if [[ -f "${citizens_file}" ]]; then
+    log INFO "Citizens data detected: ${citizens_file}"
+  else
+    log INFO "Citizens data not found at shutdown: ${citizens_file}"
+  fi
 
   if (( delay > 0 )); then
     rcon_tellraw_all "Server shutting down in ${delay} seconds." || true
@@ -2360,26 +2409,69 @@ rcon_stop() {
     rcon_tellraw_all "Server shutting down now." || true
   fi
 
-  if ! rcon_exec "save-all"; then
-    log WARN "save-all failed via RCON"
+  log INFO "[shutdown] rcon: citizens save"
+  if rcon_exec "citizens save"; then
+    log INFO "[shutdown] rcon: citizens save succeeded"
+  else
+    log WARN "[shutdown] rcon: citizens save failed"
   fi
 
-  if ! rcon_exec "stop"; then
-    log WARN "stop command failed via RCON"
+  log INFO "[shutdown] rcon: save-all"
+  if rcon_exec "save-all"; then
+    log INFO "[shutdown] rcon: save-all succeeded"
+  else
+    log WARN "[shutdown] rcon: save-all failed"
   fi
+
+  log INFO "[shutdown] rcon: stop"
+  if rcon_exec "stop"; then
+    log INFO "[shutdown] rcon: stop succeeded"
+  else
+    log WARN "[shutdown] rcon: stop failed"
+    return 1
+  fi
+
+  return 0
 }
 
 graceful_shutdown() {
-  log INFO "Shutdown signal received, attempting graceful shutdown"
-  rcon_stop_once
+  log INFO "[shutdown] begin"
 
-  if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
-    log INFO "Waiting for server process ${SERVER_PID} to exit"
-    wait "${SERVER_PID}" 2>/dev/null || true
+  if ! rcon_stop_once; then
+    log WARN "[shutdown] RCON stop failed or unavailable, sending TERM to server process"
+    if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+      kill -TERM "${SERVER_PID}" 2>/dev/null || true
+    fi
   fi
 
+  log INFO "[shutdown] waiting for server process (timeout: ${SHUTDOWN_WAIT_TIMEOUT}s)"
+  if wait_for_server_exit "${SHUTDOWN_WAIT_TIMEOUT}"; then
+    log INFO "[shutdown] server process exited"
+    log INFO "[shutdown] end"
+    exit 0
+  fi
+
+  log WARN "[shutdown] timeout exceeded, sending TERM"
+  if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    kill -TERM "${SERVER_PID}" 2>/dev/null || true
+  fi
+
+  if wait_for_server_exit "${SHUTDOWN_TERM_WAIT}"; then
+    log INFO "[shutdown] server process exited after TERM"
+    log INFO "[shutdown] end"
+    exit 0
+  fi
+
+  log WARN "[shutdown] forcing kill"
+  if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    kill -KILL "${SERVER_PID}" 2>/dev/null || true
+  fi
+
+  log INFO "[shutdown] end"
   exit 0
 }
+
+RCON_STOP_RESULT=1
 
 # Put the lock on ephemeral filesystem (NOT on /data / PVC)
 RCON_STOP_LOCK="${RCON_STOP_LOCK:-/tmp/.rcon-stop.lockdir}"
@@ -2412,23 +2504,25 @@ rcon_tellraw_all() {
 rcon_stop_once() {
   # Prevent re-entrance within same process
   if [ "${RCON_STOP_IN_PROGRESS}" = "1" ]; then
-    return 0
+    return "${RCON_STOP_RESULT}"
   fi
 
   # Prevent double execution across preStop/trap (but allow first run)
   if ! acquire_rcon_stop_lock; then
     log INFO "rcon_stop already running (lock exists), skipping"
-    return 0
+    return "${RCON_STOP_RESULT}"
   fi
 
   # Mark as in-progress ONLY after acquiring the lock
   RCON_STOP_IN_PROGRESS=1
 
-  rcon_stop || true
+  rcon_stop
+  RCON_STOP_RESULT=$?
+  return "${RCON_STOP_RESULT}"
 }
 
 # Single source of truth for signals (make sure there is only ONE trap)
-trap 'graceful_shutdown' TERM INT
+trap 'graceful_shutdown' TERM INT QUIT
 
 run_server() {
   cleanup_rcon_lock_on_boot
