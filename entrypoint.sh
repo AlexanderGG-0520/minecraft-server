@@ -2451,10 +2451,14 @@ rcon_stop() {
 graceful_shutdown() {
   log INFO "[shutdown] begin"
 
-  if ! rcon_stop_once; then
-    log WARN "[shutdown] RCON stop failed or unavailable, sending TERM to server process"
-    if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
-      kill -TERM "${SERVER_PID}" 2>/dev/null || true
+  if [[ "${TYPE}" == "velocity" ]]; then
+    log INFO "[shutdown] velocity detected, skipping rcon_stop"
+  else
+    if ! rcon_stop_once; then
+      log WARN "[shutdown] RCON stop failed or unavailable, sending TERM to server process"
+      if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+        kill -TERM "${SERVER_PID}" 2>/dev/null || true
+      fi
     fi
   fi
 
@@ -2530,14 +2534,9 @@ rcon_stop_once() {
   # Mark as in-progress ONLY after acquiring the lock
   RCON_STOP_IN_PROGRESS=1
 
-
-  # Best-effort: force a final save before stopping the server
-  # Prefer "save-all flush" (waits for flush). If unsupported, fall back to "save-all".
-  if ! rcon_exec "save-all flush"; then
-    log WARN "save-all flush failed; trying save-all"
-    rcon_exec "save-all" || true
-  fi
-  rcon_stop || true
+  rcon_stop
+  RCON_STOP_RESULT=$?
+  return "${RCON_STOP_RESULT}"
 }
 
 # Single source of truth for signals (make sure there is only ONE trap)
