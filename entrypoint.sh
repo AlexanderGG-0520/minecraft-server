@@ -1565,6 +1565,20 @@ install_plugins() {
 }
 
 activate_plugins() {
+  log INFO "Install plugins (Paper | Purpur | Mohist | Taiyitist | Youer | Velocity only)"
+
+  [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || { log INFO "Plugins disabled"; return 0; }
+
+  if [[ "${TYPE:-auto}" != "paper" ]] \
+    && [[ "${TYPE:-auto}" != "purpur" ]] \
+    && [[ "${TYPE:-auto}" != "mohist" ]] \
+    && [[ "${TYPE:-auto}" != "taiyitist" ]] \
+    && [[ "${TYPE:-auto}" != "youer" ]] \
+    && [[ "${TYPE:-auto}" != "velocity" ]]; then
+    log INFO "TYPE=${TYPE}, skipping plugins"
+    return 0
+  fi
+
   local src="/plugins"
   local dst="${DATA_DIR}/plugins"
 
