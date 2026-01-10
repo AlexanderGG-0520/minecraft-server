@@ -1,0 +1,29 @@
+services:
+  minecraft:
+    image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre17
+    pull_policy: always
+    container_name: mc-forge
+    ports:
+      - "25565:25565" 
+    volumes:
+      - ./data:/data
+    environment:
+      EULA: "true" 
+      TYPE: "forge"
+      VERSION: "1.20.1"
+      MAX_MEMORY: "4G" 
+      JVM_XMS: "1G" 
+      JVM_XMX: "4G"  
+      MAX_PLAYERS: "20"  
+    networks:
+      - minecraft_network  
+    restart: unless-stopped  
+    mem_limit: 4g  
+    cpu_count: 2 
+    tty: true  
+    command: ["/entrypoint.sh"]
+      
+networks:
+  minecraft_network:
+    driver: bridge  
+
