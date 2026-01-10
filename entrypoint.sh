@@ -1449,7 +1449,7 @@ install_plugins() {
   fi
 
   log INFO "Syncing plugins from ${src} -> ${plugins_dir}"
-  log INFO "Policy: .jar = always overwrite, others = copy only if missing"
+  log INFO "Policy: sync top-level .jar only (no subdirectories)"
   log INFO "Safety: never touch .paper-remapped/, remove_extra only when sync has 0 errors, and only plugins/*.jar"
 
   # -----------------------------------
@@ -1483,7 +1483,7 @@ install_plugins() {
   ' "${tmp_remote}" | sort -u > "${tmp_remote_topjars}"
 
   # -----------------------------------
-  # Download loop
+  # Download loop (top-level jars only)
   # -----------------------------------
   local obj rel dest
   local errors=0
@@ -1498,31 +1498,16 @@ install_plugins() {
     [[ "${rel}" != "${obj}" ]] || continue
     [[ -n "${rel}" ]] || continue
 
-    # Safety rule: NEVER manage Paper-generated cache directory
-    # (do not download, do not delete)
-    if [[ "${rel}" == .paper-remapped/* ]]; then
+    # Only sync top-level jars
+    if [[ "${rel}" != *.jar || "${rel}" == */* ]]; then
       continue
     fi
 
     dest="${plugins_dir}/${rel}"
-    mkdir -p "$(dirname "${dest}")"
-
-    if [[ "${rel}" == *.jar ]]; then
-      # jar: always update (overwrite-like)
-      rm -f -- "${dest}" || true
-      if ! mc_retry mc cp "${obj}" "${dest}"; then
-        errors=$((errors+1))
-        log WARN "Failed to download jar: ${obj}"
-      fi
-    else
-      # non-jar: seed only (never overwrite)
-      if [[ -e "${dest}" ]]; then
-        continue
-      fi
-      if ! mc_retry mc cp "${obj}" "${dest}"; then
-        errors=$((errors+1))
-        log WARN "Failed to seed non-jar file: ${obj}"
-      fi
+    rm -f -- "${dest}" || true
+    if ! mc_retry mc cp "${obj}" "${dest}"; then
+      errors=$((errors+1))
+      log WARN "Failed to download jar: ${obj}"
     fi
 
     if (( errors >= max_errors )); then
@@ -1626,6 +1611,27 @@ activate_plugins() {
   if (( errors > 0 )); then
     log WARN "activate_plugins finished with errors=${errors} (non-jar protected; jars best-effort applied)"
   else
+    if [[ "${PLUGINS_REMOVE_EXTRA:-false}" == "true" ]]; then
+      local tmp_src_jars=""
+      tmp_src_jars="$(mktemp)"
+
+      (cd "${src}" && find . -type f -name "*.jar" ! -path './.paper-remapped*' -print \
+        | sed 's|^\./||' | sort -u > "${tmp_src_jars}")
+
+      while IFS= read -r -d '' local_jar; do
+        local rel="${local_jar#${dst}/}"
+        if [[ "${rel}" == */* ]]; then
+          continue
+        fi
+        if ! grep -Fxq "${rel}" "${tmp_src_jars}"; then
+          log INFO "Removing extra jar from ${dst}: ${rel}"
+          rm -f -- "${local_jar}" || log WARN "Failed to remove extra jar: ${local_jar}"
+        fi
+      done < <(find "${dst}" -maxdepth 1 -type f -name "*.jar" -print0)
+
+      rm -f -- "${tmp_src_jars}"
+    fi
+
     log INFO "activate_plugins completed (non-jar protected)"
   fi
 
@@ -2292,6 +2298,185 @@ wait_for_worldgen() {
   log INFO "World generation confirmed (level.dat found)"
 }
 
+: "${RCON_RETRIES:=5}"
+: "${RCON_RETRY_DELAY:=1}"
+: "${RCON_TIMEOUT:=5}"
+: "${SHUTDOWN_WAIT_TIMEOUT:=90}"
+: "${SHUTDOWN_TERM_WAIT:=10}"
+
+json_escape() {
+  local s="$*"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  printf '%s' "$s"
+}
+
+rcon_client() {
+  if command -v rcon-cli >/dev/null 2>&1; then
+    echo "rcon-cli"
+    return 0
+  fi
+  if command -v mcrcon >/dev/null 2>&1; then
+    echo "mcrcon"
+    return 0
+  fi
+  return 1
+}
+
+rcon_exec() {
+  local command="$*"
+  local attempt=1
+
+  if [[ "${ENABLE_RCON}" != "true" ]]; then
+    log INFO "RCON disabled, skipping command: ${command}"
+    return 1
+  fi
+
+  if [[ -z "${RCON_PASSWORD:-}" ]]; then
+    log ERROR "RCON_PASSWORD is empty, cannot execute: ${command}"
+    return 1
+  fi
+
+  local client
+  if ! client="$(rcon_client)"; then
+    log ERROR "No RCON client found (rcon-cli or mcrcon), cannot execute: ${command}"
+    return 1
+  fi
+
+  while true; do
+    if [[ "${client}" == "rcon-cli" ]]; then
+      if timeout "${RCON_TIMEOUT}" \
+        rcon-cli --host "${RCON_HOST}" --port "${RCON_PORT}" --password "${RCON_PASSWORD}" "${command}"; then
+        return 0
+      fi
+    else
+      if timeout "${RCON_TIMEOUT}" \
+        mcrcon -H "${RCON_HOST}" -P "${RCON_PORT}" -p "${RCON_PASSWORD}" "${command}"; then
+        return 0
+      fi
+    fi
+
+    if (( attempt >= RCON_RETRIES )); then
+      log ERROR "RCON command failed after ${attempt} attempts: ${command}"
+      return 1
+    fi
+
+    log WARN "RCON command failed (attempt ${attempt}/${RCON_RETRIES}), retrying: ${command}"
+    attempt=$((attempt + 1))
+    sleep "${RCON_RETRY_DELAY}"
+  done
+}
+
+wait_for_server_exit() {
+  local timeout="$1"
+  local elapsed=0
+
+  while [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; do
+    if (( elapsed >= timeout )); then
+      return 1
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  return 0
+}
+
+rcon_say() {
+  rcon_exec "say $*"
+}
+
+rcon_stop() {
+  if [[ "${ENABLE_RCON}" != "true" ]]; then
+    log INFO "RCON disabled, skipping rcon_stop"
+    return 1
+  fi
+
+  local delay="${STOP_SERVER_ANNOUNCE_DELAY:-0}"
+  local citizens_file="${DATA_DIR}/plugins/Citizens/saves.yml"
+
+  if [[ -f "${citizens_file}" ]]; then
+    log INFO "Citizens data detected: ${citizens_file}"
+  else
+    log INFO "Citizens data not found at shutdown: ${citizens_file}"
+  fi
+
+  if (( delay > 0 )); then
+    rcon_tellraw_all "Server shutting down in ${delay} seconds." || true
+    sleep "${delay}"
+  else
+    rcon_tellraw_all "Server shutting down now." || true
+  fi
+
+  log INFO "[shutdown] rcon: citizens save"
+  if rcon_exec "citizens save"; then
+    log INFO "[shutdown] rcon: citizens save succeeded"
+  else
+    log WARN "[shutdown] rcon: citizens save failed"
+  fi
+
+  log INFO "[shutdown] rcon: save-all"
+  if rcon_exec "save-all"; then
+    log INFO "[shutdown] rcon: save-all succeeded"
+  else
+    log WARN "[shutdown] rcon: save-all failed"
+  fi
+
+  log INFO "[shutdown] rcon: stop"
+  if rcon_exec "stop"; then
+    log INFO "[shutdown] rcon: stop succeeded"
+  else
+    log WARN "[shutdown] rcon: stop failed"
+    return 1
+  fi
+
+  return 0
+}
+
+graceful_shutdown() {
+  log INFO "[shutdown] begin"
+
+  if [[ "${TYPE}" == "velocity" ]]; then
+    log INFO "[shutdown] velocity detected, skipping rcon_stop"
+  else
+    if ! rcon_stop_once; then
+      log WARN "[shutdown] RCON stop failed or unavailable, sending TERM to server process"
+      if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+        kill -TERM "${SERVER_PID}" 2>/dev/null || true
+      fi
+    fi
+  fi
+
+  log INFO "[shutdown] waiting for server process (timeout: ${SHUTDOWN_WAIT_TIMEOUT}s)"
+  if wait_for_server_exit "${SHUTDOWN_WAIT_TIMEOUT}"; then
+    log INFO "[shutdown] server process exited"
+    log INFO "[shutdown] end"
+    exit 0
+  fi
+
+  log WARN "[shutdown] timeout exceeded, sending TERM"
+  if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    kill -TERM "${SERVER_PID}" 2>/dev/null || true
+  fi
+
+  if wait_for_server_exit "${SHUTDOWN_TERM_WAIT}"; then
+    log INFO "[shutdown] server process exited after TERM"
+    log INFO "[shutdown] end"
+    exit 0
+  fi
+
+  log WARN "[shutdown] forcing kill"
+  if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    kill -KILL "${SERVER_PID}" 2>/dev/null || true
+  fi
+
+  log INFO "[shutdown] end"
+  exit 0
+}
+
+RCON_STOP_RESULT=1
+
 # Put the lock on ephemeral filesystem (NOT on /data / PVC)
 RCON_STOP_LOCK="${RCON_STOP_LOCK:-/tmp/.rcon-stop.lockdir}"
 RCON_STOP_IN_PROGRESS=0
@@ -2323,23 +2508,25 @@ rcon_tellraw_all() {
 rcon_stop_once() {
   # Prevent re-entrance within same process
   if [ "${RCON_STOP_IN_PROGRESS}" = "1" ]; then
-    return 0
+    return "${RCON_STOP_RESULT}"
   fi
 
   # Prevent double execution across preStop/trap (but allow first run)
   if ! acquire_rcon_stop_lock; then
     log INFO "rcon_stop already running (lock exists), skipping"
-    return 0
+    return "${RCON_STOP_RESULT}"
   fi
 
   # Mark as in-progress ONLY after acquiring the lock
   RCON_STOP_IN_PROGRESS=1
 
-  rcon_stop || true
+  rcon_stop
+  RCON_STOP_RESULT=$?
+  return "${RCON_STOP_RESULT}"
 }
 
 # Single source of truth for signals (make sure there is only ONE trap)
-trap 'graceful_shutdown' TERM INT
+trap 'graceful_shutdown' TERM INT QUIT
 
 run_server() {
   cleanup_rcon_lock_on_boot
