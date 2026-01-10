@@ -1843,6 +1843,7 @@ declare -A PROP_MAP=(
   [MAX_PLAYERS]="max-players"
   [VIEW_DISTANCE]="view-distance"
   [SIMULATION_DISTANCE]="simulation-distance"
+  [PVP]="pvp"
 
   # --- Phase A: Management / Behavior ---
   [ENABLE_WHITELIST]="enable-whitelist"
