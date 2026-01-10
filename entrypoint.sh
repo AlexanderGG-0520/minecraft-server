@@ -2335,6 +2335,13 @@ rcon_stop_once() {
   # Mark as in-progress ONLY after acquiring the lock
   RCON_STOP_IN_PROGRESS=1
 
+
+  # Best-effort: force a final save before stopping the server
+  # Prefer "save-all flush" (waits for flush). If unsupported, fall back to "save-all".
+  if ! rcon_exec "save-all flush"; then
+    log WARN "save-all flush failed; trying save-all"
+    rcon_exec "save-all" || true
+  fi
   rcon_stop || true
 }
 
