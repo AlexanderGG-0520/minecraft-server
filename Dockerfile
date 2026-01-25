@@ -44,6 +44,18 @@ RUN set -eux; \
     /usr/local/bin/mcrcon -h || true
 
 # ============================================================
+# Runtime base (蜈ｱ騾壹ヤ繝ｼ繝ｫ: CPU繝ｩ繝ｳ繧ｿ繧､繝逕ｨ)
+# ============================================================
+FROM debian:stable-slim AS runtime-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
+    bash curl ca-certificates tini procps \
+    pciutils ocl-icd-libopencl1 jq unzip tar \
+    rsync libpopt0 \
+ && rm -rf /var/lib/apt/lists/*
+# ============================================================
 # Java base images
 # ============================================================
 FROM eclipse-temurin:8-jre  AS jre8
@@ -57,14 +69,15 @@ FROM eclipse-temurin:25-jre AS jre25
 # ============================================================
 
 # -------- Java 8 --------
-FROM jre8 AS runtime-jre8
-RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
- && rm -rf /var/lib/apt/lists/*
+FROM runtime-base AS runtime-jre8
 
+# --- Java 8 ---
+COPY --from=jre8 /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
-COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
 
@@ -83,14 +96,15 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["run"]
 
 # -------- Java 11 --------
-FROM jre11 AS runtime-jre11
-RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
- && rm -rf /var/lib/apt/lists/*
+FROM runtime-base AS runtime-jre11
 
+# --- Java 11 ---
+COPY --from=jre11 /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
-COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
 
@@ -109,14 +123,15 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["run"]
 
 # -------- Java 17 --------
-FROM jre17 AS runtime-jre17
-RUN apt-get update && apt-get install -y --no-install-recommends jq rsync libpopt0 \
- && rm -rf /var/lib/apt/lists/*
+FROM runtime-base AS runtime-jre17
 
+# --- Java 17 ---
+COPY --from=jre17 /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
-COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
 
@@ -135,14 +150,15 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["run"]
 
 # -------- Java 21 --------
-FROM jre21 AS runtime-jre21
-RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
- && rm -rf /var/lib/apt/lists/*
+FROM runtime-base AS runtime-jre21
 
+# --- Java 21 ---
+COPY --from=jre21 /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
-COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
 
@@ -161,14 +177,15 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["run"]
 
 # -------- Java 25 --------
-FROM jre25 AS runtime-jre25
-RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends jq rsync libpopt0 \
- && rm -rf /var/lib/apt/lists/*
+FROM runtime-base AS runtime-jre25
 
+# --- Java 25 ---
+COPY --from=jre25 /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
-COPY --from=base /usr/bin/tini /usr/bin/tini
 ARG UID=10001
 ARG GID=10001
 
@@ -237,3 +254,4 @@ WORKDIR /data
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["run"]
+

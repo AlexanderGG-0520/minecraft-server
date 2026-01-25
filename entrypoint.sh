@@ -102,13 +102,9 @@ echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${INPUT_RESOURCEPACKS_DIR:=/resourcepacks}"
 # ============================================================
 
-# RCON
-: "${ENABLE_RCON:=true}"
-: "${RCON_PORT:=25575}"
-: "${RCON_PASSWORD:=changeme}"
+# RCON (runtime control)
 : "${STOP_SERVER_ANNOUNCE_DELAY:=0}"
 # ============================================================
-
 # Server Icon
 : "${SERVER_ICON_URL:=}"
 # ============================================================
@@ -117,8 +113,8 @@ preflight() {
   log INFO "Preflight checks..."
 
   [[ -d "${DATA_DIR}" ]] || die "${DATA_DIR} does not exist"
-  touch ${DATA_DIR}/.write_test 2>/dev/null || die "${DATA_DIR} is not writable"
-  rm -f ${DATA_DIR}/.write_test
+  touch "${DATA_DIR}/.write_test" 2>/dev/null || die "${DATA_DIR} is not writable"
+  rm -f "${DATA_DIR}/.write_test"
 
   [[ -n "${EULA:-}" ]] || die "EULA is not set"
 
@@ -130,8 +126,7 @@ preflight() {
   if [[ "${TYPE:-vanilla}" != "vanilla" && -z "${VERSION:-}" ]]; then
     die "VERSION must be set when TYPE is not vanilla"
   fi
-
-  rm -f ${DATA_DIR}/.ready
+  rm -f "${DATA_DIR}/.ready"
   log INFO "Preflight OK"
 }
 
@@ -245,7 +240,7 @@ install_eula() {
 
   case "${EULA}" in
     true)
-      echo "eula=true" > ${DATA_DIR}/eula.txt
+      echo "eula=true" > "${DATA_DIR}/eula.txt"
       log INFO "EULA accepted"
       ;;
     false)
@@ -256,7 +251,7 @@ install_eula() {
       ;;
   esac
 }
-cleaer_fabric_cache() {
+clear_fabric_cache() {
 # -----------------------------
 # Clean Fabric mapping cache
 # -----------------------------
@@ -564,11 +559,10 @@ ensure_server_properties() {
   local props="${DATA_DIR}/server.properties"
 
   if [[ ! -f "$props" ]]; then
-    log INFO "server.properties not found, creating empty placeholder"
-    touch "$props"
+    log INFO "server.properties not found, generating via bootstrap"
+    bootstrap_server_properties
   fi
 }
-
 reset_world() {
   log INFO "Requested world reset"
 
@@ -597,7 +591,7 @@ reset_world() {
   log INFO "Resetting world at ${WORLD_DIR}"
 
   # ---- Step 1: mark NotReady ----
-  rm -f ${DATA_DIR}/.ready
+  rm -f "${DATA_DIR}/.ready"
 
   # ---- Step 2: optional backup ----
   if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
@@ -2268,7 +2262,7 @@ install() {
 
   install_dirs
   install_eula
-  cleaer_fabric_cache
+  clear_fabric_cache
   setup_server_icon
 
   configure_paper_configs
@@ -2620,3 +2614,4 @@ main() {
 if [[ "${__SOURCED:-0}" != "1" ]]; then
   main "$@"
 fi
+
