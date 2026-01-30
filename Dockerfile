@@ -1,5 +1,5 @@
 # ============================================================
-# mc builder (Go stdlib / x/crypto CVE 対策)
+# mc builder
 # ============================================================
 ARG MC_RELEASE=RELEASE.2025-08-13T08-35-41Z
 ARG GO_VERSION=1.24.11
@@ -13,14 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 WORKDIR /src
 RUN git clone --depth 1 --branch ${MC_RELEASE} https://github.com/minio/mc.git .
 
-# x/crypto を脆弱性修正版へ（Scoutの表示: 0.43.0 以上）
+# x/crypto CVE
 RUN go get golang.org/x/crypto@v0.43.0 && go mod tidy
 
-# なるべく小さく
+# Build static mc binary
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mc .
 
 # ============================================================
-# Base (共通ツール + entrypoint)
+# Base
 # ============================================================
 FROM debian:stable-slim AS base
 
@@ -44,7 +44,7 @@ RUN set -eux; \
     /usr/local/bin/mcrcon -h || true
 
 # ============================================================
-# Runtime base (蜈ｱ騾壹ヤ繝ｼ繝ｫ: CPU繝ｩ繝ｳ繧ｿ繧､繝逕ｨ)
+# Runtime base
 # ============================================================
 FROM debian:stable-slim AS runtime-base
 
