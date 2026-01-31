@@ -1010,31 +1010,86 @@ install_server() {
       log INFO "Youer server.jar ready"
       ;;
 
-    velocity)
-      [[ -n "${VERSION:-}" ]] || die "VERSION is required for velocity"
-      generate_velocity_toml
+  velocity)
+    [[ -n "${VERSION:-}" ]] || die "VERSION is required for velocity"
+    generate_velocity_toml
 
-      if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
-        log INFO "velocity.jar already exists, skipping"
-        return
-      fi
+    # ============================================================
+    # Velocity (PaperMC Fill v3)
+    #
+    # Why:
+    # - api.papermc.io/v2 is not reliable for SNAPSHOT resolution in some cases
+    # - fill.papermc.io/v3 returns builds as an ARRAY of build objects
+    #
+    # Env:
+    # - VERSION (required)
+    # - VELOCITY_CHANNEL (optional): STABLE | RECOMMENDED (default: STABLE)
+    # - VELOCITY_UA (optional): User-Agent for curl requests
+    # - FORCE_REDOWNLOAD (optional): "1" to redownload even if velocity.jar exists
+    # ============================================================
 
-      log INFO "Resolving Velocity ${VERSION} build"
+    if [[ -f "${DATA_DIR}/velocity.jar" && "${FORCE_REDOWNLOAD:-0}" != "1" ]]; then
+      log INFO "velocity.jar already exists, skipping (set FORCE_REDOWNLOAD=1 to override)"
+      return
+    fi
 
-      BUILD=$(curl -fsSL \
-        "https://api.papermc.io/v2/projects/velocity/versions/${VERSION}" \
-        | jq -r '.builds[-1]') \
-        || die "Failed to resolve Velocity build"
+    VELOCITY_CHANNEL="${VELOCITY_CHANNEL:-STABLE}"
+    VELOCITY_UA="${VELOCITY_UA:-minecraft-server/velocity-installer}"
 
-      log INFO "Installing Velocity ${VERSION} build ${BUILD}"
+    case "${VELOCITY_CHANNEL}" in
+      STABLE|RECOMMENDED) : ;;
+      *) die "Invalid VELOCITY_CHANNEL=${VELOCITY_CHANNEL} (expected STABLE or RECOMMENDED)";;
+    esac
 
-      curl -fL \
-        "https://api.papermc.io/v2/projects/velocity/versions/${VERSION}/builds/${BUILD}/downloads/velocity-${VERSION}-${BUILD}.jar" \
-        -o "${DATA_DIR}/velocity.jar" \
-        || die "Failed to download Velocity jar"
+    log INFO "Resolving Velocity ${VERSION} build (channel=${VELOCITY_CHANNEL})"
 
-      log INFO "Velocity jar ready"
-      ;;
+    # Fill v3: builds endpoint returns an ARRAY of build objects
+    BUILDS_JSON="$(curl -fsSL -H "User-Agent: ${VELOCITY_UA}" \
+      "https://fill.papermc.io/v3/projects/velocity/versions/${VERSION}/builds")" \
+      || die "Failed to fetch Velocity builds (Fill v3)"
+
+    # Pick the latest build number within the requested channel
+    BUILD="$(printf '%s' "${BUILDS_JSON}" | jq -r --arg ch "${VELOCITY_CHANNEL}" '
+      [ .[] | select(.channel == $ch) ] | max_by(.build) | .build
+    ')" || die "Failed to parse Velocity build number"
+
+    [[ -n "${BUILD}" && "${BUILD}" != "null" ]] \
+      || die "No Velocity build found for VERSION=${VERSION} channel=${VELOCITY_CHANNEL}"
+
+    # Extract a download URL from the matched build object
+    DL_URL="$(printf '%s' "${BUILDS_JSON}" | jq -r --arg ch "${VELOCITY_CHANNEL}" --argjson b "${BUILD}" '
+      def pick_dlurl:
+        if (.downloads|type) == "object" then
+          (.downloads["server:default"].url
+            // .downloads["application"].url
+            // (.downloads | to_entries[0].value.url))
+        elif (.downloads|type) == "array" then
+          ((.downloads[]? | .url) | first)
+        else
+          null
+        end;
+
+      [ .[] | select(.channel == $ch) | select(.build == $b) ][0]
+      | pick_dlurl
+    ')" || die "Failed to parse Velocity download URL"
+
+    [[ -n "${DL_URL}" && "${DL_URL}" != "null" ]] \
+      || die "Failed to resolve Velocity download URL (VERSION=${VERSION} BUILD=${BUILD} CHANNEL=${VELOCITY_CHANNEL})"
+
+    log INFO "Installing Velocity ${VERSION} build ${BUILD} (channel=${VELOCITY_CHANNEL})"
+    log INFO "Download URL: ${DL_URL}"
+
+    curl -fL -H "User-Agent: ${VELOCITY_UA}" \
+      "${DL_URL}" \
+      -o "${DATA_DIR}/velocity.jar" \
+      || die "Failed to download Velocity jar"
+
+    # Cheap safety check: avoid HTML/0-byte downloads
+    [[ "$(wc -c < "${DATA_DIR}/velocity.jar")" -gt 1000000 ]] \
+      || die "Downloaded Velocity jar is too small"
+
+    log INFO "Velocity jar ready"
+    ;;
     *)
       die "install_server: TYPE=${TYPE} not implemented yet"
       ;;
@@ -2575,9 +2630,76 @@ runtime() {
       ;;
 
     velocity)
-      log INFO "Launching Velocity proxy"
-      run_server java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/velocity.jar"
+    [[ -n "${VERSION:-}" ]] || die "VERSION is required for velocity"
+    generate_velocity_toml
+
+    # ============================================================
+    # Velocity (PaperMC Fill v3)
+    #
+    # Why:
+    # - api.papermc.io/v2 does not reliably resolve SNAPSHOT versions
+    # - fill.papermc.io/v3 returns builds as an ARRAY
+    #
+    # Env:
+    # - VERSION (required)
+    # - VELOCITY_CHANNEL (optional): STABLE | RECOMMENDED (default: STABLE)
+    # - VELOCITY_UA (optional): User-Agent for curl
+    # - FORCE_REDOWNLOAD (optional): "1" to redownload even if velocity.jar exists
+    # ============================================================
+
+    if [[ -f "${DATA_DIR}/velocity.jar" && "${FORCE_REDOWNLOAD:-0}" != "1" ]]; then
+      log INFO "velocity.jar already exists, skipping (set FORCE_REDOWNLOAD=1 to override)"
+      return
+    fi
+
+    VELOCITY_CHANNEL="${VELOCITY_CHANNEL:-STABLE}"
+    VELOCITY_UA="${VELOCITY_UA:-AlecSMP-K8s/1.0 (velocity-installer)}"
+
+    log INFO "Resolving Velocity ${VERSION} build (channel=${VELOCITY_CHANNEL})"
+
+    # Fill v3: builds endpoint returns an ARRAY of build objects
+    BUILDS_JSON="$(curl -fsSL -H "User-Agent: ${VELOCITY_UA}" \
+      "https://fill.papermc.io/v3/projects/velocity/versions/${VERSION}/builds")" \
+      || die "Failed to fetch Velocity builds (Fill v3)"
+
+    # Pick latest build number in the requested channel
+    BUILD="$(printf '%s' "${BUILDS_JSON}" | jq -r --arg ch "${VELOCITY_CHANNEL}" '
+      [ .[] | select(.channel == ) ] | max_by(.build) | .build
+    ')" || die "Failed to parse Velocity build number"
+
+    [[ -n "${BUILD}" && "${BUILD}" != "null" ]] || die "No Velocity build found for VERSION=${VERSION} channel=${VELOCITY_CHANNEL}"
+
+    # Extract download URL
+    DL_URL="$(printf '%s' "${BUILDS_JSON}" | jq -r --arg ch "${VELOCITY_CHANNEL}" --argjson b "${BUILD}" '
+      def pick_dlurl:
+        if (.downloads|type) == "object" then
+          (.downloads["server:default"].url
+            // .downloads["application"].url
+            // (.downloads | to_entries[0].value.url))
+        elif (.downloads|type) == "array" then
+          ((.downloads[]? | .url) | first)
+        else
+          null
+        end;
+
+      [ .[] | select(.channel == ) | select(.build == ) ][0]
+      | pick_dlurl
+    ')" || die "Failed to parse Velocity download URL"
+
+    [[ -n "${DL_URL}" && "${DL_URL}" != "null" ]] || die "Failed to resolve Velocity download URL (VERSION=${VERSION} BUILD=${BUILD})"
+
+    log INFO "Installing Velocity ${VERSION} build ${BUILD} (channel=${VELOCITY_CHANNEL})"
+    log INFO "Download URL: ${DL_URL}"
+
+    curl -fL -H "User-Agent: ${VELOCITY_UA}" \
+      "${DL_URL}" \
+      -o "${DATA_DIR}/velocity.jar" \
+      || die "Failed to download Velocity jar"
+
+    [[ "$(wc -c < "${DATA_DIR}/velocity.jar")" -gt 1000000 ]] || die "Downloaded Velocity jar is too small"
+
+    log INFO "Velocity jar ready"
+
       ;;
 
     *)
