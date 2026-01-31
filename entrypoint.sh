@@ -2759,3 +2759,15 @@ if [[ "${__SOURCED:-0}" != "1" ]]; then
   main "$@"
 fi
 
+# __VELOCITY_RUNTIME_EXEC_FOOTER__
+# Fail-safe: Kubernetes requires PID 1 to stay alive.
+# If the script reaches here with TYPE=velocity, start Velocity in the foreground.
+if [[ "${TYPE:-}" == "velocity" ]]; then
+  : "${DATA_DIR:?DATA_DIR is required}"
+  if [[ ! -f "${DATA_DIR}/velocity.jar" ]]; then
+    die "velocity.jar not found at ${DATA_DIR}/velocity.jar"
+  fi
+  log INFO "Launching Velocity (foreground, PID 1)"
+  cd "${DATA_DIR}"
+  exec java ${JAVA_TOOL_OPTIONS:-} -jar "${DATA_DIR}/velocity.jar"
+fi
