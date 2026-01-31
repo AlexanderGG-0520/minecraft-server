@@ -1017,15 +1017,15 @@ install_server() {
     # ============================================================
     # Velocity installer (PaperMC Fill v3)
     #
-    # Notes:
-    # - fill.papermc.io/v3 builds endpoint returns an ARRAY
-    # - Do NOT assume .build exists (schema may change)
+    # Fill v3 schema (observed):
+    # - Build object keys: id, time, channel, commits, downloads
+    # - downloads is an object; "server:default" typically exists
     #
     # Env:
     # - VERSION (required)
-    # - VELOCITY_CHANNEL (optional): STABLE|BETA (default: STABLE)
+    # - VELOCITY_CHANNEL (optional): STABLE|BETA|RECOMMENDED (default: STABLE)
     # - VELOCITY_UA (optional): User-Agent for curl
-    # - FORCE_REDOWNLOAD=1 (optional)
+    # - FORCE_REDOWNLOAD=1 (optional): redownload even if velocity.jar exists
     # ============================================================
 
     if [[ -f "${DATA_DIR}/velocity.jar" && "${FORCE_REDOWNLOAD:-0}" != "1" ]]; then
@@ -1034,6 +1034,11 @@ install_server() {
     fi
 
     VELOCITY_CHANNEL="${VELOCITY_CHANNEL:-STABLE}"
+    # Common alias -> Fill v3 channel name (Velocity commonly treats "recommended" as beta)
+    case "${VELOCITY_CHANNEL}" in
+      RECOMMENDED|recommended) VELOCITY_CHANNEL="BETA" ;;
+    esac
+
     VELOCITY_UA="${VELOCITY_UA:-minecraft-server/velocity-installer}"
 
     log INFO "Resolving Velocity ${VERSION} (channel=${VELOCITY_CHANNEL}) via Fill v3"
@@ -1042,32 +1047,35 @@ install_server() {
       "https://fill.papermc.io/v3/projects/velocity/versions/${VERSION}/builds")" \
       || die "Failed to fetch Velocity builds (Fill v3)"
 
-    # Pick latest build object by createdAt/time (do not rely on .build)
+    # If requested channel is absent, fallback to the first available channel
+    if ! printf '%s' "${BUILDS_JSON}" | jq -e --arg ch "${VELOCITY_CHANNEL}" '.[] | select(.channel == $ch)' >/dev/null; then
+      log WARN "Channel '${VELOCITY_CHANNEL}' not found; falling back to an available channel"
+      VELOCITY_CHANNEL="$(printf '%s' "${BUILDS_JSON}" | jq -r '.[0].channel')"
+      log WARN "Using channel='${VELOCITY_CHANNEL}'"
+    fi
+
+    # Pick the latest build object by .time (ISO8601)
     BUILD_OBJ="$(printf '%s' "${BUILDS_JSON}" | jq -c --arg ch "${VELOCITY_CHANNEL}" '
       [ .[] | select(.channel == $ch) ]
-      | (sort_by(.createdAt? // .time? // 0) | last)
+      | (sort_by(.time) | last)
     ')" || die "Failed to select latest build object"
 
     [[ -n "${BUILD_OBJ}" && "${BUILD_OBJ}" != "null" ]] \
       || die "No Velocity build found for VERSION=${VERSION} channel=${VELOCITY_CHANNEL}"
 
+    BUILD_ID="$(printf '%s' "${BUILD_OBJ}" | jq -r '.id // empty')"
+    [[ -n "${BUILD_ID}" ]] || die "Velocity build id missing in Fill v3 response"
+
+    # Download URL (prefer server:default)
     DL_URL="$(printf '%s' "${BUILD_OBJ}" | jq -r '
-      if (.downloads|type) == "object" then
-        (.downloads["server:default"].url
-          // .downloads["application"].url
-          // (.downloads | to_entries[0].value.url))
-      elif (.downloads|type) == "array" then
-        ((.downloads[]? | .url) | first)
-      else
-        null
-      end
+      .downloads["server:default"].url
+      // (.downloads | to_entries[0].value.url)
+      // empty
     ')" || die "Failed to parse Velocity download URL"
 
-    [[ -n "${DL_URL}" && "${DL_URL}" != "null" ]] \
-      || die "Failed to resolve Velocity download URL (VERSION=${VERSION} channel=${VELOCITY_CHANNEL})"
+    [[ -n "${DL_URL}" ]] || die "Failed to resolve Velocity download URL (VERSION=${VERSION} channel=${VELOCITY_CHANNEL} id=${BUILD_ID})"
 
-    BUILD_LABEL="$(printf '%s' "${BUILD_OBJ}" | jq -r '.build // .buildNumber // .id // .number // "unknown"')"
-    log INFO "Installing Velocity ${VERSION} build ${BUILD_LABEL} (channel=${VELOCITY_CHANNEL})"
+    log INFO "Installing Velocity ${VERSION} build ${BUILD_ID} (channel=${VELOCITY_CHANNEL})"
     log INFO "Download URL: ${DL_URL}"
 
     curl -fL -H "User-Agent: ${VELOCITY_UA}" \
