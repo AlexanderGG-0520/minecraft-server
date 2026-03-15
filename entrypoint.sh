@@ -973,11 +973,27 @@ EOF
 ensure_server_properties() {
   local props="${DATA_DIR}/server.properties"
 
+  case "${TYPE:-}" in
+    vanilla|paper|purpur|fabric|forge|neoforge)
+      ;;
+    velocity)
+      log INFO "TYPE=${TYPE} does not use server.properties, skipping bootstrap"
+      return 0
+      ;;
+    *)
+      log INFO "TYPE=${TYPE} does not use server.properties, skipping bootstrap"
+      return 0
+      ;;
+  esac
+
   if [[ ! -f "$props" ]]; then
     log INFO "server.properties not found, generating via bootstrap"
     bootstrap_server_properties
+  else
+    log INFO "server.properties already exists"
   fi
 }
+
 reset_world() {
   log INFO "Requested world reset"
 
