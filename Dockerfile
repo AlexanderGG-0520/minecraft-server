@@ -8,13 +8,15 @@ FROM golang:${GO_VERSION}-bookworm AS mc-builder
 ARG MC_RELEASE
 
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 RUN git clone --depth 1 --branch ${MC_RELEASE} https://github.com/minio/mc.git .
 
-# x/crypto CVE
-RUN go get golang.org/x/crypto@v0.43.0 && go mod tidy
+# security updates
+RUN go get golang.org/x/crypto@v0.43.0 \
+    && go get google.golang.org/grpc@v1.79.3 \
+    && go mod tidy
 
 # Build static mc binary
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mc .
