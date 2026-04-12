@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
-log() { echo "[$(ts)] [$1] $2"; }
+: "${LOG_TZ:=UTC}"
+: "${LOG_TS_FORMAT:=iso8601}"
+
+ts() {
+  if [[ "${LOG_TS_FORMAT}" == "iso8601" ]]; then
+    TZ="${LOG_TZ}" date +"%Y-%m-%dT%H:%M:%S%:z"
+  else
+    TZ="${LOG_TZ}" date +"${LOG_TS_FORMAT}"
+  fi
+}
+
+log() {
+  echo "[$(ts)] [$1] $2"
+}
 die() { log ERROR "$1"; exit 1; }
 
 MC_PID=""
