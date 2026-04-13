@@ -24,7 +24,8 @@ MC_PID=""
 # ================================
 export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} \
 -Djava.net.preferIPv4Stack=true \
--Djava.net.preferIPv4Addresses=true"
+-Djava.net.preferIPv4Addresses=true \
+-Duser.timezone=${LOG_TZ}"
 
 echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 
