@@ -53,7 +53,7 @@ FROM debian:stable-slim AS runtime-base
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
-    bash curl ca-certificates tini procps \
+    bash curl ca-certificates tini procps tzdata \
     pciutils ocl-icd-libopencl1 jq unzip tar \
     rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
@@ -213,7 +213,7 @@ FROM nvidia/cuda:13.1.0-runtime-ubuntu24.04 AS runtime-jre25-gpu
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
-    bash ca-certificates curl tini procps \
+    bash ca-certificates curl tini procps tzdata \
     pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
