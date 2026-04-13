@@ -131,7 +131,7 @@ preflight() {
   [[ -n "${EULA:-}" ]] || die "EULA is not set"
 
   case "${TYPE:-vanilla}" in
-    fabric|forge|mohist|neoforge|paper|purpur|quilt|taiyitist|vanilla|velocity|youer) ;;
+    fabric|forge|mohist|neoforge|paper|purpur|quilt|spigot|taiyitist|vanilla|velocity|youer) ;;
     *) die "Invalid TYPE: ${TYPE}" ;;
   esac
 
@@ -193,7 +193,7 @@ install_dirs() {
     ${DATA_DIR}/config \
     ${DATA_DIR}/world
 
-  if [[ "${TYPE}" == "paper" || "${TYPE}" == "purpur" ]]; then
+  if [[ "${TYPE}" == "paper" || "${TYPE}" == "purpur" || "${TYPE}" == "spigot" ]]; then
     mkdir -p ${DATA_DIR}/plugins
   fi
 
@@ -986,7 +986,7 @@ ensure_server_properties() {
   local props="${DATA_DIR}/server.properties"
 
   case "${TYPE:-}" in
-    vanilla|paper|purpur|fabric|forge|neoforge)
+    vanilla|paper|purpur|spigot|fabric|forge|neoforge)
       ;;
     velocity)
       log INFO "TYPE=${TYPE} does not use server.properties, skipping bootstrap"
@@ -1095,7 +1095,7 @@ bootstrap_server_properties() {
   log INFO "server.properties not found, bootstrapping via official server"
 
   case "${TYPE}" in
-    vanilla|paper|purpur)
+    vanilla|paper|purpur|spigot)
       timeout 15s java -jar "${DATA_DIR}/server.jar" nogui || true
       ;;
     fabric)
@@ -1369,6 +1369,9 @@ install_plugins() {
   [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || { log INFO "Plugins disabled"; return 0; }
 
   if [[ "${TYPE:-auto}" != "paper" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
     && [[ "${TYPE:-auto}" != "purpur" ]] \
     && [[ "${TYPE:-auto}" != "mohist" ]] \
     && [[ "${TYPE:-auto}" != "taiyitist" ]] \
@@ -1557,6 +1560,8 @@ activate_plugins() {
   [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || { log INFO "Plugins disabled"; return 0; }
 
   if [[ "${TYPE:-auto}" != "paper" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
     && [[ "${TYPE:-auto}" != "purpur" ]] \
     && [[ "${TYPE:-auto}" != "mohist" ]] \
     && [[ "${TYPE:-auto}" != "taiyitist" ]] \
@@ -2552,7 +2557,7 @@ runtime() {
         -jar "${DATA_DIR}/fabric-server-launch.jar" nogui
       ;;
 
-    quilt|paper|purpur|mohist|taiyitist|youer|vanilla)
+    quilt|paper|purpur|spigot|mohist|taiyitist|youer|vanilla)
       log INFO "Launching ${TYPE} server (single JVM)"
       run_server java @"${JVM_ARGS_FILE}" \
         -jar "${DATA_DIR}/server.jar" nogui
@@ -2712,3 +2717,4 @@ if [[ "${TYPE:-}" == "velocity" ]]; then
   cd "${DATA_DIR}"
   exec java ${JAVA_TOOL_OPTIONS:-} -jar "${DATA_DIR}/velocity.jar"
 fi
+
