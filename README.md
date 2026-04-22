@@ -50,6 +50,7 @@ Environment variables:
 * `HOOKS_ENABLED` (`false` by default)
 * `HOOKS_DIR` (`/hooks` by default)
 * `HOOKS_STRICT` (`true` by default; if false, failed hooks only log warnings)
+* `HOOKS_TIMEOUT_SEC` (`0` by default; if > 0, each hook is terminated after timeout)
 
 Supported hook phases (directory names under `HOOKS_DIR`):
 
@@ -58,6 +59,19 @@ Supported hook phases (directory names under `HOOKS_DIR`):
 * `pre-runtime.d` — right before launching the server runtime
 
 Only executable files are run.
+
+## Install-only mode (new)
+
+If you only want to execute the install phase and then stop (for pre-warming volumes or CI checks),
+set:
+
+* `INSTALL_ONLY=true`
+
+Behavior:
+
+* Runs normal preflight + install
+* Skips runtime server launch
+* Exits with code `0` when install succeeds
 
 ---
 

@@ -28,6 +28,7 @@ It is a runtime intended for people who want to understand
 - `TYPE=auto` now auto-detects the runtime from existing server artifacts in `/data`
 - Paper-specific Velocity config application fixed (applies only when `TYPE=paper`)
 - Lifecycle hook support added (`pre-install.d`, `post-install.d`, `pre-runtime.d`)
+- Install-only mode added (`INSTALL_ONLY=true`) for pre-warm/CI workflows
 
 ---
 

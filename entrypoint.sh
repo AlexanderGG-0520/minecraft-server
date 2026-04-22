@@ -56,6 +56,8 @@ echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${HOOKS_ENABLED:=false}"
 : "${HOOKS_DIR:=/hooks}"
 : "${HOOKS_STRICT:=true}"
+: "${HOOKS_TIMEOUT_SEC:=0}"
+: "${INSTALL_ONLY:=false}"
 
 # JVM
 : "${JVM_XMS:=512M}"
@@ -141,7 +143,7 @@ preflight() {
     *) die "Invalid TYPE: ${TYPE}" ;;
   esac
 
-  if [[ "${TYPE:-vanilla}" != "vanilla" && "${TYPE:-vanilla}" != "auto" && -z "${VERSION:-}" ]]; then
+  if [[ "${TYPE:-vanilla}" != "vanilla" && "${TYPE:-vanilla}" != "auto" && "${TYPE:-vanilla}" != "AUTO" && -z "${VERSION:-}" ]]; then
     die "VERSION must be set when TYPE is not vanilla"
   fi
   rm -f "${DATA_DIR}/.ready"
@@ -151,22 +153,31 @@ preflight() {
 resolve_type_auto() {
   [[ "${TYPE:-}" == "auto" || "${TYPE:-}" == "AUTO" ]] || return 0
 
+  local resolved_from_existing_artifact=false
+
   if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
     TYPE="velocity"
+    resolved_from_existing_artifact=true
   elif [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
     TYPE="fabric"
+    resolved_from_existing_artifact=true
   elif [[ -f "${DATA_DIR}/run.sh" ]]; then
     if compgen -G "${DATA_DIR}/.installed-neoforge-*" > /dev/null; then
       TYPE="neoforge"
     else
       TYPE="forge"
     fi
+    resolved_from_existing_artifact=true
   elif [[ -f "${DATA_DIR}/server.jar" ]]; then
     TYPE="vanilla"
+    resolved_from_existing_artifact=true
   else
     TYPE="vanilla"
   fi
 
+  if [[ "${resolved_from_existing_artifact}" == "true" && "${TYPE}" != "vanilla" && -z "${VERSION:-}" ]]; then
+    VERSION="auto-detected-existing-artifact"
+  fi
   log INFO "TYPE auto-resolved to '${TYPE}'"
 }
 
@@ -770,6 +781,7 @@ run_phase_hooks() {
   local dir="${HOOKS_DIR}/${phase}.d"
   local ran=0
   local hook
+  local rc
 
   is_true "${HOOKS_ENABLED:-false}" || return 0
 
@@ -788,12 +800,22 @@ run_phase_hooks() {
 
     ran=1
     log INFO "Running ${phase} hook: ${hook}"
-    if ! HOOK_PHASE="${phase}" "${hook}"; then
-      if is_true "${HOOKS_STRICT:-true}"; then
-        die "${phase} hook failed: ${hook}"
-      fi
-      log WARN "${phase} hook failed (HOOKS_STRICT=false): ${hook}"
+    if [[ "${HOOKS_TIMEOUT_SEC:-0}" =~ ^[0-9]+$ ]] && (( HOOKS_TIMEOUT_SEC > 0 )); then
+      timeout "${HOOKS_TIMEOUT_SEC}s" env HOOK_PHASE="${phase}" "${hook}" || rc=$?
+    else
+      HOOK_PHASE="${phase}" "${hook}" || rc=$?
     fi
+
+    if [[ "${rc:-0}" -ne 0 ]]; then
+      if [[ "${rc}" -eq 124 ]]; then
+        log WARN "${phase} hook timed out after ${HOOKS_TIMEOUT_SEC}s: ${hook}"
+      fi
+      if is_true "${HOOKS_STRICT:-true}"; then
+        die "${phase} hook failed (rc=${rc}): ${hook}"
+      fi
+      log WARN "${phase} hook failed but continuing (HOOKS_STRICT=false, rc=${rc}): ${hook}"
+    fi
+    rc=0
   done
   shopt -u nullglob
 
@@ -2765,6 +2787,12 @@ main() {
   resolve_type_auto
   detect_runtime_env
   install
+
+  if is_true "${INSTALL_ONLY:-false}"; then
+    log WARN "INSTALL_ONLY=true, skipping runtime launch and exiting"
+    exit 0
+  fi
+
   runtime
 }
 
