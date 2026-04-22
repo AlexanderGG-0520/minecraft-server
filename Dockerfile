@@ -2,7 +2,7 @@
 # mc builder
 # ============================================================
 ARG MC_RELEASE=RELEASE.2025-08-13T08-35-41Z
-ARG GO_VERSION=1.25.8
+ARG GO_VERSION=1.25.9
 
 FROM golang:${GO_VERSION}-bookworm AS mc-builder
 ARG MC_RELEASE
@@ -256,5 +256,4 @@ WORKDIR /data
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["run"]
-
 
