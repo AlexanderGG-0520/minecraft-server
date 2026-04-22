@@ -143,7 +143,7 @@ preflight() {
     *) die "Invalid TYPE: ${TYPE}" ;;
   esac
 
-  if [[ "${TYPE:-vanilla}" != "vanilla" && "${TYPE:-vanilla}" != "auto" && "${TYPE:-vanilla}" != "AUTO" && -z "${VERSION:-}" ]]; then
+  if [[ "${TYPE:-vanilla}" != "vanilla" && "${TYPE:-vanilla}" != "auto" && -z "${VERSION:-}" ]]; then
     die "VERSION must be set when TYPE is not vanilla"
   fi
   rm -f "${DATA_DIR}/.ready"
@@ -153,31 +153,22 @@ preflight() {
 resolve_type_auto() {
   [[ "${TYPE:-}" == "auto" || "${TYPE:-}" == "AUTO" ]] || return 0
 
-  local resolved_from_existing_artifact=false
-
   if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
     TYPE="velocity"
-    resolved_from_existing_artifact=true
   elif [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
     TYPE="fabric"
-    resolved_from_existing_artifact=true
   elif [[ -f "${DATA_DIR}/run.sh" ]]; then
     if compgen -G "${DATA_DIR}/.installed-neoforge-*" > /dev/null; then
       TYPE="neoforge"
     else
       TYPE="forge"
     fi
-    resolved_from_existing_artifact=true
   elif [[ -f "${DATA_DIR}/server.jar" ]]; then
     TYPE="vanilla"
-    resolved_from_existing_artifact=true
   else
     TYPE="vanilla"
   fi
 
-  if [[ "${resolved_from_existing_artifact}" == "true" && "${TYPE}" != "vanilla" && -z "${VERSION:-}" ]]; then
-    VERSION="auto-detected-existing-artifact"
-  fi
   log INFO "TYPE auto-resolved to '${TYPE}'"
 }
 
