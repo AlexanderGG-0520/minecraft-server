@@ -132,15 +132,39 @@ preflight() {
   [[ -n "${EULA:-}" ]] || die "EULA is not set"
 
   case "${TYPE:-vanilla}" in
+    auto|AUTO)
+      ;;
     fabric|forge|mohist|neoforge|paper|purpur|quilt|spigot|taiyitist|vanilla|velocity|youer) ;;
     *) die "Invalid TYPE: ${TYPE}" ;;
   esac
 
-  if [[ "${TYPE:-vanilla}" != "vanilla" && -z "${VERSION:-}" ]]; then
+  if [[ "${TYPE:-vanilla}" != "vanilla" && "${TYPE:-vanilla}" != "auto" && -z "${VERSION:-}" ]]; then
     die "VERSION must be set when TYPE is not vanilla"
   fi
   rm -f "${DATA_DIR}/.ready"
   log INFO "Preflight OK"
+}
+
+resolve_type_auto() {
+  [[ "${TYPE:-}" == "auto" || "${TYPE:-}" == "AUTO" ]] || return 0
+
+  if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
+    TYPE="velocity"
+  elif [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
+    TYPE="fabric"
+  elif [[ -f "${DATA_DIR}/run.sh" ]]; then
+    if compgen -G "${DATA_DIR}/.installed-neoforge-*" > /dev/null; then
+      TYPE="neoforge"
+    else
+      TYPE="forge"
+    fi
+  elif [[ -f "${DATA_DIR}/server.jar" ]]; then
+    TYPE="vanilla"
+  else
+    TYPE="vanilla"
+  fi
+
+  log INFO "TYPE auto-resolved to '${TYPE}'"
 }
 
 # ============================================================
@@ -808,7 +832,7 @@ apply_paper_override_item() {
 }
 
 configure_paper_configs() {
-  is_true "${TYPE:-!paper}" || return 0
+  [[ "${TYPE:-}" == "paper" ]] || return 0
 
   local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
   mkdir -p "$cfg_dir"
@@ -1328,7 +1352,7 @@ yaml_escape_dq() {
 #   PAPER_VELOCITY_ONLINE_MODE=true|false (usually true)
 #   PAPER_VELOCITY_ENABLED=true|false (usually true)
 apply_paper_global_from_env() {
-  is_true "${TYPE:-!paper}" || return 0
+  [[ "${TYPE:-}" == "paper" ]] || return 0
   is_true "${PAPER_VELOCITY:-false}" || return 0
 
   local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
@@ -2697,6 +2721,7 @@ esac
 main() {
   log INFO "Minecraft Runtime Booting..."
   preflight
+  resolve_type_auto
   detect_runtime_env
   install
   runtime
@@ -2718,4 +2743,3 @@ if [[ "${TYPE:-}" == "velocity" ]]; then
   cd "${DATA_DIR}"
   exec java ${JAVA_TOOL_OPTIONS:-} -jar "${DATA_DIR}/velocity.jar"
 fi
-
