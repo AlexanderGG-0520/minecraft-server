@@ -53,6 +53,9 @@ echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 # Runtime
 : "${TYPE:=auto}"
 : "${READY_DELAY:=5}"
+: "${HOOKS_ENABLED:=false}"
+: "${HOOKS_DIR:=/hooks}"
+: "${HOOKS_STRICT:=true}"
 
 # JVM
 : "${JVM_XMS:=512M}"
@@ -132,15 +135,39 @@ preflight() {
   [[ -n "${EULA:-}" ]] || die "EULA is not set"
 
   case "${TYPE:-vanilla}" in
+    auto|AUTO)
+      ;;
     fabric|forge|mohist|neoforge|paper|purpur|quilt|spigot|taiyitist|vanilla|velocity|youer) ;;
     *) die "Invalid TYPE: ${TYPE}" ;;
   esac
 
-  if [[ "${TYPE:-vanilla}" != "vanilla" && -z "${VERSION:-}" ]]; then
+  if [[ "${TYPE:-vanilla}" != "vanilla" && "${TYPE:-vanilla}" != "auto" && -z "${VERSION:-}" ]]; then
     die "VERSION must be set when TYPE is not vanilla"
   fi
   rm -f "${DATA_DIR}/.ready"
   log INFO "Preflight OK"
+}
+
+resolve_type_auto() {
+  [[ "${TYPE:-}" == "auto" || "${TYPE:-}" == "AUTO" ]] || return 0
+
+  if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
+    TYPE="velocity"
+  elif [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
+    TYPE="fabric"
+  elif [[ -f "${DATA_DIR}/run.sh" ]]; then
+    if compgen -G "${DATA_DIR}/.installed-neoforge-*" > /dev/null; then
+      TYPE="neoforge"
+    else
+      TYPE="forge"
+    fi
+  elif [[ -f "${DATA_DIR}/server.jar" ]]; then
+    TYPE="vanilla"
+  else
+    TYPE="vanilla"
+  fi
+
+  log INFO "TYPE auto-resolved to '${TYPE}'"
 }
 
 # ============================================================
@@ -738,6 +765,41 @@ is_true() {
   esac
 }
 
+run_phase_hooks() {
+  local phase="$1"
+  local dir="${HOOKS_DIR}/${phase}.d"
+  local ran=0
+  local hook
+
+  is_true "${HOOKS_ENABLED:-false}" || return 0
+
+  if [[ ! -d "${dir}" ]]; then
+    log INFO "Hooks enabled but '${dir}' not found, skipping ${phase} hooks"
+    return 0
+  fi
+
+  shopt -s nullglob
+  for hook in "${dir}"/*; do
+    [[ -f "${hook}" ]] || continue
+    [[ -x "${hook}" ]] || {
+      log WARN "Skipping non-executable hook: ${hook}"
+      continue
+    }
+
+    ran=1
+    log INFO "Running ${phase} hook: ${hook}"
+    if ! HOOK_PHASE="${phase}" "${hook}"; then
+      if is_true "${HOOKS_STRICT:-true}"; then
+        die "${phase} hook failed: ${hook}"
+      fi
+      log WARN "${phase} hook failed (HOOKS_STRICT=false): ${hook}"
+    fi
+  done
+  shopt -u nullglob
+
+  [[ "${ran}" -eq 1 ]] || log INFO "No executable hooks found in ${dir}"
+}
+
 require_yq() {
   command -v yq >/dev/null 2>&1 || die "yq is required to edit YAML configs (install yq in the image)"
 }
@@ -808,7 +870,7 @@ apply_paper_override_item() {
 }
 
 configure_paper_configs() {
-  is_true "${TYPE:-!paper}" || return 0
+  [[ "${TYPE:-}" == "paper" ]] || return 0
 
   local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
   mkdir -p "$cfg_dir"
@@ -1328,7 +1390,7 @@ yaml_escape_dq() {
 #   PAPER_VELOCITY_ONLINE_MODE=true|false (usually true)
 #   PAPER_VELOCITY_ENABLED=true|false (usually true)
 apply_paper_global_from_env() {
-  is_true "${TYPE:-!paper}" || return 0
+  [[ "${TYPE:-}" == "paper" ]] || return 0
   is_true "${PAPER_VELOCITY:-false}" || return 0
 
   local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
@@ -2258,6 +2320,7 @@ configure_c2me_opencl() {
 
 install() {
   log INFO "Install phase start"
+  run_phase_hooks "pre-install"
 
   install_dirs
   install_eula
@@ -2290,6 +2353,7 @@ install() {
   install_whitelist
   install_ops
   configure_c2me_opencl
+  run_phase_hooks "post-install"
 
   log INFO "Install phase completed"
 }
@@ -2550,6 +2614,7 @@ run_server() {
 # ==========================================================
 runtime() {
   log INFO "Starting runtime (TYPE=${TYPE})"
+  run_phase_hooks "pre-runtime"
 
   case "${TYPE}" in
     fabric)
@@ -2697,6 +2762,7 @@ esac
 main() {
   log INFO "Minecraft Runtime Booting..."
   preflight
+  resolve_type_auto
   detect_runtime_env
   install
   runtime
@@ -2718,4 +2784,3 @@ if [[ "${TYPE:-}" == "velocity" ]]; then
   cd "${DATA_DIR}"
   exec java ${JAVA_TOOL_OPTIONS:-} -jar "${DATA_DIR}/velocity.jar"
 fi
-
