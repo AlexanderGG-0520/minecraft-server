@@ -53,6 +53,9 @@ echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 # Runtime
 : "${TYPE:=auto}"
 : "${READY_DELAY:=5}"
+: "${HOOKS_ENABLED:=false}"
+: "${HOOKS_DIR:=/hooks}"
+: "${HOOKS_STRICT:=true}"
 
 # JVM
 : "${JVM_XMS:=512M}"
@@ -760,6 +763,41 @@ is_true() {
     1|true|yes|y|on) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+run_phase_hooks() {
+  local phase="$1"
+  local dir="${HOOKS_DIR}/${phase}.d"
+  local ran=0
+  local hook
+
+  is_true "${HOOKS_ENABLED:-false}" || return 0
+
+  if [[ ! -d "${dir}" ]]; then
+    log INFO "Hooks enabled but '${dir}' not found, skipping ${phase} hooks"
+    return 0
+  fi
+
+  shopt -s nullglob
+  for hook in "${dir}"/*; do
+    [[ -f "${hook}" ]] || continue
+    [[ -x "${hook}" ]] || {
+      log WARN "Skipping non-executable hook: ${hook}"
+      continue
+    }
+
+    ran=1
+    log INFO "Running ${phase} hook: ${hook}"
+    if ! HOOK_PHASE="${phase}" "${hook}"; then
+      if is_true "${HOOKS_STRICT:-true}"; then
+        die "${phase} hook failed: ${hook}"
+      fi
+      log WARN "${phase} hook failed (HOOKS_STRICT=false): ${hook}"
+    fi
+  done
+  shopt -u nullglob
+
+  [[ "${ran}" -eq 1 ]] || log INFO "No executable hooks found in ${dir}"
 }
 
 require_yq() {
@@ -2282,6 +2320,7 @@ configure_c2me_opencl() {
 
 install() {
   log INFO "Install phase start"
+  run_phase_hooks "pre-install"
 
   install_dirs
   install_eula
@@ -2314,6 +2353,7 @@ install() {
   install_whitelist
   install_ops
   configure_c2me_opencl
+  run_phase_hooks "post-install"
 
   log INFO "Install phase completed"
 }
@@ -2574,6 +2614,7 @@ run_server() {
 # ==========================================================
 runtime() {
   log INFO "Starting runtime (TYPE=${TYPE})"
+  run_phase_hooks "pre-runtime"
 
   case "${TYPE}" in
     fabric)

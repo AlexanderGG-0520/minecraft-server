@@ -41,6 +41,24 @@ For reliable shutdown behavior (including Citizens save), we recommend:
 * Add a `preStop` hook when possible (e.g., call `entrypoint.sh rcon-stop`).
 * Ensure `ENABLE_RCON=true` and `RCON_PASSWORD` is set so shutdown commands can run.
 
+## Startup hooks (new)
+
+You can run custom scripts at controlled lifecycle points.
+
+Environment variables:
+
+* `HOOKS_ENABLED` (`false` by default)
+* `HOOKS_DIR` (`/hooks` by default)
+* `HOOKS_STRICT` (`true` by default; if false, failed hooks only log warnings)
+
+Supported hook phases (directory names under `HOOKS_DIR`):
+
+* `pre-install.d` — before install phase starts
+* `post-install.d` — after install phase completes
+* `pre-runtime.d` — right before launching the server runtime
+
+Only executable files are run.
+
 ---
 
 ## What this is NOT
