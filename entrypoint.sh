@@ -161,6 +161,31 @@ preflight() {
 resolve_type_auto() {
   [[ "${TYPE:-}" == "auto" || "${TYPE:-}" == "AUTO" ]] || return 0
 
+  local marker installed_type installed_artifact
+  marker="$(server_install_marker)"
+
+  if [[ -f "${marker}" ]]; then
+    installed_type="$(jq -r '.type // empty' "${marker}" 2>/dev/null || true)"
+    installed_artifact="$(jq -r '.artifact // empty' "${marker}" 2>/dev/null || true)"
+
+    case "${installed_type}" in
+      fabric|forge|mohist|neoforge|paper|purpur|quilt|taiyitist|vanilla|velocity|youer)
+        if [[ -n "${installed_artifact}" && -e "${DATA_DIR}/${installed_artifact}" ]]; then
+          TYPE="${installed_type}"
+          log INFO "TYPE auto-resolved to '${TYPE}' from install marker"
+          return 0
+        fi
+        log WARN "Install marker exists but artifact is missing, falling back to artifact detection: ${installed_artifact:-unknown}"
+        ;;
+      "")
+        log WARN "Install marker exists but type is empty, falling back to artifact detection"
+        ;;
+      *)
+        log WARN "Install marker has unsupported type '${installed_type}', falling back to artifact detection"
+        ;;
+    esac
+  fi
+
   if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
     TYPE="velocity"
   elif [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
