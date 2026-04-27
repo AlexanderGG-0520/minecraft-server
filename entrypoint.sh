@@ -1078,10 +1078,7 @@ apply_paper_override_item() {
 }
 
 configure_paper_configs() {
-  case "${TYPE:-}" in
-    paper|purpur) ;;
-    *) return 0 ;;
-  esac
+  [[ "${TYPE:-}" == "paper" ]] || return 0
 
   local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
   mkdir -p "$cfg_dir"
@@ -1607,10 +1604,7 @@ yaml_escape_dq() {
 #   PAPER_VELOCITY_ONLINE_MODE=true|false (usually true)
 #   PAPER_VELOCITY_ENABLED=true|false (usually true)
 apply_paper_global_from_env() {
-  case "${TYPE:-}" in
-    paper|purpur) ;;
-    *) return 0 ;;
-  esac
+  [[ "${TYPE:-}" == "paper" ]] || return 0
   is_true "${PAPER_VELOCITY:-false}" || return 0
 
   local cfg_dir="${PAPER_CONFIG_DIR:-${DATA_DIR}/config}"
