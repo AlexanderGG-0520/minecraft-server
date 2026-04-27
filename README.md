@@ -116,6 +116,31 @@ Behavior:
 * Skips runtime server launch
 * Exits with code `0` when install succeeds
 
+## Server type and flavor notes
+
+Prefer an explicit `TYPE` for new installs. `TYPE=auto` is intended for existing `/data` volumes: it
+checks for `velocity.jar`, `fabric-server-launch.jar`, Forge/NeoForge `run.sh`, then `server.jar`, and
+falls back to `vanilla` when no known artifact is present. It does not infer the Minecraft `VERSION`.
+
+Set `VERSION` for install and install-only workflows. The runtime fails fast when it cannot safely
+match the requested server artifact to the requested `TYPE` and `VERSION`.
+
+Managed install artifact expectations:
+
+* `vanilla`, `paper`, and `purpur` use `/data/server.jar`.
+* `fabric` uses `/data/fabric-server-launch.jar`.
+* `forge` and `neoforge` install and run through `/data/run.sh`.
+* `velocity` uses `/data/velocity.jar` and does not use `server.properties`.
+
+`spigot` appears in runtime-oriented paths that expect `/data/server.jar`, but the entrypoint does not
+currently provide a managed Spigot installer. Do not use `TYPE=spigot` for new install workflows unless
+you have validated the image behavior for your existing volume.
+
+The installer writes `/data/.server-install.json` for managed artifacts. If an existing artifact has a
+marker for a different `TYPE`, `VERSION`, or artifact name, the entrypoint refuses to replace it
+automatically. Existing artifacts without a marker are left in place with a warning, so verify legacy
+volumes before changing `TYPE` or `VERSION`.
+
 ## S3 sync safety notes
 
 The image uses the MinIO `mc` client for S3-backed mods, plugins, configs, datapacks, resourcepacks,
