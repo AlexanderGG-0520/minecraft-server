@@ -292,6 +292,31 @@ download_file_atomic() {
   mv -f "$tmp" "$dest"
 }
 
+download_vanilla_server_atomic() {
+  local url="$1"
+  local sha1="$2"
+  local dest="$3"
+  local tmp="${dest}.tmp.$$"
+
+  rm -f -- "$tmp"
+  if ! curl -fL "$url" -o "$tmp"; then
+    rm -f -- "$tmp"
+    die "Failed to download vanilla server.jar"
+  fi
+
+  [[ -s "$tmp" ]] || {
+    rm -f -- "$tmp"
+    die "Downloaded vanilla server.jar is empty"
+  }
+
+  echo "${sha1}  ${tmp}" | sha1sum -c - >/dev/null || {
+    rm -f -- "$tmp"
+    die "Downloaded vanilla server.jar checksum mismatch"
+  }
+
+  mv -f "$tmp" "$dest"
+}
+
 server_install_marker() {
   printf '%s/.server-install.json' "${DATA_DIR}"
 }
@@ -408,12 +433,10 @@ install_server() {
       [[ -n "${meta_url}" && "${meta_url}" != "null" ]] || die "Invalid VERSION: ${VERSION}"
 
       sha1="$(curl -fsSL "${meta_url}" | jq -r '.downloads.server.sha1')"
-      download_file_atomic \
+      download_vanilla_server_atomic \
         "https://piston-data.mojang.com/v1/objects/${sha1}/server.jar" \
-        "${DATA_DIR}/server.jar" \
-        "vanilla server.jar"
-      echo "${sha1}  ${DATA_DIR}/server.jar" | sha1sum -c - >/dev/null \
-        || die "Downloaded vanilla server.jar checksum mismatch"
+        "${sha1}" \
+        "${DATA_DIR}/server.jar"
       write_server_install_marker "server.jar" "vanilla" "${VERSION}"
       ;;
 
@@ -2395,7 +2418,7 @@ detect_gpu() {
   # ------------------------------------------------------------
   # 2. OpenCL loader (path-based, not ldconfig)
   # ------------------------------------------------------------
-  if ! ls /usr/lib*/libOpenCL.so* >/dev/null 2>&1; then
+  if ! find /usr/lib /usr/local/lib -path '*libOpenCL.so*' -print -quit 2>/dev/null | grep -q .; then
     log WARN "OpenCL loader (libOpenCL.so) not found"
     return 1
   fi
@@ -2731,8 +2754,10 @@ run_server() {
   local elapsed=0
   while (( elapsed < ready_delay )); do
     if ! kill -0 "${SERVER_PID}" 2>/dev/null; then
-      wait "$SERVER_PID"
-      return $?
+      local early_status=0
+      wait "$SERVER_PID" || early_status=$?
+      rm -f "${DATA_DIR}/.ready" 2>/dev/null || true
+      return "$early_status"
     fi
     sleep 1
     elapsed=$((elapsed + 1))
@@ -2743,8 +2768,8 @@ run_server() {
     log INFO "Readiness file created"
   fi
 
-  wait "$SERVER_PID"
-  local status=$?
+  local status=0
+  wait "$SERVER_PID" || status=$?
   rm -f "${DATA_DIR}/.ready" 2>/dev/null || true
   return "$status"
 }
