@@ -1,0 +1,51 @@
+name: Runtime Smoke CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  runtime-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check entrypoint syntax on host
+        run: bash -n entrypoint.sh
+
+      - name: Build runtime image
+        run: docker build --target runtime-jre21 -t minecraft-server:test-jre21 .
+
+      - name: Check entrypoint syntax in image
+        run: docker run --rm --entrypoint bash minecraft-server:test-jre21 -n /entrypoint.sh
+
+      - name: Smoke install-only vanilla
+        run: |
+          docker run --rm \
+            -e EULA=true \
+            -e TYPE=vanilla \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            minecraft-server:test-jre21 \
+            install-only
+
+      - name: Smoke RCON changeme rejection
+        run: |
+          set +e
+          output="$(docker run --rm \
+            -e EULA=true \
+            -e TYPE=vanilla \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=true \
+            -e RCON_PASSWORD=changeme \
+            minecraft-server:test-jre21 \
+            install-only 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$status" -ne 0
+          printf '%s\n' "$output" | grep -F "RCON_PASSWORD=changeme is not allowed"
