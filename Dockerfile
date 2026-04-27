@@ -49,6 +49,7 @@ RUN set -eux; \
 FROM debian:stable-slim AS runtime-base
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV MC_CONFIG_DIR=/tmp/mc-config
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     bash curl ca-certificates tini procps \
@@ -86,8 +87,8 @@ RUN chmod 0755 /entrypoint.sh \
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
- && mkdir -p /data \
- && chown -R mc:mc /data
+ && mkdir -p /data /mods /plugins /config /datapacks /resourcepacks \
+ && chown -R mc:mc /data /mods /plugins /config /datapacks /resourcepacks
 
 USER mc:mc
 ENV HOME=/data
@@ -113,8 +114,8 @@ RUN chmod 0755 /entrypoint.sh \
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
- && mkdir -p /data \
- && chown -R mc:mc /data
+ && mkdir -p /data /mods /plugins /config /datapacks /resourcepacks \
+ && chown -R mc:mc /data /mods /plugins /config /datapacks /resourcepacks
 
 USER mc:mc
 ENV HOME=/data
@@ -140,8 +141,8 @@ RUN chmod 0755 /entrypoint.sh \
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
- && mkdir -p /data \
- && chown -R mc:mc /data
+ && mkdir -p /data /mods /plugins /config /datapacks /resourcepacks \
+ && chown -R mc:mc /data /mods /plugins /config /datapacks /resourcepacks
 
 USER mc:mc
 ENV HOME=/data
@@ -167,8 +168,8 @@ RUN chmod 0755 /entrypoint.sh \
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
- && mkdir -p /data \
- && chown -R mc:mc /data
+ && mkdir -p /data /mods /plugins /config /datapacks /resourcepacks \
+ && chown -R mc:mc /data /mods /plugins /config /datapacks /resourcepacks
 
 USER mc:mc
 ENV HOME=/data
@@ -194,8 +195,8 @@ RUN chmod 0755 /entrypoint.sh \
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
- && mkdir -p /data \
- && chown -R mc:mc /data
+ && mkdir -p /data /mods /plugins /config /datapacks /resourcepacks \
+ && chown -R mc:mc /data /mods /plugins /config /datapacks /resourcepacks
 
 USER mc:mc
 ENV HOME=/data
@@ -209,6 +210,7 @@ CMD ["run"]
 FROM nvidia/cuda:13.1.0-runtime-ubuntu24.04 AS runtime-jre25-gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV MC_CONFIG_DIR=/tmp/mc-config
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     bash ca-certificates curl tini procps \
@@ -245,8 +247,8 @@ RUN chmod 0755 /entrypoint.sh \
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
- && mkdir -p /data \
- && chown -R mc:mc /data
+ && mkdir -p /data /mods /plugins /config /datapacks /resourcepacks \
+ && chown -R mc:mc /data /mods /plugins /config /datapacks /resourcepacks
 
 USER mc:mc
 ENV HOME=/data
