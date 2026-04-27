@@ -1773,6 +1773,10 @@ install_plugins() {
     }
   ' "${tmp_remote}" | sort -u > "${tmp_remote_topjars}"
 
+  if [[ "${PLUGINS_REMOVE_EXTRA:-false}" == "true" ]] && [[ ! -s "${tmp_remote_topjars}" ]]; then
+    die "PLUGINS_REMOVE_EXTRA=true but remote plugins prefix has no top-level .jar files; refusing to remove local plugins"
+  fi
+
   # -----------------------------------
   # Download loop (top-level jars only)
   # -----------------------------------
