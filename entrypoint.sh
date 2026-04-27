@@ -243,6 +243,11 @@ activate_dir() {
     return
   }
 
+  if ! find "$src" -mindepth 1 -print -quit 2>/dev/null | grep -q .; then
+    log INFO "${name} directory is empty (${src}), skipping activation"
+    return
+  fi
+
   local parent
   parent="$(dirname "$dst")"
   local base
@@ -1764,6 +1769,11 @@ activate_plugins() {
     log INFO "No plugins input directory found (${src}), skipping"
     return 0
   }
+
+  if ! find "${src}" -mindepth 1 -print -quit 2>/dev/null | grep -q .; then
+    log INFO "Plugins input directory is empty (${src}), skipping activation"
+    return 0
+  fi
 
   log INFO "Activating plugins (merge, protect non-jar) (${src} -> ${dst})"
   mkdir -p "${dst}"
