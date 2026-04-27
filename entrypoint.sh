@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
-log() { echo "[$(ts)] [$1] $2"; }
+: "${LOG_TZ:=UTC}"
+: "${LOG_TS_FORMAT:=iso8601}"
+
+ts() {
+  if [[ "${LOG_TS_FORMAT}" == "iso8601" ]]; then
+    TZ="${LOG_TZ}" date +"%Y-%m-%dT%H:%M:%S%:z"
+  else
+    TZ="${LOG_TZ}" date +"${LOG_TS_FORMAT}"
+  fi
+}
+
+log() {
+  echo "[$(ts)] [$1] $2"
+}
 die() { log ERROR "$1"; exit 1; }
 
 MC_PID=""
@@ -12,7 +24,8 @@ MC_PID=""
 # ================================
 export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} \
 -Djava.net.preferIPv4Stack=true \
--Djava.net.preferIPv4Addresses=true"
+-Djava.net.preferIPv4Addresses=true \
+-Duser.timezone=${LOG_TZ}"
 
 echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 
@@ -40,6 +53,10 @@ echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 # Runtime
 : "${TYPE:=vanilla}"
 : "${READY_DELAY:=5}"
+: "${HOOKS_ENABLED:=false}"
+: "${HOOKS_DIR:=/hooks}"
+: "${HOOKS_STRICT:=true}"
+: "${HOOKS_TIMEOUT_SEC:=0}"
 : "${INSTALL_ONLY:=false}"
 
 # JVM
@@ -122,12 +139,13 @@ preflight() {
   [[ -n "${EULA:-}" ]] || die "EULA is not set"
 
   case "${TYPE:-vanilla}" in
-    fabric|forge|mohist|neoforge|paper|purpur|quilt|taiyitist|vanilla|velocity|youer) ;;
-    auto) die "TYPE=auto is not implemented; set TYPE explicitly" ;;
+    auto|AUTO)
+      ;;
+    fabric|forge|mohist|neoforge|paper|purpur|quilt|spigot|taiyitist|vanilla|velocity|youer) ;;
     *) die "Invalid TYPE: ${TYPE}" ;;
   esac
 
-  if [[ "${TYPE:-vanilla}" != "vanilla" && -z "${VERSION:-}" ]]; then
+  if [[ "${TYPE:-vanilla}" != "vanilla" && "${TYPE:-vanilla}" != "auto" && -z "${VERSION:-}" ]]; then
     die "VERSION must be set when TYPE is not vanilla"
   fi
 
@@ -138,6 +156,28 @@ preflight() {
 
   rm -f "${DATA_DIR}/.ready"
   log INFO "Preflight OK"
+}
+
+resolve_type_auto() {
+  [[ "${TYPE:-}" == "auto" || "${TYPE:-}" == "AUTO" ]] || return 0
+
+  if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
+    TYPE="velocity"
+  elif [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
+    TYPE="fabric"
+  elif [[ -f "${DATA_DIR}/run.sh" ]]; then
+    if compgen -G "${DATA_DIR}/.installed-neoforge-*" > /dev/null; then
+      TYPE="neoforge"
+    else
+      TYPE="forge"
+    fi
+  elif [[ -f "${DATA_DIR}/server.jar" ]]; then
+    TYPE="vanilla"
+  else
+    TYPE="vanilla"
+  fi
+
+  log INFO "TYPE auto-resolved to '${TYPE}'"
 }
 
 # ============================================================
@@ -218,7 +258,7 @@ install_dirs() {
     ${DATA_DIR}/config \
     ${DATA_DIR}/world
 
-  if [[ "${TYPE}" == "paper" || "${TYPE}" == "purpur" ]]; then
+  if [[ "${TYPE}" == "paper" || "${TYPE}" == "purpur" || "${TYPE}" == "spigot" ]]; then
     mkdir -p ${DATA_DIR}/plugins
   fi
 
@@ -920,6 +960,52 @@ is_true() {
   esac
 }
 
+run_phase_hooks() {
+  local phase="$1"
+  local dir="${HOOKS_DIR}/${phase}.d"
+  local ran=0
+  local hook
+  local rc
+
+  is_true "${HOOKS_ENABLED:-false}" || return 0
+
+  if [[ ! -d "${dir}" ]]; then
+    log INFO "Hooks enabled but '${dir}' not found, skipping ${phase} hooks"
+    return 0
+  fi
+
+  shopt -s nullglob
+  for hook in "${dir}"/*; do
+    [[ -f "${hook}" ]] || continue
+    [[ -x "${hook}" ]] || {
+      log WARN "Skipping non-executable hook: ${hook}"
+      continue
+    }
+
+    ran=1
+    log INFO "Running ${phase} hook: ${hook}"
+    if [[ "${HOOKS_TIMEOUT_SEC:-0}" =~ ^[0-9]+$ ]] && (( HOOKS_TIMEOUT_SEC > 0 )); then
+      timeout "${HOOKS_TIMEOUT_SEC}s" env HOOK_PHASE="${phase}" "${hook}" || rc=$?
+    else
+      HOOK_PHASE="${phase}" "${hook}" || rc=$?
+    fi
+
+    if [[ "${rc:-0}" -ne 0 ]]; then
+      if [[ "${rc}" -eq 124 ]]; then
+        log WARN "${phase} hook timed out after ${HOOKS_TIMEOUT_SEC}s: ${hook}"
+      fi
+      if is_true "${HOOKS_STRICT:-true}"; then
+        die "${phase} hook failed (rc=${rc}): ${hook}"
+      fi
+      log WARN "${phase} hook failed but continuing (HOOKS_STRICT=false, rc=${rc}): ${hook}"
+    fi
+    rc=0
+  done
+  shopt -u nullglob
+
+  [[ "${ran}" -eq 1 ]] || log INFO "No executable hooks found in ${dir}"
+}
+
 require_yq() {
   command -v yq >/dev/null 2>&1 || die "yq is required to edit YAML configs (install yq in the image)"
 }
@@ -1179,7 +1265,7 @@ ensure_server_properties() {
   local props="${DATA_DIR}/server.properties"
 
   case "${TYPE:-}" in
-    vanilla|paper|purpur|fabric|forge|neoforge)
+    vanilla|paper|purpur|spigot|fabric|forge|neoforge)
       ;;
     velocity)
       log INFO "TYPE=${TYPE} does not use server.properties, skipping bootstrap"
@@ -1291,7 +1377,7 @@ bootstrap_server_properties() {
   log INFO "server.properties not found, bootstrapping via official server"
 
   case "${TYPE}" in
-    vanilla|paper|purpur)
+    vanilla|paper|purpur|spigot)
       timeout 15s java -jar "${DATA_DIR}/server.jar" nogui || true
       ;;
     fabric)
@@ -1566,6 +1652,9 @@ install_plugins() {
   [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || { log INFO "Plugins disabled"; return 0; }
 
   if [[ "${TYPE:-auto}" != "paper" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
     && [[ "${TYPE:-auto}" != "purpur" ]] \
     && [[ "${TYPE:-auto}" != "mohist" ]] \
     && [[ "${TYPE:-auto}" != "taiyitist" ]] \
@@ -1753,6 +1842,8 @@ activate_plugins() {
   [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || { log INFO "Plugins disabled"; return 0; }
 
   if [[ "${TYPE:-auto}" != "paper" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
+    && [[ "${TYPE:-auto}" != "spigot" ]] \
     && [[ "${TYPE:-auto}" != "purpur" ]] \
     && [[ "${TYPE:-auto}" != "mohist" ]] \
     && [[ "${TYPE:-auto}" != "taiyitist" ]] \
@@ -2474,6 +2565,7 @@ configure_c2me_opencl() {
 
 install() {
   log INFO "Install phase start"
+  run_phase_hooks "pre-install"
 
   install_dirs
   install_eula
@@ -2506,6 +2598,7 @@ install() {
   install_whitelist
   install_ops
   configure_c2me_opencl
+  run_phase_hooks "post-install"
 
   log INFO "Install phase completed"
 }
@@ -2789,6 +2882,7 @@ run_server() {
 # ==========================================================
 runtime() {
   log INFO "Starting runtime (TYPE=${TYPE})"
+  run_phase_hooks "pre-runtime"
 
   case "${TYPE}" in
     fabric)
@@ -2797,7 +2891,7 @@ runtime() {
         -jar "${DATA_DIR}/fabric-server-launch.jar" nogui
       ;;
 
-    quilt|paper|purpur|mohist|taiyitist|youer|vanilla)
+    quilt|paper|purpur|spigot|mohist|taiyitist|youer|vanilla)
       log INFO "Launching ${TYPE} server (single JVM)"
       run_server java @"${JVM_ARGS_FILE}" \
         -jar "${DATA_DIR}/server.jar" nogui
@@ -2852,12 +2946,15 @@ esac
 main() {
   log INFO "Minecraft Runtime Booting..."
   preflight
+  resolve_type_auto
   detect_runtime_env
   install
-  if [[ "${INSTALL_ONLY}" == "true" ]]; then
-    log INFO "INSTALL_ONLY=true, exiting after install phase"
-    return 0
+
+  if is_true "${INSTALL_ONLY:-false}"; then
+    log WARN "INSTALL_ONLY=true, skipping runtime launch and exiting"
+    exit 0
   fi
+
   runtime
 }
 
