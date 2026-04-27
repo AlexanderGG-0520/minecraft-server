@@ -119,8 +119,10 @@ Behavior:
 ## Server type and flavor notes
 
 Prefer an explicit `TYPE` for new installs. `TYPE=auto` is intended for existing `/data` volumes: it
-checks for `velocity.jar`, `fabric-server-launch.jar`, Forge/NeoForge `run.sh`, then `server.jar`, and
-falls back to `vanilla` when no known artifact is present. It does not infer the Minecraft `VERSION`.
+uses `/data/.server-install.json` when a managed install marker and its artifact are present. Without a
+usable marker, it checks for `velocity.jar`, `fabric-server-launch.jar`, Forge/NeoForge `run.sh`, then
+`server.jar`, and falls back to `vanilla` when no known artifact is present. It does not infer the
+Minecraft `VERSION`.
 
 Set `VERSION` for install and install-only workflows. The runtime fails fast when it cannot safely
 match the requested server artifact to the requested `TYPE` and `VERSION`.
