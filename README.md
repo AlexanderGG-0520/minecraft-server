@@ -39,7 +39,10 @@ For reliable shutdown behavior (including Citizens save), we recommend:
 
 * Set `terminationGracePeriodSeconds` to **120s or higher**.
 * Add a `preStop` hook when possible (e.g., call `entrypoint.sh rcon-stop`).
-* Ensure `ENABLE_RCON=true` and `RCON_PASSWORD` is set so shutdown commands can run.
+* Set `ENABLE_RCON=true` and provide a non-default `RCON_PASSWORD` so shutdown commands can run.
+
+`ENABLE_RCON` defaults to `false`. The image refuses an empty RCON password and also refuses
+`RCON_PASSWORD=changeme`.
 
 ## Startup hooks (new)
 
@@ -119,6 +122,11 @@ including lifecycle separation, persistent storage strategy, and world safety gu
 
 > ⚠️ If you skip the lifecycle documentation,  
 > you may misunderstand why some environment variables are intentionally ignored.
+
+### Install-only mode
+
+Run `entrypoint.sh install-only` to execute the install phase and exit without starting the server.
+This is intended for explicit init workflows such as Kubernetes init containers.
 
 ---
 

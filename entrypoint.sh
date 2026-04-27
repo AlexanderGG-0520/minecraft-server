@@ -51,7 +51,7 @@ echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${GID:=1000}"
 
 # Runtime
-: "${TYPE:=auto}"
+: "${TYPE:=vanilla}"
 : "${READY_DELAY:=5}"
 : "${HOOKS_ENABLED:=false}"
 : "${HOOKS_DIR:=/hooks}"
@@ -104,10 +104,10 @@ echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${I_KNOW_C2ME_IS_EXPERIMENTAL:=false}"
 
 # RCON
-: "${ENABLE_RCON:=true}"
+: "${ENABLE_RCON:=false}"
 : "${RCON_HOST:=127.0.0.1}"
 : "${RCON_PORT:=25575}"
-: "${RCON_PASSWORD:=changeme}"
+: "${RCON_PASSWORD:=}"
 
 
 # ============================================================
@@ -118,6 +118,8 @@ echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${INPUT_CONFIG_DIR:=/config}"
 : "${INPUT_DATAPACKS_DIR:=/datapacks}"
 : "${INPUT_RESOURCEPACKS_DIR:=/resourcepacks}"
+: "${MC_CONFIG_DIR:=/tmp/mc-config}"
+export MC_CONFIG_DIR
 # ============================================================
 
 # RCON (runtime control)
@@ -146,6 +148,12 @@ preflight() {
   if [[ "${TYPE:-vanilla}" != "vanilla" && "${TYPE:-vanilla}" != "auto" && -z "${VERSION:-}" ]]; then
     die "VERSION must be set when TYPE is not vanilla"
   fi
+
+  if [[ "${ENABLE_RCON}" == "true" ]]; then
+    [[ -n "${RCON_PASSWORD:-}" ]] || die "ENABLE_RCON=true but RCON_PASSWORD is empty"
+    [[ "${RCON_PASSWORD}" != "changeme" ]] || die "RCON_PASSWORD=changeme is not allowed"
+  fi
+
   rm -f "${DATA_DIR}/.ready"
   log INFO "Preflight OK"
 }
@@ -187,7 +195,34 @@ detect_runtime_env() {
     RUNTIME_OS="unknown"
     RUNTIME_OS_VERSION="unknown"
   fi
-  export RUNTIME_OS RUNTIME_OS_VERSION
+
+  JAVA_VERSION_RAW="$(java -version 2>&1 | head -n 1 || true)"
+  JAVA_MAJOR="$(
+    java -XshowSettings:properties -version 2>&1 \
+      | awk -F= '/java.specification.version/ { gsub(/[[:space:]]/, "", $2); print $2; exit }' \
+      | sed 's/^1\.//'
+  )"
+  [[ -n "${JAVA_MAJOR}" ]] || JAVA_MAJOR="unknown"
+
+  RUNTIME_ARCH_NORM="$(uname -m)"
+  case "${RUNTIME_ARCH_NORM}" in
+    amd64) RUNTIME_ARCH_NORM="x86_64" ;;
+    aarch64|arm64) RUNTIME_ARCH_NORM="arm64" ;;
+  esac
+
+  if [[ -f /.dockerenv || -f /run/.containerenv || -n "${container:-}" ]]; then
+    RUNTIME_CONTAINER="true"
+  else
+    RUNTIME_CONTAINER="false"
+  fi
+
+  if [[ -e /dev/nvidia0 || -e /dev/dxg || -d /dev/dri ]]; then
+    RUNTIME_GPU="present"
+  else
+    RUNTIME_GPU="none"
+  fi
+
+  export RUNTIME_OS RUNTIME_OS_VERSION JAVA_VERSION_RAW JAVA_MAJOR RUNTIME_ARCH_NORM RUNTIME_CONTAINER RUNTIME_GPU
 }
 
 
@@ -248,6 +283,11 @@ activate_dir() {
     return
   }
 
+  if ! find "$src" -mindepth 1 -print -quit 2>/dev/null | grep -q .; then
+    log INFO "${name} directory is empty (${src}), skipping activation"
+    return
+  fi
+
   local parent
   parent="$(dirname "$dst")"
   local base
@@ -277,6 +317,131 @@ activate_dir() {
   rm -rf "$backup"
 }
 
+download_file_atomic() {
+  local url="$1"
+  local dest="$2"
+  local label="$3"
+  local tmp="${dest}.tmp.$$"
+
+  rm -f -- "$tmp"
+  if ! curl -fL "$url" -o "$tmp"; then
+    rm -f -- "$tmp"
+    die "Failed to download ${label}"
+  fi
+
+  [[ -s "$tmp" ]] || {
+    rm -f -- "$tmp"
+    die "Downloaded ${label} is empty"
+  }
+
+  mv -f "$tmp" "$dest"
+}
+
+download_vanilla_server_atomic() {
+  local url="$1"
+  local sha1="$2"
+  local dest="$3"
+  local tmp="${dest}.tmp.$$"
+
+  rm -f -- "$tmp"
+  if ! curl -fL "$url" -o "$tmp"; then
+    rm -f -- "$tmp"
+    die "Failed to download vanilla server.jar"
+  fi
+
+  [[ -s "$tmp" ]] || {
+    rm -f -- "$tmp"
+    die "Downloaded vanilla server.jar is empty"
+  }
+
+  echo "${sha1}  ${tmp}" | sha1sum -c - >/dev/null || {
+    rm -f -- "$tmp"
+    die "Downloaded vanilla server.jar checksum mismatch"
+  }
+
+  mv -f "$tmp" "$dest"
+}
+
+server_install_marker() {
+  printf '%s/.server-install.json' "${DATA_DIR}"
+}
+
+assert_server_install_matches() {
+  local artifact="$1"
+  local requested_type="$2"
+  local requested_version="$3"
+  local marker
+  marker="$(server_install_marker)"
+
+  if [[ ! -f "$marker" ]]; then
+    log WARN "${artifact} exists without install marker; leaving it in place"
+    return 0
+  fi
+
+  local installed_type installed_version installed_artifact
+  installed_type="$(jq -r '.type // empty' "$marker")"
+  installed_version="$(jq -r '.version // empty' "$marker")"
+  installed_artifact="$(jq -r '.artifact // empty' "$marker")"
+
+  if [[ "$installed_type" != "$requested_type" \
+     || "$installed_version" != "$requested_version" \
+     || "$installed_artifact" != "$artifact" ]]; then
+    die "${artifact} was installed as TYPE=${installed_type:-unknown} VERSION=${installed_version:-unknown}; requested TYPE=${requested_type} VERSION=${requested_version}. Refusing to replace existing server artifact automatically"
+  fi
+}
+
+write_server_install_marker() {
+  local artifact="$1"
+  local installed_type="$2"
+  local installed_version="$3"
+  local build="${4:-}"
+  local marker tmp
+  marker="$(server_install_marker)"
+  tmp="${marker}.tmp.$$"
+
+  jq -n \
+    --arg artifact "$artifact" \
+    --arg type "$installed_type" \
+    --arg version "$installed_version" \
+    --arg build "$build" \
+    '{artifact:$artifact,type:$type,version:$version,build:$build}' > "$tmp"
+  mv -f "$tmp" "$marker"
+}
+
+require_s3_env() {
+  local feature="$1"
+  [[ -n "${S3_ENDPOINT:-}" ]] || die "S3_ENDPOINT is required for ${feature}"
+  [[ -n "${S3_ACCESS_KEY:-}" ]] || die "S3_ACCESS_KEY is required for ${feature}"
+  [[ -n "${S3_SECRET_KEY:-}" ]] || die "S3_SECRET_KEY is required for ${feature}"
+}
+
+configure_mc_alias() {
+  local feature="$1"
+  require_s3_env "$feature"
+  mkdir -p "${MC_CONFIG_DIR}"
+  mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}" >/dev/null \
+    || die "Failed to configure MinIO client for ${feature}"
+}
+
+ensure_s3_source_nonempty_for_remove() {
+  local src="$1"
+  local feature="$2"
+  local tmp
+  tmp="$(mktemp)"
+
+  if ! mc find "$src" --print "{}" > "$tmp"; then
+    rm -f -- "$tmp"
+    die "Failed to list ${feature} source before remove sync: ${src}"
+  fi
+
+  if [[ ! -s "$tmp" ]]; then
+    rm -f -- "$tmp"
+    die "${feature} remove_extra requested but S3 source is empty: ${src}"
+  fi
+
+  rm -f -- "$tmp"
+}
+
 install_eula() {
   log INFO "Handling EULA"
 
@@ -301,7 +466,8 @@ install_server() {
     vanilla)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for vanilla"
 
-      if [[ -f ${DATA_DIR}/server.jar ]]; then
+      if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        assert_server_install_matches "server.jar" "vanilla" "${VERSION}"
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -312,15 +478,18 @@ install_server() {
       [[ -n "${meta_url}" && "${meta_url}" != "null" ]] || die "Invalid VERSION: ${VERSION}"
 
       sha1="$(curl -fsSL "${meta_url}" | jq -r '.downloads.server.sha1')"
-      curl -fL "https://piston-data.mojang.com/v1/objects/${sha1}/server.jar" \
-        -o ${DATA_DIR}/server.jar \
-        || die "Failed to download vanilla server.jar"
+      download_vanilla_server_atomic \
+        "https://piston-data.mojang.com/v1/objects/${sha1}/server.jar" \
+        "${sha1}" \
+        "${DATA_DIR}/server.jar"
+      write_server_install_marker "server.jar" "vanilla" "${VERSION}"
       ;;
 
     fabric)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for fabric"
 
       if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
+        assert_server_install_matches "fabric-server-launch.jar" "fabric" "${VERSION}"
         log INFO "fabric-server-launch.jar already exists, skipping"
         return
       fi
@@ -363,24 +532,27 @@ install_server() {
         || die "Fabric installer failed"
 
       log INFO "Fabric server.jar ready"
+      write_server_install_marker "fabric-server-launch.jar" "fabric" "${VERSION}" "${LOADER_VERSION}"
       ;;
 
     quilt)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for quilt"
 
       if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        assert_server_install_matches "server.jar" "quilt" "${VERSION}"
         log INFO "server.jar already exists, skipping"
         return
       fi
 
       log INFO "Installing Quilt server ${VERSION}"
 
-      curl -fL \
+      download_file_atomic \
         "https://meta.quiltmc.org/v3/versions/loader/${VERSION}/latest/server/jar" \
-        -o "${DATA_DIR}/server.jar" \
-        || die "Failed to download Quilt server.jar"
+        "${DATA_DIR}/server.jar" \
+        "Quilt server.jar"
 
       log INFO "Quilt server.jar ready"
+      write_server_install_marker "server.jar" "quilt" "${VERSION}"
       ;;
 
     forge)
@@ -413,6 +585,7 @@ install_server() {
       MARKER="${DATA_DIR}/.installed-forge-${VERSION}-${FORGE_VER}"
 
       if [[ -f "${MARKER}" ]]; then
+        assert_server_install_matches "run.sh" "forge" "${VERSION}"
         log INFO "Forge already installed (MC=${VERSION}, forge=${FORGE_VER}), skipping"
       else
         log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
@@ -429,6 +602,7 @@ install_server() {
         [[ -x "${DATA_DIR}/run.sh" ]] || die "Forge install finished but run.sh not found"
 
         touch "${MARKER}"
+        write_server_install_marker "run.sh" "forge" "${VERSION}" "${FORGE_VER}"
         log INFO "Forge installed marker created: ${MARKER}"
       fi
       ;;
@@ -455,6 +629,7 @@ install_server() {
       MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}-${NEO_VER}"
 
       if [[ -f "${MARKER}" ]]; then
+        assert_server_install_matches "run.sh" "neoforge" "${VERSION}"
         log INFO "NeoForge already installed (MC=${VERSION}, neoforge=${NEO_VER}), skipping"
       else
         log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
@@ -471,6 +646,7 @@ install_server() {
         [[ -x "${DATA_DIR}/run.sh" ]] || die "NeoForge install finished but run.sh not found"
 
         touch "${MARKER}"
+        write_server_install_marker "run.sh" "neoforge" "${VERSION}" "${NEO_VER}"
         log INFO "NeoForge installed marker created: ${MARKER}"
       fi
       ;;
@@ -478,7 +654,8 @@ install_server() {
     paper)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for paper"
 
-      if [[ -f ${DATA_DIR}/server.jar ]]; then
+      if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        assert_server_install_matches "server.jar" "paper" "${VERSION}"
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -511,18 +688,20 @@ install_server() {
 
       JAR_NAME="paper-${VERSION}-${BUILD}.jar"
 
-      curl -fL \
+      download_file_atomic \
         "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/${JAR_NAME}" \
-        -o ${DATA_DIR}/server.jar \
-        || die "Failed to download Paper server.jar"
+        "${DATA_DIR}/server.jar" \
+        "Paper server.jar"
 
       log INFO "Paper server.jar ready"
+      write_server_install_marker "server.jar" "paper" "${VERSION}" "${BUILD}"
       ;;
     
     purpur)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for purpur"
 
-      if [[ -f ${DATA_DIR}/server.jar ]]; then
+      if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        assert_server_install_matches "server.jar" "purpur" "${VERSION}"
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -552,36 +731,40 @@ install_server() {
 
       JAR_NAME="purpur-${VERSION}-${BUILD}.jar"
 
-      curl -fL \
+      download_file_atomic \
         "https://api.purpurmc.org/v2/purpur/${VERSION}/${BUILD}/download" \
-        -o ${DATA_DIR}/server.jar \
-        || die "Failed to download Purpur server.jar"
+        "${DATA_DIR}/server.jar" \
+        "Purpur server.jar"
 
       log INFO "Purpur server.jar ready"
+      write_server_install_marker "server.jar" "purpur" "${VERSION}" "${BUILD}"
       ;;
 
     mohist)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for mohist"
 
       if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        assert_server_install_matches "server.jar" "mohist" "${VERSION}"
         log INFO "server.jar already exists, skipping"
         return
       fi
 
       log INFO "Installing Mohist server ${VERSION}"
 
-      curl -fL \
+      download_file_atomic \
         "https://mohistmc.com/api/v2/projects/mohist/${VERSION}/builds/latest/download" \
-        -o "${DATA_DIR}/server.jar" \
-        || die "Failed to download Mohist server.jar"
+        "${DATA_DIR}/server.jar" \
+        "Mohist server.jar"
 
       log INFO "Mohist server.jar ready"
+      write_server_install_marker "server.jar" "mohist" "${VERSION}"
       ;;
 
     taiyitist)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for taiyitist"
 
       if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        assert_server_install_matches "server.jar" "taiyitist" "${VERSION}"
         log INFO "server.jar already exists, skipping"
         return
       fi
@@ -601,28 +784,30 @@ install_server() {
 
       log INFO "Downloading ${ASSET_URL}"
 
-      curl -fL "${ASSET_URL}" -o "${DATA_DIR}/server.jar" \
-        || die "Failed to download Taiyitist server.jar"
+      download_file_atomic "${ASSET_URL}" "${DATA_DIR}/server.jar" "Taiyitist server.jar"
 
       log INFO "Taiyitist server.jar ready"
+      write_server_install_marker "server.jar" "taiyitist" "${VERSION}"
       ;;
 
     youer)
       [[ -n "${VERSION:-}" ]] || die "VERSION is required for youer"
 
       if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        assert_server_install_matches "server.jar" "youer" "${VERSION}"
         log INFO "server.jar already exists, skipping"
         return
       fi
 
       log INFO "Installing Youer server ${VERSION}"
 
-      curl -fL \
+      download_file_atomic \
         "https://api.youer.org/v1/projects/youer/${VERSION}/builds/latest/download" \
-        -o "${DATA_DIR}/server.jar" \
-        || die "Failed to download Youer server.jar"
+        "${DATA_DIR}/server.jar" \
+        "Youer server.jar"
 
       log INFO "Youer server.jar ready"
+      write_server_install_marker "server.jar" "youer" "${VERSION}"
       ;;
 
   velocity)
@@ -644,6 +829,7 @@ install_server() {
     # ============================================================
 
     if [[ -f "${DATA_DIR}/velocity.jar" && "${FORCE_REDOWNLOAD:-0}" != "1" ]]; then
+      assert_server_install_matches "velocity.jar" "velocity" "${VERSION}"
       log INFO "velocity.jar already exists, skipping (set FORCE_REDOWNLOAD=1 to override)"
       return
     fi
@@ -693,14 +879,21 @@ install_server() {
     log INFO "Installing Velocity ${VERSION} build ${BUILD_ID} (channel=${VELOCITY_CHANNEL})"
     log INFO "Download URL: ${DL_URL}"
 
-    curl -fL -H "User-Agent: ${VELOCITY_UA}" \
-      "${DL_URL}" \
-      -o "${DATA_DIR}/velocity.jar" \
-      || die "Failed to download Velocity jar"
+    VELOCITY_TMP="${DATA_DIR}/velocity.jar.tmp.$$"
+    rm -f -- "${VELOCITY_TMP}"
+    if ! curl -fL -H "User-Agent: ${VELOCITY_UA}" "${DL_URL}" -o "${VELOCITY_TMP}"; then
+      rm -f -- "${VELOCITY_TMP}"
+      die "Failed to download Velocity jar"
+    fi
 
-    [[ "$(wc -c < "${DATA_DIR}/velocity.jar")" -gt 1000000 ]] || die "Downloaded Velocity jar is too small"
+    [[ "$(wc -c < "${VELOCITY_TMP}")" -gt 1000000 ]] || {
+      rm -f -- "${VELOCITY_TMP}"
+      die "Downloaded Velocity jar is too small"
+    }
+    mv -f "${VELOCITY_TMP}" "${DATA_DIR}/velocity.jar"
 
     log INFO "Velocity jar ready"
+    write_server_install_marker "velocity.jar" "velocity" "${VERSION}" "${BUILD_ID}"
     ;;
     *)
       die "install_server: TYPE=${TYPE} not implemented yet"
@@ -826,7 +1019,9 @@ set_server_properties_kv() {
   # Replace only key lines without breaking comments
   if grep -Eq "^[[:space:]]*${key}[[:space:]]*=" "$file"; then
     # Use GNU sed (assuming Linux, not macOS -i'' format)
-    sed -i -E "s|^[[:space:]]*(${key})[[:space:]]*=.*$|\1=${value}|g" "$file"
+    local sed_value
+    sed_value="$(escape_sed_replacement "$value")"
+    sed -i -E "s|^[[:space:]]*(${key})[[:space:]]*=.*$|\1=${sed_value}|g" "$file"
   else
     printf "%s=%s\n" "$key" "$value" >> "$file"
   fi
@@ -892,18 +1087,23 @@ configure_paper_configs() {
     local secret="${PAPER_VELOCITY_SECRET:-${VELOCITY_SECRET:-}}"
     [[ -n "$secret" ]] || die "PAPER_VELOCITY=true but no PAPER_VELOCITY_SECRET or VELOCITY_SECRET"
 
-    # Always write these; yq_set_yaml assumes touch/creation
-    yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.enabled" "true"
-    yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.secret" "$secret"
+    if command -v yq >/dev/null 2>&1; then
+      # Always write these; yq_set_yaml assumes touch/creation
+      yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.enabled" "true"
+      yq_set_yaml "${cfg_dir}/paper-global.yml" "proxies.velocity.secret" "$secret"
 
-    # Do the same for legacy setups (regardless of file presence)
-    yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.enabled" "true"
-    yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.secret" "$secret"
+      # Do the same for legacy setups (regardless of file presence)
+      yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.enabled" "true"
+      yq_set_yaml "${cfg_dir}/paper.yml" "settings.velocity-support.secret" "$secret"
 
-    yq_set_yaml "${cfg_dir}/spigot.yml" "settings.bungeecord" "true"
+      yq_set_yaml "${cfg_dir}/spigot.yml" "settings.bungeecord" "true"
+    else
+      log WARN "yq not found; paper-global.yml will use minimal fallback and legacy Paper files are skipped"
+    fi
   fi
 
   if [[ -n "${PAPER_CONFIG_OVERRIDES:-}" ]]; then
+    require_yq
     local -a items
     IFS=',' read -ra items <<< "${PAPER_CONFIG_OVERRIDES}"
     local it
@@ -1119,16 +1319,19 @@ reset_world() {
     mkdir -p "${BACKUP_DIR}"
 
     log INFO "Creating world backup"
-    tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C ${DATA_DIR} world \
-      || log ERROR "World backup failed"
+    tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C "${DATA_DIR}" world \
+      || die "World backup failed; refusing to delete world"
   fi
 
   # ---- Step 3: delete world directory completely ----
   log INFO "Deleting world directory"
   rm -rf "${WORLD_DIR}"
   mkdir -p "${WORLD_DIR}"
-  rm -rf "${MODS_DIR}"
-  mkdir -p "${MODS_DIR}"
+  if [[ "${RESET_WORLD_REMOVE_MODS:-false}" == "true" ]]; then
+    log WARN "RESET_WORLD_REMOVE_MODS=true, deleting mods directory"
+    rm -rf "${MODS_DIR}"
+    mkdir -p "${MODS_DIR}"
+  fi
   log INFO "World directory reset complete"
 
   # ---- Step 4: delete the FLAG file to prevent repeated resets ----
@@ -1223,20 +1426,19 @@ install_mods() {
 
 
   log INFO "Configuring MinIO client"
-  mc alias set s3 \
-    "${S3_ENDPOINT}" \
-    "${S3_ACCESS_KEY}" \
-    "${S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client"
+  configure_mc_alias "mods"
 
-  REMOVE_FLAG=""
-  [[ "${MODS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+  local -a remove_args=()
+  if [[ "${MODS_REMOVE_EXTRA}" == "true" ]]; then
+    remove_args=(--remove)
+    ensure_s3_source_nonempty_for_remove "s3/${MODS_S3_BUCKET}/${MODS_S3_PREFIX}" "mods"
+  fi
 
   log INFO "Syncing mods from s3://${MODS_S3_BUCKET}/${MODS_S3_PREFIX}"
 
   mc mirror \
     --overwrite \
-    ${REMOVE_FLAG} \
+    "${remove_args[@]}" \
     "s3/${MODS_S3_BUCKET}/${MODS_S3_PREFIX}" \
     "${MODS_DIR}" \
     || die "Failed to sync mods from MinIO"
@@ -1357,21 +1559,20 @@ install_configs() {
 
 
   log INFO "Configuring MinIO client for configs"
-  mc alias set s3 \
-    "${S3_ENDPOINT}" \
-    "${S3_ACCESS_KEY}" \
-    "${S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client"
+  configure_mc_alias "configs"
 
 
-  REMOVE_FLAG=""
-  [[ "${CONFIGS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+  local -a remove_args=()
+  if [[ "${CONFIGS_REMOVE_EXTRA}" == "true" ]]; then
+    remove_args=(--remove)
+    ensure_s3_source_nonempty_for_remove "s3/${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}" "configs"
+  fi
 
   log INFO "Syncing configs from s3://${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}"
 
   mc mirror \
     --overwrite \
-    ${REMOVE_FLAG} \
+    "${remove_args[@]}" \
     "s3/${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}" \
     "${CONFIG_DIR}" \
     || die "Failed to sync configs from MinIO"
@@ -1496,8 +1697,7 @@ install_plugins() {
   }
 
   log INFO "Configuring MinIO client for plugins"
-  mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client"
+  configure_mc_alias "plugins"
 
   # Build source path safely
   local src="s3/${PLUGINS_S3_BUCKET}"
@@ -1604,7 +1804,7 @@ install_plugins() {
         if ! grep -Fxq "${base}" "${tmp_remote_topjars}"; then
           log INFO "Removing extra local jar: ${local_jar}"
           rm -f -- "${local_jar}" || {
-            ((strict == true)) && die "Failed to remove extra jar: ${local_jar}"
+            [[ "${strict}" == "true" ]] && die "Failed to remove extra jar: ${local_jar}"
             log WARN "Failed to remove extra jar (non-strict): ${local_jar}"
           }
         fi
@@ -1649,6 +1849,16 @@ activate_plugins() {
 
   local src="/plugins"
   local dst="${DATA_DIR}/plugins"
+
+  [[ -d "${src}" ]] || {
+    log INFO "No plugins input directory found (${src}), skipping"
+    return 0
+  }
+
+  if ! find "${src}" -mindepth 1 -print -quit 2>/dev/null | grep -q .; then
+    log INFO "Plugins input directory is empty (${src}), skipping activation"
+    return 0
+  fi
 
   log INFO "Activating plugins (merge, protect non-jar) (${src} -> ${dst})"
   mkdir -p "${dst}"
@@ -1749,7 +1959,7 @@ install_world() {
   # ------------------------------------------------------------
   # Download
   # ------------------------------------------------------------
-  mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}"
+  configure_mc_alias "world"
 
   mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}" \
     || die "Failed to download world archive"
@@ -1798,20 +2008,19 @@ install_datapacks() {
 
 
   log INFO "Configuring MinIO client for datapacks"
-  mc alias set s3 \
-    "${S3_ENDPOINT}" \
-    "${S3_ACCESS_KEY}" \
-    "${S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client"
+  configure_mc_alias "datapacks"
 
-  REMOVE_FLAG=""
-  [[ "${DATAPACKS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+  local -a remove_args=()
+  if [[ "${DATAPACKS_REMOVE_EXTRA}" == "true" ]]; then
+    remove_args=(--remove)
+    ensure_s3_source_nonempty_for_remove "s3/${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}" "datapacks"
+  fi
 
   log INFO "Syncing datapacks from s3://${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}"
 
   mc mirror \
     --overwrite \
-    ${REMOVE_FLAG} \
+    "${remove_args[@]}" \
     "s3/${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}" \
     "${DATAPACKS_DIR}" \
     || die "Failed to sync datapacks"
@@ -1855,19 +2064,18 @@ install_resourcepacks() {
   fi
 
   log INFO "Configuring MinIO client for resourcepacks"
-  mc alias set s3 \
-    "${S3_ENDPOINT}" \
-    "${S3_ACCESS_KEY}" \
-    "${S3_SECRET_KEY}" \
-    || die "Failed to configure MinIO client"
+  configure_mc_alias "resourcepacks"
 
-  REMOVE_FLAG=""
-  [[ "${RESOURCEPACKS_REMOVE_EXTRA}" == "true" ]] && REMOVE_FLAG="--remove"
+  local -a remove_args=()
+  if [[ "${RESOURCEPACKS_REMOVE_EXTRA}" == "true" ]]; then
+    remove_args=(--remove)
+    ensure_s3_source_nonempty_for_remove "s3/${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}" "resourcepacks"
+  fi
 
   log INFO "Syncing resourcepacks from s3://${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}"
   mc mirror \
     --overwrite \
-    ${REMOVE_FLAG} \
+    "${remove_args[@]}" \
     "s3/${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}" \
     "${RP_DIR}" \
     || die "Failed to sync resourcepacks"
@@ -1882,7 +2090,7 @@ install_resourcepacks() {
       -e "s|^resource-pack=.*|resource-pack=${RESOURCEPACK_URL}|" \
       -e "s|^resource-pack-sha1=.*|resource-pack-sha1=${RESOURCEPACK_SHA1}|" \
       -e "s|^require-resource-pack=.*|require-resource-pack=${RESOURCEPACK_REQUIRED}|" \
-      ${DATA_DIR}/server.properties || true
+      "${DATA_DIR}/server.properties" || true
   fi
 
   if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]] && [[ ! -f "${DATA_DIR}/server.properties" ]]; then
@@ -1962,6 +2170,27 @@ normalize_env_val() {
   printf '%s' "$1" | sed ':a;N;$!ba;s/\n/\\n/g'
 }
 
+escape_sed_replacement() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//&/\\&}"
+  s="${s//|/\\|}"
+  printf '%s' "$s"
+}
+
+mask_property_log_value() {
+  local key="$1"
+  local value="$2"
+  case "${key}" in
+    rcon.password|*secret*|*password*|*token*|*key*)
+      printf '%s' '<masked>'
+      ;;
+    *)
+      printf '%s' "$value"
+      ;;
+  esac
+}
+
 apply_server_properties_diff() {
   local props_file="${DATA_DIR}/server.properties"
 
@@ -2004,12 +2233,16 @@ apply_server_properties_diff() {
     fi
 
     # Update or append
+    local LOG_VAL
+    LOG_VAL="$(mask_property_log_value "$PROP_KEY" "$ENV_VAL")"
     if grep -qE "^${PROP_KEY}=" "$props_file"; then
-      sed -i "s|^${PROP_KEY}=.*|${PROP_KEY}=${ENV_VAL}|" "$props_file"
-      log INFO "Updated property: ${PROP_KEY}=${ENV_VAL}"
+      local SED_VAL
+      SED_VAL="$(escape_sed_replacement "$ENV_VAL")"
+      sed -i "s|^${PROP_KEY}=.*|${PROP_KEY}=${SED_VAL}|" "$props_file"
+      log INFO "Updated property: ${PROP_KEY}=${LOG_VAL}"
     else
       echo "${PROP_KEY}=${ENV_VAL}" >> "$props_file"
-      log INFO "Added property: ${PROP_KEY}=${ENV_VAL}"
+      log INFO "Added property: ${PROP_KEY}=${LOG_VAL}"
     fi
   done
 
@@ -2023,7 +2256,9 @@ set_prop() {
 
   # Replace if key exists, append if not
   if grep -qE "^${key}=" "$file"; then
-    sed -i "s|^${key}=.*|${key}=${value}|" "$file"
+    local sed_value
+    sed_value="$(escape_sed_replacement "$value")"
+    sed -i "s|^${key}=.*|${key}=${sed_value}|" "$file"
   else
     echo "${key}=${value}" >> "$file"
   fi
@@ -2034,10 +2269,8 @@ apply_rcon_settings() {
     set_prop enable-rcon true
     set_prop rcon.port "${RCON_PORT:-25575}"
 
-    if [[ -z "${RCON_PASSWORD}" ]]; then
-      log ERROR "ENABLE_RCON=true but RCON_PASSWORD is empty"
-      exit 1
-    fi
+    [[ -n "${RCON_PASSWORD:-}" ]] || die "ENABLE_RCON=true but RCON_PASSWORD is empty"
+    [[ "${RCON_PASSWORD}" != "changeme" ]] || die "RCON_PASSWORD=changeme is not allowed"
 
     set_prop rcon.password "${RCON_PASSWORD}"
   else
@@ -2213,12 +2446,7 @@ opt_required_any_enabled() {
 }
 
 opt_mc_configure_alias() {
-  # Expect mc available. Reuse common S3_* env.
-  [[ -n "${S3_ENDPOINT:-}" ]] || die "S3_ENDPOINT is required for optimize mods"
-  [[ -n "${S3_ACCESS_KEY:-}" ]] || die "S3_ACCESS_KEY is required for optimize mods"
-  [[ -n "${S3_SECRET_KEY:-}" ]] || die "S3_SECRET_KEY is required for optimize mods"
-
-  mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}" >/dev/null
+  configure_mc_alias "optimize mods"
 }
 
 opt_mirror_from_s3() {
@@ -2285,29 +2513,27 @@ detect_gpu() {
   # ------------------------------------------------------------
   # 2. OpenCL loader (path-based, not ldconfig)
   # ------------------------------------------------------------
-  if ! ls /usr/lib*/libOpenCL.so* >/dev/null 2>&1; then
+  if ! find /usr/lib /usr/local/lib -path '*libOpenCL.so*' -print -quit 2>/dev/null | grep -q .; then
     log WARN "OpenCL loader (libOpenCL.so) not found"
     return 1
   fi
   log INFO "OpenCL loader present"
 
   # ------------------------------------------------------------
-  # 3. clinfo existence
+  # 3. clinfo is diagnostic only; containerized OpenCL can work
+  #    even when clinfo is missing or unreliable.
   # ------------------------------------------------------------
   if ! command -v clinfo >/dev/null 2>&1; then
-    log WARN "clinfo not available"
-    return 1
+    log WARN "clinfo not available; continuing with device + loader detection"
+    return 0
   fi
 
-  # ------------------------------------------------------------
-  # 4. clinfo sanity (minimal & fast)
-  # ------------------------------------------------------------
   if ! clinfo --raw 2>/dev/null | grep -qi "NVIDIA"; then
-    log WARN "OpenCL NVIDIA platform not detected"
-    return 1
+    log WARN "clinfo did not report NVIDIA; continuing because clinfo is not authoritative"
+    return 0
   fi
 
-  log INFO "OpenCL GPU detected and usable"
+  log INFO "OpenCL GPU detected"
   return 0
 }
 
@@ -2619,7 +2845,30 @@ run_server() {
   "$@" &
   SERVER_PID=$!
 
-  wait "$SERVER_PID"
+  local ready_delay="${READY_DELAY:-5}"
+  [[ "$ready_delay" =~ ^[0-9]+$ ]] || die "READY_DELAY must be a non-negative integer"
+
+  local elapsed=0
+  while (( elapsed < ready_delay )); do
+    if ! kill -0 "${SERVER_PID}" 2>/dev/null; then
+      local early_status=0
+      wait "$SERVER_PID" || early_status=$?
+      rm -f "${DATA_DIR}/.ready" 2>/dev/null || true
+      return "$early_status"
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  if kill -0 "${SERVER_PID}" 2>/dev/null; then
+    touch "${DATA_DIR}/.ready" 2>/dev/null || log WARN "Failed to create readiness file: ${DATA_DIR}/.ready"
+    log INFO "Readiness file created"
+  fi
+
+  local status=0
+  wait "$SERVER_PID" || status=$?
+  rm -f "${DATA_DIR}/.ready" 2>/dev/null || true
+  return "$status"
 }
 
 # ==========================================================
@@ -2652,101 +2901,10 @@ runtime() {
       ;;
 
     velocity)
-    [[ -n "${VERSION:-}" ]] || die "VERSION is required for velocity"
-    generate_velocity_toml
-
-    # ============================================================
-    # Velocity (PaperMC Fill v3)
-    #
-    # Why:
-    # - api.papermc.io/v2 does not reliably resolve SNAPSHOT versions
-    # - fill.papermc.io/v3 returns builds as an ARRAY
-    #
-    # Env:
-    # - VERSION (required)
-    # - VELOCITY_CHANNEL (optional): STABLE | RECOMMENDED (default: STABLE)
-    # - VELOCITY_UA (optional): User-Agent for curl
-    # - FORCE_REDOWNLOAD (optional): "1" to redownload even if velocity.jar exists
-    # ============================================================
-
-    if [[ -f "${DATA_DIR}/velocity.jar" && "${FORCE_REDOWNLOAD:-0}" != "1" ]]; then
-      log INFO "velocity.jar already exists, skipping (set FORCE_REDOWNLOAD=1 to override)"
-      return
-    fi
-
-    VELOCITY_CHANNEL="${VELOCITY_CHANNEL:-STABLE}"
-    VELOCITY_UA="${VELOCITY_UA:-AlecSMP-K8s/1.0 (velocity-installer)}"
-
-    # ============================================================
-    # Velocity installer (PaperMC Fill v3) - unified resolver
-    #
-    # Fill v3 schema (observed):
-    # - Build object keys: id, time, channel, commits, downloads
-    # - Prefer downloads["server:default"].url
-    #
-    # Env:
-    # - VERSION (required)
-    # - VELOCITY_CHANNEL (optional): STABLE|BETA|RECOMMENDED (default: STABLE)
-    # - VELOCITY_UA (optional): User-Agent for curl
-    # - FORCE_REDOWNLOAD=1 (optional)
-    # ============================================================
-
-    # If jar already exists, do not re-resolve at runtime
-    if [[ -f "${DATA_DIR}/velocity.jar" && "${FORCE_REDOWNLOAD:-0}" != "1" ]]; then
-      log INFO "velocity.jar already exists, skipping resolve (set FORCE_REDOWNLOAD=1 to override)"
-    else
-      VELOCITY_CHANNEL="${VELOCITY_CHANNEL:-STABLE}"
-      case "${VELOCITY_CHANNEL}" in
-        RECOMMENDED|recommended) VELOCITY_CHANNEL="BETA" ;;
-      esac
-    
-      VELOCITY_UA="${VELOCITY_UA:-minecraft-server/velocity-installer}"
-    
-      log INFO "Resolving Velocity ${VERSION} (channel=${VELOCITY_CHANNEL}) via Fill v3"
-    
-      BUILDS_JSON="$(curl -fsSL -H "User-Agent: ${VELOCITY_UA}" \
-        "https://fill.papermc.io/v3/projects/velocity/versions/${VERSION}/builds")" \
-        || die "Failed to fetch Velocity builds (Fill v3)"
-    
-      # Fallback channel if missing
-      if ! printf '%s' "${BUILDS_JSON}" | jq -e --arg ch "${VELOCITY_CHANNEL}" '.[] | select(.channel == $ch)' >/dev/null; then
-        log WARN "Channel '${VELOCITY_CHANNEL}' not found; falling back to an available channel"
-        VELOCITY_CHANNEL="$(printf '%s' "${BUILDS_JSON}" | jq -r '.[0].channel')"
-        log WARN "Using channel='${VELOCITY_CHANNEL}'"
-      fi
-    
-      # Latest build by time (Fill v3 uses .time, and id is the build number)
-      BUILD_OBJ="$(printf '%s' "${BUILDS_JSON}" | jq -c --arg ch "${VELOCITY_CHANNEL}" '
-        [ .[] | select(.channel == $ch) ]
-        | (sort_by(.time) | last)
-      ')" || die "Failed to select latest build object"
-    
-      [[ -n "${BUILD_OBJ}" && "${BUILD_OBJ}" != "null" ]] \
-        || die "No Velocity build found for VERSION=${VERSION} channel=${VELOCITY_CHANNEL}"
-    
-      BUILD_ID="$(printf '%s' "${BUILD_OBJ}" | jq -r '.id // empty')"
-      [[ -n "${BUILD_ID}" ]] || die "Velocity build id missing in Fill v3 response"
-    
-      DL_URL="$(printf '%s' "${BUILD_OBJ}" | jq -r '
-        .downloads["server:default"].url
-        // (.downloads | to_entries[0].value.url)
-        // empty
-      ')"
-    
-      [[ -n "${DL_URL}" ]] || die "Failed to resolve Velocity download URL (VERSION=${VERSION} channel=${VELOCITY_CHANNEL} id=${BUILD_ID})"
-    
-      log INFO "Installing Velocity ${VERSION} build ${BUILD_ID} (channel=${VELOCITY_CHANNEL})"
-      log INFO "Download URL: ${DL_URL}"
-    
-      curl -fL -H "User-Agent: ${VELOCITY_UA}" \
-        "${DL_URL}" \
-        -o "${DATA_DIR}/velocity.jar" \
-        || die "Failed to download Velocity jar"
-    
-      [[ "$(wc -c < "${DATA_DIR}/velocity.jar")" -gt 1000000 ]] || die "Downloaded Velocity jar is too small"
-    
-      log INFO "Velocity jar ready"
-    fi
+      [[ -f "${DATA_DIR}/velocity.jar" ]] || die "velocity.jar not found at ${DATA_DIR}/velocity.jar"
+      cd "${DATA_DIR}"
+      log INFO "Launching Velocity server"
+      run_server java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/velocity.jar"
       ;;
 
     *)
@@ -2755,7 +2913,14 @@ runtime() {
   esac
 }
 
-case "$1" in
+case "${1:-run}" in
+  run)
+    shift || true
+    ;;
+  install-only)
+    INSTALL_ONLY=true
+    shift || true
+    ;;
   rcon)
     shift
     rcon_exec "$@"
@@ -2789,6 +2954,7 @@ main() {
 
 if [[ "${__SOURCED:-0}" != "1" ]]; then
   main "$@"
+  exit $?
 fi
 
 # __VELOCITY_RUNTIME_EXEC_FOOTER__
