@@ -280,6 +280,10 @@ spec:
             - name: MODS_REMOVE_EXTRA
               value: "false"
 
+            # Keep *_REMOVE_EXTRA=false while validating a new bucket or prefix.
+            # When set true, the image fails fast if the remote source is empty
+            # before running a remove sync.
+
             # --------------------------------------------------
             # Configs
             # --------------------------------------------------
