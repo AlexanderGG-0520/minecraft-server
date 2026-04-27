@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minecraft-install-only
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: minecraft-install
+          image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21
+          args: ["install-only"]
+          env:
+            - name: EULA
+              value: "true"
+            - name: TYPE
+              value: "vanilla"
+            - name: VERSION
+              value: "1.21.8"
+            - name: ENABLE_RCON
+              value: "false"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minecraft-data
+  backoffLimit: 0

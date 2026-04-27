@@ -44,6 +44,46 @@ For reliable shutdown behavior (including Citizens save), we recommend:
 `ENABLE_RCON` defaults to `false`. The image refuses an empty RCON password and also refuses
 `RCON_PASSWORD=changeme`.
 
+Minimal Kubernetes pattern:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minecraft-rcon
+type: Opaque
+stringData:
+  password: replace-with-a-strong-password
+---
+containers:
+  - name: minecraft
+    env:
+      - name: ENABLE_RCON
+        value: "true"
+      - name: RCON_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: minecraft-rcon
+            key: password
+    lifecycle:
+      preStop:
+        exec:
+          command: ["/entrypoint.sh", "rcon-stop"]
+    readinessProbe:
+      exec:
+        command: ["test", "-f", "/data/.ready"]
+      periodSeconds: 10
+      failureThreshold: 3
+    volumeMounts:
+      - name: data
+        mountPath: /data
+terminationGracePeriodSeconds: 120
+```
+
+The `.ready` file is created only after the runtime survives `READY_DELAY` and is removed during
+shutdown. Keep world data on a single-writer PVC and prefer `strategy.type: Recreate` for
+Deployments that mount the same world volume.
+
 ## Startup hooks (new)
 
 You can run custom scripts at controlled lifecycle points.
