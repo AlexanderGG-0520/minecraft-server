@@ -112,3 +112,30 @@ jobs:
             -e ENABLE_RCON=false \
             minecraft-server:test-jre21 \
             install-only
+
+      - name: Smoke artifact marker mismatch rejection
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          touch "$tmp/server.jar"
+          cat > "$tmp/.server-install.json" <<'JSON'
+          {"type":"vanilla","version":"1.21.8","artifact":"server.jar"}
+          JSON
+          chmod 0777 "$tmp"
+
+          set +e
+          output="$(docker run --rm \
+            -v "$tmp:/data" \
+            -e EULA=true \
+            -e TYPE=paper \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            minecraft-server:test-jre21 \
+            install-only 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$status" -ne 0
+          printf '%s\n' "$output" | grep -F "server.jar was installed as TYPE=vanilla VERSION=1.21.8; requested TYPE=paper VERSION=1.21.8"
