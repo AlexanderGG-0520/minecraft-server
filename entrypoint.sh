@@ -13,10 +13,13 @@ ts() {
 }
 
 log() {
-  echo "[$(ts)] [$1] $2"
+  local level="$1"; shift || true
+  # Use printf with %s to avoid format string injection; join remaining args as message
+  printf '[%s] [%s] %s\n' "$(ts)" "$level" "$*" >&2
 }
 die() { log ERROR "$1"; exit 1; }
 
+# shellcheck disable=SC2034  # Reserved global for PID-oriented lifecycle handling.
 MC_PID=""
 
 # ================================
@@ -27,7 +30,7 @@ export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} \
 -Djava.net.preferIPv4Addresses=true \
 -Duser.timezone=${LOG_TZ}"
 
-echo "[INFO] JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
+log INFO "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 
 # ============================================================
 # Environment defaults (non server.properties)
@@ -978,7 +981,7 @@ setup_server_icon() {
 }
 
 normalize_toml_key() {
-  echo "$1" | sed 's/[^a-zA-Z0-9_]/_/g'
+  printf '%s\n' "${1//[^a-zA-Z0-9_]/_}"
 }
 
 declare -A VELOCITY_SERVER_KEYS
@@ -1711,6 +1714,7 @@ install_plugins() {
   local tmp_remote=""
   local tmp_remote_jars=""
 
+  # shellcheck disable=SC2317  # Invoked indirectly via RETURN trap.
   cleanup_plugins_tmp() {
     rm -f -- "${tmp_remote:-}" "${tmp_remote_jars:-}" 2>/dev/null || true
   }
@@ -1761,6 +1765,7 @@ install_plugins() {
   local tmp_remote=""         # list of all remote objects
   local tmp_remote_topjars="" # list of remote top-level jars (plugins/*.jar only)
 
+  # shellcheck disable=SC2317  # Invoked indirectly via RETURN trap.
   cleanup_plugins_tmp() {
     rm -f -- "${tmp_remote:-}" "${tmp_remote_topjars:-}" 2>/dev/null || true
   }
@@ -1801,7 +1806,7 @@ install_plugins() {
     # Defensive: skip directory-like entries
     [[ "${obj}" != */ ]] || continue
 
-    rel="${obj#${src}}"
+    rel="${obj#"${src}"}"
     [[ "${rel}" != "${obj}" ]] || continue
     [[ -n "${rel}" ]] || continue
 
@@ -1952,7 +1957,7 @@ activate_plugins() {
         | sed 's|^\./||' | sort -u > "${tmp_src_jars}")
 
       while IFS= read -r -d '' local_jar; do
-        local rel="${local_jar#${dst}/}"
+        local rel="${local_jar#"${dst}"/}"
         if [[ "${rel}" == */* ]]; then
           continue
         fi
@@ -2320,6 +2325,7 @@ apply_rcon_settings() {
 }
 
 install_server_properties() {
+  # shellcheck disable=SC2034  # Retained as a conventional path binding for this install step.
   PROPS_FILE="${DATA_DIR}/server.properties"
 
   if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-true}" == "true" ]]; then
@@ -2349,6 +2355,7 @@ uuid_for_player() {
 
   cached=$(jq -r --arg n "$name" '.[$n] // empty' "$UUID_CACHE_FILE")
   if [[ -n "$cached" ]]; then
+    [[ "$cached" =~ ^[0-9a-fA-F]{32}$ ]] || die "Invalid cached UUID for player '${name}'"
     echo "$cached"
     return 0
   fi
@@ -2358,6 +2365,7 @@ uuid_for_player() {
     | jq -r '.id // empty') || return 1
 
   [[ -z "$uuid" ]] && return 1
+  [[ "$uuid" =~ ^[0-9a-fA-F]{32}$ ]] || die "Invalid UUID returned for player '${name}'"
 
   jq --arg n "$name" --arg u "$uuid" \
     '. + {($n): $u}' \
@@ -2368,11 +2376,20 @@ uuid_for_player() {
 }
 
 # transform CSV string into newline-separated list
+# NOTE: this is meant to feed `while IFS= read -r ...` iteration. The main
+#       hazard being avoided is `for name in $(parse_csv ...)`, where command
+#       substitution plus `for ... in` triggers word splitting and globbing and
+#       corrupts values containing spaces or glob characters. That issue is
+#       independent of `set -u`. Prefer:
+#         while IFS= read -r name; do ...; done < <(parse_csv "${CSV}")
+#       This is a simple comma-separated env-var parser: it trims leading and
+#       trailing whitespace and drops empty items. Embedded commas are not
+#       supported.
 parse_csv() {
-  echo "$1" \
-    | tr ',' '\n' \
-    | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
-    | sed '/^$/d'
+  if [[ -z "${1:-}" ]]; then
+    return 0
+  fi
+  printf '%s' "$1" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed '/^$/d'
 }
 
 # transform UUID into hyphenated form
@@ -2385,74 +2402,59 @@ uuid_with_hyphen() {
 # function to generate ops.json
 install_ops() {
   local FILE="${DATA_DIR}/ops.json"
+  local tmp
+  local uuid
 
   # now ops is empty
   [[ -z "${OPS_USERS:-}" ]] && return
 
   log INFO "Generating ops.json"
+  tmp="$(mktemp "${FILE}.tmp.XXXXXX")"
 
   {
-    echo "["
-
-    local first=true
-    for name in $(parse_csv "${OPS_USERS}"); do
-      # get UUID for a given player name
+    while IFS= read -r name; do
       uuid=$(uuid_for_player "$name") || continue
-      [[ -z "$uuid" ]] && continue
 
-      # first user skip comma
-      [[ "$first" != true ]] && echo ","
-      first=false
+      jq -nc \
+        --arg uuid "$(uuid_with_hyphen "$uuid")" \
+        --arg name "$name" \
+        --argjson level 4 \
+        --argjson bypassesPlayerLimit false \
+        '{uuid:$uuid,name:$name,level:$level,bypassesPlayerLimit:$bypassesPlayerLimit}'
+    done < <(parse_csv "${OPS_USERS}")
+  } | jq -s '.' > "$tmp"
 
-      # output ops.json entry
-      cat <<EOF
-  {
-    "uuid": "$(uuid_with_hyphen "$uuid")",
-    "name": "$name",
-    "level": 4,
-    "bypassesPlayerLimit": false
-  }
-EOF
-    done
-    echo "]"
-  } > "$FILE"
+  mv -f "$tmp" "$FILE"
 }
 
 # function to generate whitelist.json
 install_whitelist() {
   local FILE="${DATA_DIR}/whitelist.json"
+  local tmp
+  local uuid
 
   # now whitelist disabled or empty
   [[ "${ENABLE_WHITELIST:-false}" != "true" ]] && return
   [[ -z "${WHITELIST_USERS:-}" ]] && return
 
   log INFO "Generating whitelist.json"
+  tmp="$(mktemp "${FILE}.tmp.XXXXXX")"
 
   {
-    echo "["
-
-    local first=true
-    for name in $(parse_csv "${WHITELIST_USERS}"); do
-      # get UUID for a given player name
+    while IFS= read -r name; do
       uuid=$(uuid_for_player "$name") || continue
-      [[ -z "$uuid" ]] && continue
 
-      # first user skip comma
-      [[ "$first" != true ]] && echo ","
-      first=false
+      jq -nc \
+        --arg uuid "$(uuid_with_hyphen "$uuid")" \
+        --arg name "$name" \
+        '{uuid:$uuid,name:$name}'
+    done < <(parse_csv "${WHITELIST_USERS}")
+  } | jq -s '.' > "$tmp"
 
-      # output whitelist.json entry
-      cat <<EOF
-  {
-    "uuid": "$(uuid_with_hyphen "$uuid")",
-    "name": "$name"
-  }
-EOF
-    done
-    echo "]"
-  } > "$FILE"
+  mv -f "$tmp" "$FILE"
 }
 
+# shellcheck disable=SC2034  # Reserved managed-path anchor for optimize-mods handling.
 OPT_MANAGED_DIR="${DATA_DIR}/.managed/optimize-mods"
 OPT_LINK_PREFIX="zz-opt-"
 
