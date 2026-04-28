@@ -142,9 +142,8 @@ Managed install artifact expectations:
 * `forge` and `neoforge` install and run through `/data/run.sh`.
 * `velocity` uses `/data/velocity.jar` and does not use `server.properties`.
 
-`spigot` appears in runtime-oriented paths that expect `/data/server.jar`, but the entrypoint does not
-currently provide a managed Spigot installer. Do not use `TYPE=spigot` for new install workflows unless
-you have validated the image behavior for your existing volume.
+`TYPE=spigot` can run an existing `/data/server.jar`, but the entrypoint does not currently provide a
+managed Spigot installer. It fails fast if `TYPE=spigot` is selected without an existing artifact.
 
 The installer writes `/data/.server-install.json` for managed artifacts. If an existing artifact has a
 marker for a different `TYPE`, `VERSION`, or artifact name, the entrypoint refuses to replace it

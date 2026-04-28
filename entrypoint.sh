@@ -835,6 +835,18 @@ install_server() {
       write_server_install_marker "server.jar" "youer" "${VERSION}"
       ;;
 
+    spigot)
+      [[ -n "${VERSION:-}" ]] || die "VERSION is required for spigot"
+
+      if [[ -f "${DATA_DIR}/server.jar" ]]; then
+        assert_server_install_matches "server.jar" "spigot" "${VERSION}"
+        log INFO "server.jar already exists, using existing Spigot artifact"
+        return
+      fi
+
+      die "TYPE=spigot requires an existing /data/server.jar; managed Spigot installer is not provided"
+      ;;
+
   velocity)
     [[ -n "${VERSION:-}" ]] || die "VERSION is required for velocity"
     generate_velocity_toml
