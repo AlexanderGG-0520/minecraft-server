@@ -1,7 +1,21 @@
-# GPU / OpenCL Example (C2ME + Minecraft Server)
+# Examples
 
-This directory contains **example configurations and notes** for running  
-a Minecraft server with **C2ME OpenCL acceleration** inside containers.
+This directory contains runnable Docker Compose and Kubernetes examples.
+
+Start with:
+
+- `docker/fabric/compose.yml` for a small local Fabric server.
+- `kubernetes/fabric-basic.yaml` for a minimal Kubernetes deployment.
+- `kubernetes/install-only-job.example.yaml` for pre-warming a volume without launching runtime.
+- `kubernetes/rcon-secret.example.yaml` for non-default RCON shutdown credentials.
+
+The notes below focus on the GPU/OpenCL C2ME Kubernetes example.
+
+---
+
+## GPU / OpenCL Example (C2ME + Minecraft Server)
+
+The GPU example shows **C2ME OpenCL acceleration** inside containers.
 
 > ⚠️ This setup is **practical-first**, not theoretical.
 > If it runs stably and accelerates worldgen, it is considered **successful**.

@@ -15,6 +15,14 @@ This project is for people who already know *why* feature-rich images sometimes 
 
 ---
 
+## Documentation map
+
+Start with the safety notes below when running on Kubernetes or reusing existing volumes.
+For runnable manifests and Compose files, see [examples/README.md](examples/README.md).
+For deeper design notes, use the [GitHub Wiki](https://github.com/AlexanderGG-0520/minecraft-server/wiki).
+
+---
+
 ## What this is
 
 This repository provides a **performance-first Minecraft server runtime** designed with the following assumptions:
