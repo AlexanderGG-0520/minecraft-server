@@ -60,7 +60,9 @@ jobs:
           cat > "$tmp/.server-install.json" <<'JSON'
           {"type":"paper","version":"1.21.8","artifact":"server.jar"}
           JSON
+          chmod 0777 "$tmp"
 
+          set +e
           output="$(docker run --rm \
             -v "$tmp:/data" \
             -e EULA=true \
@@ -69,5 +71,8 @@ jobs:
             -e ENABLE_RCON=false \
             minecraft-server:test-jre21 \
             install-only 2>&1)"
+          status=$?
+          set -e
           printf '%s\n' "$output"
+          test "$status" -eq 0
           printf '%s\n' "$output" | grep -F "TYPE auto-resolved to 'paper' from install marker"
