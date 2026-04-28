@@ -57,10 +57,12 @@ jobs:
           trap 'rm -rf "$tmp"' EXIT
 
           touch "$tmp/server.jar"
+          printf 'enable-rcon=false\n' > "$tmp/server.properties"
           cat > "$tmp/.server-install.json" <<'JSON'
           {"type":"paper","version":"1.21.8","artifact":"server.jar"}
           JSON
           chmod 0777 "$tmp"
+          chmod 0666 "$tmp/server.properties"
 
           set +e
           output="$(docker run --rm \
