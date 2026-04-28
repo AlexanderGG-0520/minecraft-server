@@ -27,6 +27,8 @@ For deeper design notes, use the [GitHub Wiki](https://github.com/AlexanderGG-05
 
 This repository provides a **performance-first Minecraft server runtime** designed with the following assumptions:
 
+CI runs `bash -n`, `shellcheck`, and a lightweight Docker smoke build.
+
 * You understand Docker and Minecraft server internals
 * You prefer **explicit configuration over abstraction**
 * You value **predictability and speed** over convenience
