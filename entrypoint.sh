@@ -282,12 +282,12 @@ install_dirs() {
   log INFO "Preparing directory structure"
 
   mkdir -p \
-    ${DATA_DIR}/logs \
-    ${DATA_DIR}/config \
-    ${DATA_DIR}/world
+    "${DATA_DIR}/logs" \
+    "${DATA_DIR}/config" \
+    "${DATA_DIR}/world"
 
   if [[ "${TYPE}" == "paper" || "${TYPE}" == "purpur" || "${TYPE}" == "spigot" ]]; then
-    mkdir -p ${DATA_DIR}/plugins
+    mkdir -p "${DATA_DIR}/plugins"
   fi
 
   if [[ "${TYPE}" == "fabric" || "${TYPE}" == "forge" || "${TYPE}" == "neoforge" ]]; then
@@ -295,8 +295,8 @@ install_dirs() {
   fi
 
   # Permissions check
-  touch ${DATA_DIR}/logs/.perm_test 2>/dev/null || die "${DATA_DIR}/logs is not writable"
-  rm -f ${DATA_DIR}/logs/.perm_test
+  touch "${DATA_DIR}/logs/.perm_test" 2>/dev/null || die "${DATA_DIR}/logs is not writable"
+  rm -f "${DATA_DIR}/logs/.perm_test"
 
   log INFO "Directory structure ready"
 }
@@ -1714,7 +1714,7 @@ install_plugins() {
   local tmp_remote=""
   local tmp_remote_jars=""
 
-  # shellcheck disable=SC2317  # Invoked indirectly via RETURN trap.
+  # shellcheck disable=SC2317,SC2329  # Called indirectly via RETURN trap in plugin sync flow.
   cleanup_plugins_tmp() {
     rm -f -- "${tmp_remote:-}" "${tmp_remote_jars:-}" 2>/dev/null || true
   }
@@ -1765,7 +1765,7 @@ install_plugins() {
   local tmp_remote=""         # list of all remote objects
   local tmp_remote_topjars="" # list of remote top-level jars (plugins/*.jar only)
 
-  # shellcheck disable=SC2317  # Invoked indirectly via RETURN trap.
+  # shellcheck disable=SC2317,SC2329  # Called indirectly via RETURN trap in plugin sync flow.
   cleanup_plugins_tmp() {
     rm -f -- "${tmp_remote:-}" "${tmp_remote_topjars:-}" 2>/dev/null || true
   }
@@ -3010,5 +3010,5 @@ if [[ "${TYPE:-}" == "velocity" ]]; then
   fi
   log INFO "Launching Velocity (foreground, PID 1)"
   cd "${DATA_DIR}"
-  exec java ${JAVA_TOOL_OPTIONS:-} -jar "${DATA_DIR}/velocity.jar"
+  exec java -jar "${DATA_DIR}/velocity.jar"
 fi
