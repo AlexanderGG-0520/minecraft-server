@@ -2340,9 +2340,16 @@ install_server_properties() {
 # path to UUID cache file
 UUID_CACHE_FILE="${DATA_DIR}/uuid_cache.json"  # select a suitable location
 
-# create UUID cache file if not exists
+# create UUID cache file if not exists, and fail fast if it is not a JSON object
 init_uuid_cache() {
-  [[ -f "$UUID_CACHE_FILE" ]] || echo "{}" > "$UUID_CACHE_FILE"
+  if [[ ! -f "$UUID_CACHE_FILE" ]]; then
+    echo "{}" > "$UUID_CACHE_FILE"
+    return 0
+  fi
+
+  if ! jq -e 'type == "object"' "$UUID_CACHE_FILE" >/dev/null 2>&1; then
+    die "Invalid UUID cache at ${UUID_CACHE_FILE}; expected a JSON object. Fix or remove the file to regenerate it."
+  fi
 }
 
 # get UUID for a given player name
@@ -2409,6 +2416,7 @@ install_ops() {
   [[ -z "${OPS_USERS:-}" ]] && return
 
   log INFO "Generating ops.json"
+  init_uuid_cache
   tmp="$(mktemp "${FILE}.tmp.XXXXXX")"
 
   {
@@ -2438,6 +2446,7 @@ install_whitelist() {
   [[ -z "${WHITELIST_USERS:-}" ]] && return
 
   log INFO "Generating whitelist.json"
+  init_uuid_cache
   tmp="$(mktemp "${FILE}.tmp.XXXXXX")"
 
   {

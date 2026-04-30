@@ -155,6 +155,13 @@ marker for a different `TYPE`, `VERSION`, or artifact name, the entrypoint refus
 automatically. Existing artifacts without a marker are left in place with a warning, so verify legacy
 volumes before changing `TYPE` or `VERSION`.
 
+## UUID cache safety notes
+
+`OPS_USERS` and `WHITELIST_USERS` generation uses `/data/uuid_cache.json` to cache Mojang UUID lookups.
+The cache must be a JSON object. If the file is corrupted or contains another JSON type, startup fails
+fast with the cache path and does not print the file contents. Fix the JSON manually or remove the cache
+file to let it be regenerated; the entrypoint does not auto-repair it.
+
 ## S3 sync safety notes
 
 The image uses the MinIO `mc` client for S3-backed mods, plugins, configs, datapacks, resourcepacks,
