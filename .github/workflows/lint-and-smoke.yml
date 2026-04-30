@@ -1,4 +1,4 @@
-name: Lint and Smoke
+name: Lint and Static Smoke
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 
 jobs:
   lint:
+    name: Bash syntax and ShellCheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,21 +23,3 @@ jobs:
 
       - name: ShellCheck entrypoint.sh
         run: shellcheck -x -s bash entrypoint.sh
-
-  smoke:
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build runtime-jre17 smoke image
-        run: |
-          # Build a runtime target that executes the Dockerfile stage containing
-          # `COPY entrypoint.sh /entrypoint.sh`.
-          docker build --progress=plain --target runtime-jre17 -t minecraft-server:smoke .
-
-      - name: Check entrypoint exists in image
-        run: docker run --rm --entrypoint test minecraft-server:smoke -f /entrypoint.sh
-
-      - name: Check entrypoint is executable in image
-        run: docker run --rm --entrypoint test minecraft-server:smoke -x /entrypoint.sh

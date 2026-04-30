@@ -27,7 +27,10 @@ For deeper design notes, use the [GitHub Wiki](https://github.com/AlexanderGG-05
 
 This repository provides a **performance-first Minecraft server runtime** designed with the following assumptions:
 
-CI runs `bash -n`, `shellcheck`, and a lightweight Docker smoke build.
+CI is split by responsibility:
+
+* **Lint and Static Smoke** runs `bash -n entrypoint.sh` and `shellcheck -x -s bash entrypoint.sh`.
+* **Runtime Smoke CI** builds `runtime-jre21`, checks `/entrypoint.sh` inside the image, and runs runtime behavior regressions for install-only, RCON safety, `TYPE=auto`, Spigot bring-your-own artifacts, and install marker mismatch handling.
 
 * You understand Docker and Minecraft server internals
 * You prefer **explicit configuration over abstraction**

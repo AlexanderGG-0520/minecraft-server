@@ -8,17 +8,20 @@ on:
 
 jobs:
   runtime-smoke:
+    name: Runtime behavior regression
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check entrypoint syntax on host
-        run: bash -n entrypoint.sh
-
       - name: Build runtime image
         run: docker build --target runtime-jre21 -t minecraft-server:test-jre21 .
+
+      - name: Check entrypoint image sanity
+        run: |
+          docker run --rm --entrypoint test minecraft-server:test-jre21 -f /entrypoint.sh
+          docker run --rm --entrypoint test minecraft-server:test-jre21 -x /entrypoint.sh
 
       - name: Check entrypoint syntax in image
         run: docker run --rm --entrypoint bash minecraft-server:test-jre21 -n /entrypoint.sh
