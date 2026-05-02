@@ -104,6 +104,26 @@ jobs:
           printf '%s\n' "$output"
           printf '%s\n' "$output" | grep -F "Modpack marker matches; skipping modpack install"
 
+          rm -f "$data/mods/server-mod.jar"
+          test ! -f "$data/mods/server-mod.jar"
+          reconcile_output="$(docker run --rm \
+            -v "$data:/data" \
+            -v "$pack:/pack:ro" \
+            -e EULA=true \
+            -e TYPE=spigot \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            -e MODPACK_URL=file:///pack/valid.mrpack \
+            -e MODPACK_ALLOW_FILE_URL=true \
+            minecraft-server:test-jre21 \
+            install-only 2>&1)"
+          printf '%s\n' "$reconcile_output"
+          test -f "$data/mods/server-mod.jar"
+          if printf '%s\n' "$reconcile_output" | grep -F "Modpack marker matches; skipping modpack install"; then
+            echo "expected modpack reinstall when marker-managed file is missing"
+            exit 1
+          fi
+
           mkdir -p "$tmp/mismatch-data"
           touch "$tmp/mismatch-data/server.jar"
           printf 'enable-rcon=false\n' > "$tmp/mismatch-data/server.properties"
