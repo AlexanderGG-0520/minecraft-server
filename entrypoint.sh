@@ -101,6 +101,15 @@ log INFO "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${RESOURCEPACKS_AUTO_APPLY:=true}"
 : "${RESOURCEPACK_REQUIRED:=false}"
 
+# Modpacks (experimental)
+: "${MODPACK_URL:=}"
+: "${MODPACK_FORMAT:=auto}"
+: "${MODPACK_INSTALL_MODE:=server}"
+: "${MODPACK_FORCE_REINSTALL:=false}"
+: "${MODPACK_REMOVE_EXTRA:=false}"
+: "${MODPACK_INCLUDE_OPTIONAL:=false}"
+: "${MODPACK_ALLOW_FILE_URL:=false}"
+
 # F-3: C2ME (EXPERIMENTAL)
 : "${ENABLE_C2ME:=false}"
 : "${ENABLE_C2ME_HARDWARE_ACCELERATION:=false}"
@@ -2713,6 +2722,247 @@ select_modrinth_server_files() {
     done
 }
 
+modpack_install_marker() {
+  printf '%s/.modpack-install.json' "${DATA_DIR}"
+}
+
+modpack_file_hash_matches() {
+  local file="$1"
+  local sha1="$2"
+  local sha512="$3"
+
+  [[ -f "$file" ]] || return 1
+  echo "${sha512}  ${file}" | sha512sum -c - >/dev/null 2>&1 || return 1
+  echo "${sha1}  ${file}" | sha1sum -c - >/dev/null 2>&1 || return 1
+}
+
+modpack_marker_has_file() {
+  local relpath="$1"
+  local marker
+  marker="$(modpack_install_marker)"
+
+  [[ -f "$marker" ]] || return 1
+  jq -e 'type == "object" and .schemaVersion == 1 and (.files | type == "array")' "$marker" >/dev/null \
+    || die "Invalid modpack install marker: ${marker}"
+  jq -e --arg path "$relpath" '.files[]? | select(.path == $path)' "$marker" >/dev/null
+}
+
+download_modpack_file() {
+  local url="$1"
+  local out="$2"
+  local label="$3"
+  local src
+
+  case "$url" in
+    file://*)
+      is_true "${MODPACK_ALLOW_FILE_URL:-false}" || die "file:// modpack downloads require MODPACK_ALLOW_FILE_URL=true"
+      src="${url#file://}"
+      [[ -f "$src" ]] || die "Local modpack source not found for ${label}"
+      cp "$src" "$out" || die "Failed to copy local modpack source for ${label}"
+      ;;
+    https://*)
+      die "HTTPS modpack downloads are not implemented in this phase"
+      ;;
+    *)
+      die "Unsupported modpack download URL for ${label}"
+      ;;
+  esac
+
+  [[ -s "$out" ]] || die "Downloaded modpack file is empty for ${label}"
+}
+
+verify_modpack_file() {
+  local file="$1"
+  local sha1="$2"
+  local sha512="$3"
+  local label="$4"
+
+  echo "${sha512}  ${file}" | sha512sum -c - >/dev/null || die "SHA512 mismatch for modpack file: ${label}"
+  echo "${sha1}  ${file}" | sha1sum -c - >/dev/null || die "SHA1 mismatch for modpack file: ${label}"
+}
+
+install_modpack_file() {
+  local relpath="$1"
+  local src="$2"
+  local sha1="$3"
+  local sha512="$4"
+  local target parent tmp
+
+  safe_modpack_path "$relpath" file
+  target="${DATA_DIR}/${relpath}"
+  parent="$(dirname "$target")"
+
+  case "$target" in
+    "${DATA_DIR}"/*) ;;
+    *) die "Refusing to install modpack file outside DATA_DIR: ${relpath}" ;;
+  esac
+
+  if [[ -e "$target" ]]; then
+    if modpack_file_hash_matches "$target" "$sha1" "$sha512"; then
+      log INFO "Modpack file already present with expected hash: ${relpath}"
+      return 0
+    fi
+
+    if modpack_marker_has_file "$relpath"; then
+      log INFO "Replacing previously managed modpack file: ${relpath}"
+    elif [[ "$relpath" == *.jar ]]; then
+      die "Refusing to overwrite user-owned jar from modpack: ${relpath}"
+    else
+      log INFO "Skipping existing user-owned modpack seed file: ${relpath}"
+      return 2
+    fi
+  fi
+
+  mkdir -p "$parent"
+  tmp="${target}.tmp.$$"
+  rm -f -- "$tmp"
+  cp "$src" "$tmp" || {
+    rm -f -- "$tmp"
+    die "Failed to stage modpack file: ${relpath}"
+  }
+  mv -f "$tmp" "$target"
+}
+
+write_modpack_marker() {
+  local marker="$1"
+  local tmp_files="$2"
+  local source_url="$3"
+  local version_id="$4"
+  local index_sha512="$5"
+  local tmp
+
+  tmp="${marker}.tmp.$$"
+  jq -n \
+    --arg sourceUrl "$source_url" \
+    --arg versionId "$version_id" \
+    --arg indexSha512 "$index_sha512" \
+    --arg installedAt "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    --slurpfile files "$tmp_files" \
+    '{
+      schemaVersion: 1,
+      format: "mrpack",
+      sourceUrl: $sourceUrl,
+      versionId: $versionId,
+      indexSha512: $indexSha512,
+      installMode: "server",
+      files: $files[0],
+      overrides: [],
+      installedAt: $installedAt
+    }' > "$tmp"
+  mv -f "$tmp" "$marker"
+}
+
+modpack_marker_matches() {
+  local marker="$1"
+  local source_url="$2"
+  local version_id="$3"
+  local index_sha512="$4"
+  local relpath sha1 sha512
+
+  [[ -f "$marker" ]] || return 1
+  jq -e 'type == "object" and .schemaVersion == 1 and (.files | type == "array")' "$marker" >/dev/null \
+    || die "Invalid modpack install marker: ${marker}"
+
+  jq -e \
+    --arg sourceUrl "$source_url" \
+    --arg versionId "$version_id" \
+    --arg indexSha512 "$index_sha512" \
+    '.format == "mrpack"
+      and .sourceUrl == $sourceUrl
+      and .versionId == $versionId
+      and .indexSha512 == $indexSha512
+      and .installMode == "server"' "$marker" >/dev/null || return 1
+
+  while IFS=$'\t' read -r relpath sha1 sha512; do
+    [[ -n "$relpath" ]] || continue
+    safe_modpack_path "$relpath" file
+    modpack_file_hash_matches "${DATA_DIR}/${relpath}" "$sha1" "$sha512" || return 1
+  done < <(jq -r '.files[] | [.path, .sha1, .sha512] | @tsv' "$marker")
+}
+
+install_modrinth_mrpack() {
+  local archive="$1"
+  local source_url="$2"
+  local tmpdir index selected tmp_files marker version_id index_sha512
+  local file relpath url sha1 sha512 downloaded
+
+  tmpdir="$(mktemp -d)"
+  index="${tmpdir}/modrinth.index.json"
+  selected="${tmpdir}/selected.jsonl"
+  tmp_files="${tmpdir}/files.json"
+  marker="$(modpack_install_marker)"
+
+  extract_mrpack_index "$archive" "$index"
+  validate_modrinth_index "$index"
+  version_id="$(jq -er '.versionId' "$index")"
+  index_sha512="$(sha512sum "$index")"
+  index_sha512="${index_sha512%% *}"
+
+  if ! is_true "${MODPACK_FORCE_REINSTALL:-false}" \
+    && modpack_marker_matches "$marker" "$source_url" "$version_id" "$index_sha512"; then
+    log INFO "Modpack marker matches; skipping modpack install"
+    rm -rf "$tmpdir"
+    return 0
+  fi
+
+  select_modrinth_server_files "$index" > "$selected"
+  : > "$tmp_files"
+
+  while IFS= read -r file; do
+    [[ -n "$file" ]] || continue
+    relpath="$(jq -er '.path' <<< "$file")"
+    url="$(jq -er '.downloads[0]' <<< "$file")"
+    sha1="$(jq -er '.hashes.sha1' <<< "$file")"
+    sha512="$(jq -er '.hashes.sha512' <<< "$file")"
+    downloaded="${tmpdir}/downloaded-$(basename "$relpath").$$"
+
+    download_modpack_file "$url" "$downloaded" "$relpath"
+    verify_modpack_file "$downloaded" "$sha1" "$sha512" "$relpath"
+    if install_modpack_file "$relpath" "$downloaded" "$sha1" "$sha512"; then
+      jq -nc --arg path "$relpath" --arg sha1 "$sha1" --arg sha512 "$sha512" \
+        '{path:$path,sha1:$sha1,sha512:$sha512}' >> "$tmp_files"
+    else
+      local status=$?
+      [[ "$status" -eq 2 ]] || return "$status"
+    fi
+  done < "$selected"
+
+  jq -s '.' "$tmp_files" > "${tmp_files}.array"
+  write_modpack_marker "$marker" "${tmp_files}.array" "$source_url" "$version_id" "$index_sha512"
+  rm -rf "$tmpdir"
+  log INFO "Modpack install completed: ${version_id}"
+}
+
+install_modpack() {
+  local format tmpdir archive source
+
+  [[ -n "${MODPACK_URL:-}" ]] || return 0
+
+  [[ "${MODPACK_INSTALL_MODE}" == "server" ]] || die "Only MODPACK_INSTALL_MODE=server is supported in this phase"
+  [[ "${MODPACK_FORMAT}" == "auto" || "${MODPACK_FORMAT}" == "mrpack" ]] || die "Only MODPACK_FORMAT=auto or mrpack is supported"
+  is_true "${MODPACK_REMOVE_EXTRA:-false}" && die "MODPACK_REMOVE_EXTRA=true is not supported in this phase"
+  is_true "${MODPACK_INCLUDE_OPTIONAL:-false}" && die "MODPACK_INCLUDE_OPTIONAL=true is not supported in this phase"
+
+  format="${MODPACK_FORMAT}"
+  if [[ "$format" == "auto" ]]; then
+    case "${MODPACK_URL}" in
+      *.mrpack) format="mrpack" ;;
+      *) die "MODPACK_FORMAT=auto only recognizes .mrpack URLs in this phase" ;;
+    esac
+  fi
+
+  [[ "$format" == "mrpack" ]] || die "Only Modrinth mrpack install is supported in this phase"
+
+  tmpdir="$(mktemp -d)"
+  archive="${tmpdir}/pack.mrpack"
+  source="${MODPACK_URL}"
+
+  log INFO "Installing Modrinth mrpack (experimental local mode)"
+  download_modpack_file "$source" "$archive" "mrpack archive"
+  install_modrinth_mrpack "$archive" "$source"
+  rm -rf "$tmpdir"
+}
+
 install() {
   log INFO "Install phase start"
   run_phase_hooks "pre-install"
@@ -2735,7 +2985,6 @@ install() {
   install_datapacks     # datapacks
   activate_datapacks    # activate datapacks
   install_jvm_args
-  install_c2me_jvm_args
   install_configs
   activate_configs
   apply_paper_global_from_env
@@ -2745,6 +2994,8 @@ install() {
     install_resourcepacks
     activate_resourcepacks
   fi
+  install_modpack
+  install_c2me_jvm_args
   install_whitelist
   install_ops
   configure_c2me_opencl

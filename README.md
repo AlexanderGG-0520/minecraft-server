@@ -46,6 +46,20 @@ It is especially well-suited for:
 
 ---
 
+## Experimental Modrinth `.mrpack`
+
+Modrinth `.mrpack` install support is being introduced in phases. The current
+experimental path supports local `file://` test downloads only when
+`MODPACK_ALLOW_FILE_URL=true` is explicitly set. Production HTTPS downloads are
+planned for a later PR.
+
+`MODPACK_REMOVE_EXTRA=true`, CurseForge packs, direct zip packs, world installs,
+and TYPE/VERSION inference are not supported. Modpack paths are restricted so
+world data, `server.properties`, `eula.txt`, `ops.json`, and `whitelist.json`
+are not written by this feature.
+
+---
+
 ## Kubernetes shutdown recommendations
 
 For reliable shutdown behavior (including Citizens save), we recommend:
