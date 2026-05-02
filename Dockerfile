@@ -216,7 +216,7 @@ ENV MC_CONFIG_DIR=/tmp/mc-config
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     bash ca-certificates curl tini procps tzdata \
-    pciutils ocl-icd-libopencl1 clinfo jq rsync libpopt0 \
+    pciutils ocl-icd-libopencl1 clinfo jq unzip rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
 
 # LWJGL expects libOpenCL.so (not only libOpenCL.so.1)
