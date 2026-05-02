@@ -104,7 +104,7 @@ jobs:
           printf '%s\n' "$output"
           printf '%s\n' "$output" | grep -F "Modpack marker matches; skipping modpack install"
 
-          rm -f "$data/mods/server-mod.jar"
+          sudo rm -f "$data/mods/server-mod.jar"
           test ! -f "$data/mods/server-mod.jar"
           reconcile_output="$(docker run --rm \
             -v "$data:/data" \
