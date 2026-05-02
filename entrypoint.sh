@@ -2609,6 +2609,110 @@ configure_c2me_opencl() {
   fi
 }
 
+extract_mrpack_index() {
+  local archive="$1"
+  local out="$2"
+
+  [[ -f "$archive" ]] || die "mrpack archive not found: ${archive}"
+
+  case "$out" in
+    "${DATA_DIR}"|"${DATA_DIR}"/*)
+      die "Refusing to write mrpack index under DATA_DIR: ${out}"
+      ;;
+  esac
+
+  command -v unzip >/dev/null 2>&1 || die "unzip is required to read mrpack archives"
+
+  if ! unzip -p "$archive" modrinth.index.json > "$out"; then
+    die "modrinth.index.json not found in mrpack archive: ${archive}"
+  fi
+
+  [[ -s "$out" ]] || die "modrinth.index.json is empty: ${archive}"
+  jq -e . "$out" >/dev/null || die "modrinth.index.json is not valid JSON: ${archive}"
+}
+
+validate_modrinth_index() {
+  local index="$1"
+
+  [[ -f "$index" ]] || die "Modrinth index not found: ${index}"
+
+  jq -e '
+    type == "object"
+    and (.formatVersion | type == "number")
+    and .game == "minecraft"
+    and (.versionId | type == "string")
+    and (.files | type == "array")
+    and ((has("dependencies") | not) or (.dependencies | type == "object"))
+    and (.files | all(.[];
+      type == "object"
+      and (.path | type == "string")
+      and (.downloads | type == "array")
+      and (.hashes | type == "object")
+      and (.hashes.sha1 | type == "string")
+      and (.hashes.sha512 | type == "string")
+      and ((has("env") | not) or (.env | type == "object"))
+      and (if has("env") and (.env | has("server")) then
+        (.env.server == "required" or .env.server == "optional" or .env.server == "unsupported")
+      else true end)
+      and (if has("env") and (.env | has("client")) then
+        (.env.client == "required" or .env.client == "optional" or .env.client == "unsupported")
+      else true end)
+    ))
+  ' "$index" >/dev/null || die "Invalid Modrinth index schema: ${index}"
+}
+
+safe_modpack_path() {
+  local path="$1"
+  local kind="${2:-file}"
+  local part
+  local -a parts
+
+  [[ -n "$path" ]] || die "Unsafe ${kind} path: empty"
+  [[ "$path" != /* ]] || die "Unsafe ${kind} path: absolute path: ${path}"
+  [[ ! "$path" =~ ^[A-Za-z]: ]] || die "Unsafe ${kind} path: Windows drive path: ${path}"
+  [[ "$path" != *\\* ]] || die "Unsafe ${kind} path: backslash is not allowed: ${path}"
+
+  if printf '%s' "$path" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    die "Unsafe ${kind} path: control character is not allowed"
+  fi
+
+  IFS='/' read -r -a parts <<< "$path"
+  for part in "${parts[@]}"; do
+    [[ "$part" != ".." ]] || die "Unsafe ${kind} path: parent traversal: ${path}"
+    [[ -n "$part" ]] || die "Unsafe ${kind} path: empty path segment: ${path}"
+  done
+
+  case "$path" in
+    world|world/*|saves|saves/*|logs|logs/*|.minecraft|.minecraft/*|\
+    .server-install.json|.modpack-install.json|server.properties|eula.txt|ops.json|whitelist.json)
+      die "Unsafe ${kind} path: reserved path: ${path}"
+      ;;
+  esac
+
+  case "$path" in
+    mods/*|config/*|defaultconfigs/*|datapacks/*|resourcepacks/*)
+      return 0
+      ;;
+    *)
+      die "Unsafe ${kind} path: outside allowed modpack paths: ${path}"
+      ;;
+  esac
+}
+
+select_modrinth_server_files() {
+  local index="$1"
+  local file path
+
+  [[ -f "$index" ]] || die "Modrinth index not found: ${index}"
+
+  jq -c '.files[] | select((.env.server? // "required") == "required")' "$index" |
+    while IFS= read -r file; do
+      path="$(jq -er '.path' <<< "$file")" || die "Selected Modrinth file is missing path"
+      safe_modpack_path "$path" file
+      printf '%s\n' "$file"
+    done
+}
+
 install() {
   log INFO "Install phase start"
   run_phase_hooks "pre-install"
@@ -3008,6 +3112,8 @@ if [[ "${__SOURCED:-0}" != "1" ]]; then
   main "$@"
   exit $?
 fi
+
+eval "return 0" 2>/dev/null || true
 
 # __VELOCITY_RUNTIME_EXEC_FOOTER__
 # Fail-safe: Kubernetes requires PID 1 to stay alive.

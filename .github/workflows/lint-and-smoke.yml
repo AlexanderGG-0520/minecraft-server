@@ -16,10 +16,72 @@ jobs:
       - name: Install shellcheck
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y shellcheck
+          sudo apt-get install -y shellcheck jq unzip
 
       - name: Bash syntax check
         run: bash -n entrypoint.sh
 
       - name: ShellCheck entrypoint.sh
         run: shellcheck -x -s bash entrypoint.sh
+
+      - name: Modrinth mrpack parser validator skeleton
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          MRPACK_TMP="$tmp" python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import zipfile
+
+          tmp = pathlib.Path(os.environ["MRPACK_TMP"])
+          index = {
+              "formatVersion": 1,
+              "game": "minecraft",
+              "versionId": "test-pack",
+              "name": "Test Pack",
+              "files": [
+                  {
+                      "path": "mods/server.jar",
+                      "hashes": {"sha1": "a" * 40, "sha512": "b" * 128},
+                      "downloads": ["https://example.invalid/server.jar"],
+                      "env": {"server": "required", "client": "unsupported"},
+                  },
+                  {
+                      "path": "mods/client.jar",
+                      "hashes": {"sha1": "c" * 40, "sha512": "d" * 128},
+                      "downloads": ["https://example.invalid/client.jar"],
+                      "env": {"server": "unsupported", "client": "required"},
+                  },
+                  {
+                      "path": "mods/optional.jar",
+                      "hashes": {"sha1": "e" * 40, "sha512": "f" * 128},
+                      "downloads": ["https://example.invalid/optional.jar"],
+                      "env": {"server": "optional", "client": "optional"},
+                  },
+              ],
+              "dependencies": {"minecraft": "1.21.1"},
+          }
+          with zipfile.ZipFile(tmp / "valid.mrpack", "w") as zf:
+              zf.writestr("modrinth.index.json", json.dumps(index))
+          PY
+
+          __SOURCED=1 source ./entrypoint.sh
+          extract_mrpack_index "$tmp/valid.mrpack" "$tmp/index.json"
+          validate_modrinth_index "$tmp/index.json"
+          select_modrinth_server_files "$tmp/index.json" > "$tmp/files.jsonl"
+
+          test "$(grep -c '^' "$tmp/files.jsonl")" -eq 1
+          grep -F '"path":"mods/server.jar"' "$tmp/files.jsonl"
+          ! grep -F 'mods/client.jar' "$tmp/files.jsonl"
+          ! grep -F 'mods/optional.jar' "$tmp/files.jsonl"
+
+          for bad in "../evil.jar" "/abs.jar" 'C:\evil.jar' "world/level.dat" "server.properties"; do
+            set +e
+            ( safe_modpack_path "$bad" file ) >/dev/null 2>&1
+            status=$?
+            set -e
+            test "$status" -ne 0
+          done
