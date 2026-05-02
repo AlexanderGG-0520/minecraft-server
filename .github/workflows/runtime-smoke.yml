@@ -33,7 +33,7 @@ jobs:
           pack="$tmp/pack"
           data="$tmp/data"
           mkdir -p "$pack" "$data"
-          trap 'rm -rf "$tmp"' EXIT
+          trap 'sudo rm -rf "$tmp"' EXIT
 
           PACK_TMP="$pack" python3 - <<'PY'
           import hashlib
