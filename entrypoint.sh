@@ -2646,7 +2646,7 @@ validate_modrinth_index() {
     and (.files | all(.[];
       type == "object"
       and (.path | type == "string")
-      and (.downloads | type == "array")
+      and (.downloads | type == "array" and length > 0 and all(.[]; type == "string" and test("^[A-Za-z][A-Za-z0-9+.-]*://[^[:space:]]+$")))
       and (.hashes | type == "object")
       and (.hashes.sha1 | type == "string")
       and (.hashes.sha512 | type == "string")
