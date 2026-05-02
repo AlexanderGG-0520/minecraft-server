@@ -26,6 +26,193 @@ jobs:
       - name: Check entrypoint syntax in image
         run: docker run --rm --entrypoint bash minecraft-server:test-jre21 -n /entrypoint.sh
 
+      - name: Smoke Modrinth mrpack local install
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          pack="$tmp/pack"
+          data="$tmp/data"
+          mkdir -p "$pack" "$data"
+          trap 'sudo rm -rf "$tmp"' EXIT
+
+          PACK_TMP="$pack" python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import zipfile
+
+          pack = pathlib.Path(os.environ["PACK_TMP"])
+          mod = pack / "server-mod.jar"
+          mod.write_bytes(b"fake server mod\n")
+          sha1 = hashlib.sha1(mod.read_bytes()).hexdigest()
+          sha512 = hashlib.sha512(mod.read_bytes()).hexdigest()
+
+          def write_pack(name, file_sha1=sha1, file_sha512=sha512):
+              index = {
+                  "formatVersion": 1,
+                  "game": "minecraft",
+                  "versionId": name,
+                  "files": [
+                      {
+                          "path": "mods/server-mod.jar",
+                          "hashes": {"sha1": file_sha1, "sha512": file_sha512},
+                          "downloads": ["file:///pack/server-mod.jar"],
+                          "env": {"server": "required", "client": "unsupported"},
+                      }
+                  ],
+                  "dependencies": {"minecraft": "1.21.8"},
+              }
+              with zipfile.ZipFile(pack / f"{name}.mrpack", "w") as zf:
+                  zf.writestr("modrinth.index.json", json.dumps(index))
+
+          write_pack("valid")
+          write_pack("bad-sha", file_sha1="0" * 40)
+          PY
+
+          touch "$data/server.jar"
+          printf 'enable-rcon=false\n' > "$data/server.properties"
+          chmod -R 0777 "$tmp"
+
+          docker run --rm \
+            -v "$data:/data" \
+            -v "$pack:/pack:ro" \
+            -e EULA=true \
+            -e TYPE=spigot \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            -e MODPACK_URL=file:///pack/valid.mrpack \
+            -e MODPACK_ALLOW_FILE_URL=true \
+            minecraft-server:test-jre21 \
+            install-only
+
+          test -f "$data/mods/server-mod.jar"
+          test -f "$data/.modpack-install.json"
+          jq -e '.format == "mrpack" and .versionId == "valid" and (.files | length == 1)' "$data/.modpack-install.json"
+
+          output="$(docker run --rm \
+            -v "$data:/data" \
+            -v "$pack:/pack:ro" \
+            -e EULA=true \
+            -e TYPE=spigot \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            -e MODPACK_URL=file:///pack/valid.mrpack \
+            -e MODPACK_ALLOW_FILE_URL=true \
+            minecraft-server:test-jre21 \
+            install-only 2>&1)"
+          printf '%s\n' "$output"
+          printf '%s\n' "$output" | grep -F "Modpack marker matches; skipping modpack install"
+
+          sudo rm -f "$data/mods/server-mod.jar"
+          test ! -f "$data/mods/server-mod.jar"
+          reconcile_output="$(docker run --rm \
+            -v "$data:/data" \
+            -v "$pack:/pack:ro" \
+            -e EULA=true \
+            -e TYPE=spigot \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            -e MODPACK_URL=file:///pack/valid.mrpack \
+            -e MODPACK_ALLOW_FILE_URL=true \
+            minecraft-server:test-jre21 \
+            install-only 2>&1)"
+          printf '%s\n' "$reconcile_output"
+          test -f "$data/mods/server-mod.jar"
+          if printf '%s\n' "$reconcile_output" | grep -F "Modpack marker matches; skipping modpack install"; then
+            echo "expected modpack reinstall when marker-managed file is missing"
+            exit 1
+          fi
+
+          mkdir -p "$tmp/mismatch-data"
+          touch "$tmp/mismatch-data/server.jar"
+          printf 'enable-rcon=false\n' > "$tmp/mismatch-data/server.properties"
+          chmod -R 0777 "$tmp/mismatch-data"
+          set +e
+          mismatch_output="$(docker run --rm \
+            -v "$tmp/mismatch-data:/data" \
+            -v "$pack:/pack:ro" \
+            -e EULA=true \
+            -e TYPE=spigot \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            -e MODPACK_URL=file:///pack/bad-sha.mrpack \
+            -e MODPACK_ALLOW_FILE_URL=true \
+            minecraft-server:test-jre21 \
+            install-only 2>&1)"
+          mismatch_status=$?
+          set -e
+          printf '%s\n' "$mismatch_output"
+          test "$mismatch_status" -ne 0
+          printf '%s\n' "$mismatch_output" | grep -F "SHA1 mismatch for modpack file"
+
+          mkdir -p "$tmp/no-file-url-data"
+          touch "$tmp/no-file-url-data/server.jar"
+          printf 'enable-rcon=false\n' > "$tmp/no-file-url-data/server.properties"
+          chmod -R 0777 "$tmp/no-file-url-data"
+          set +e
+          no_file_url_output="$(docker run --rm \
+            -v "$tmp/no-file-url-data:/data" \
+            -v "$pack:/pack:ro" \
+            -e EULA=true \
+            -e TYPE=spigot \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            -e MODPACK_URL=file:///pack/valid.mrpack \
+            minecraft-server:test-jre21 \
+            install-only 2>&1)"
+          no_file_url_status=$?
+          set -e
+          printf '%s\n' "$no_file_url_output"
+          test "$no_file_url_status" -ne 0
+          printf '%s\n' "$no_file_url_output" | grep -F "file:// modpack downloads require MODPACK_ALLOW_FILE_URL=true"
+
+          mkdir -p "$tmp/collision-data/mods"
+          touch "$tmp/collision-data/server.jar"
+          printf 'enable-rcon=false\n' > "$tmp/collision-data/server.properties"
+          printf 'user-owned jar\n' > "$tmp/collision-data/mods/server-mod.jar"
+          chmod -R 0777 "$tmp/collision-data"
+          set +e
+          collision_output="$(docker run --rm \
+            -v "$tmp/collision-data:/data" \
+            -v "$pack:/pack:ro" \
+            -e EULA=true \
+            -e TYPE=spigot \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            -e MODPACK_URL=file:///pack/valid.mrpack \
+            -e MODPACK_ALLOW_FILE_URL=true \
+            minecraft-server:test-jre21 \
+            install-only 2>&1)"
+          collision_status=$?
+          set -e
+          printf '%s\n' "$collision_output"
+          test "$collision_status" -ne 0
+          printf '%s\n' "$collision_output" | grep -F "Refusing to overwrite user-owned jar from modpack"
+
+          mkdir -p "$tmp/remove-extra-data"
+          touch "$tmp/remove-extra-data/server.jar"
+          printf 'enable-rcon=false\n' > "$tmp/remove-extra-data/server.properties"
+          chmod -R 0777 "$tmp/remove-extra-data"
+          set +e
+          remove_extra_output="$(docker run --rm \
+            -v "$tmp/remove-extra-data:/data" \
+            -v "$pack:/pack:ro" \
+            -e EULA=true \
+            -e TYPE=spigot \
+            -e VERSION=1.21.8 \
+            -e ENABLE_RCON=false \
+            -e MODPACK_URL=file:///pack/valid.mrpack \
+            -e MODPACK_ALLOW_FILE_URL=true \
+            -e MODPACK_REMOVE_EXTRA=true \
+            minecraft-server:test-jre21 \
+            install-only 2>&1)"
+          remove_extra_status=$?
+          set -e
+          printf '%s\n' "$remove_extra_output"
+          test "$remove_extra_status" -ne 0
+          printf '%s\n' "$remove_extra_output" | grep -F "MODPACK_REMOVE_EXTRA=true is not supported in this phase"
+
       - name: Smoke install-only vanilla
         run: |
           docker run --rm \
