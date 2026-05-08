@@ -49,9 +49,9 @@ server type, S3 configuration, or filesystem layout.
 
 Suggested file: `scripts/lib/runtime.sh`
 
-Status: current staged helper boundary completed. Small runtime type predicates
-have moved, but `resolve_type_auto`, install marker handling, `run_server`, and
-runtime dispatch remain in `entrypoint.sh`.
+Status: current staged auto-resolution boundary completed. Small runtime type
+predicates and `resolve_type_auto` have moved. Install marker write/validation
+helpers, `run_server`, and runtime dispatch remain in `entrypoint.sh`.
 
 Owns:
 
@@ -61,8 +61,8 @@ Owns:
 
 Do not move all runtime behavior immediately. Runtime dispatch currently depends
 on `run_server`, shutdown/RCON state, `JVM_ARGS_FILE`, and install marker
-helpers. Move marker interpretation and dispatch only after call sites are
-stable.
+helpers. Move marker write/validation helpers and dispatch only after call sites
+are stable.
 
 ### Server properties bootstrap
 
@@ -126,8 +126,7 @@ move should be mechanical only.
 3. Extract world installation only; leave reset behavior in `entrypoint.sh`. Done.
 4. Extract server.properties bootstrap helpers. Done.
 5. Introduce runtime type predicate helpers in `runtime.sh`. Done.
-6. Migrate `TYPE=auto` resolution and marker interpretation after helper call
-   sites are stable.
+6. Migrate `TYPE=auto` resolution into `runtime.sh`. Done.
 7. Move world reset handling separately, with extra smoke coverage.
 8. Revisit larger install/runtime groupings only after the above boundaries are
    stable.
