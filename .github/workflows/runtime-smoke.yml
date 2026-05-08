@@ -31,10 +31,14 @@ jobs:
           docker run --rm --entrypoint bash minecraft-server:test-jre21 -lc '
             set -euo pipefail
             source /scripts/lib/logging.sh
+            source /scripts/lib/runtime.sh
             source /scripts/lib/s3_client.sh
             source /scripts/lib/world_install.sh
             source /scripts/lib/server_properties.sh
             declare -F log >/dev/null
+            declare -F is_auto_type >/dev/null
+            declare -F is_supported_runtime_type >/dev/null
+            declare -F uses_server_properties >/dev/null
             declare -F require_s3_env >/dev/null
             declare -F configure_mc_alias >/dev/null
             declare -F ensure_s3_source_nonempty_for_remove >/dev/null

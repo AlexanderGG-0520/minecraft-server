@@ -3,18 +3,10 @@
 ensure_server_properties() {
   local props="${DATA_DIR}/server.properties"
 
-  case "${TYPE:-}" in
-    vanilla|paper|purpur|spigot|fabric|forge|neoforge)
-      ;;
-    velocity)
-      log INFO "TYPE=${TYPE} does not use server.properties, skipping bootstrap"
-      return 0
-      ;;
-    *)
-      log INFO "TYPE=${TYPE} does not use server.properties, skipping bootstrap"
-      return 0
-      ;;
-  esac
+  if ! uses_server_properties "${TYPE:-}"; then
+    log INFO "TYPE=${TYPE:-} does not use server.properties, skipping bootstrap"
+    return 0
+  fi
 
   if [[ ! -f "$props" ]]; then
     log INFO "server.properties not found, generating via bootstrap"
