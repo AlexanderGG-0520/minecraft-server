@@ -1,23 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-: "${LOG_TZ:=UTC}"
-: "${LOG_TS_FORMAT:=iso8601}"
-
-ts() {
-  if [[ "${LOG_TS_FORMAT}" == "iso8601" ]]; then
-    TZ="${LOG_TZ}" date +"%Y-%m-%dT%H:%M:%S%:z"
-  else
-    TZ="${LOG_TZ}" date +"${LOG_TS_FORMAT}"
-  fi
-}
-
-log() {
-  local level="$1"; shift || true
-  # Use printf with %s to avoid format string injection; join remaining args as message
-  printf '[%s] [%s] %s\n' "$(ts)" "$level" "$*" >&2
-}
-die() { log ERROR "$1"; exit 1; }
+ENTRYPOINT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=scripts/lib/logging.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/logging.sh"
+# shellcheck source=scripts/lib/s3_client.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/s3_client.sh"
+# shellcheck source=scripts/lib/world_install.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/world_install.sh"
 
 # shellcheck disable=SC2034  # Reserved global for PID-oriented lifecycle handling.
 MC_PID=""
@@ -443,40 +433,6 @@ write_server_install_marker() {
     --arg build "$build" \
     '{artifact:$artifact,type:$type,version:$version,build:$build}' > "$tmp"
   mv -f "$tmp" "$marker"
-}
-
-require_s3_env() {
-  local feature="$1"
-  [[ -n "${S3_ENDPOINT:-}" ]] || die "S3_ENDPOINT is required for ${feature}"
-  [[ -n "${S3_ACCESS_KEY:-}" ]] || die "S3_ACCESS_KEY is required for ${feature}"
-  [[ -n "${S3_SECRET_KEY:-}" ]] || die "S3_SECRET_KEY is required for ${feature}"
-}
-
-configure_mc_alias() {
-  local feature="$1"
-  require_s3_env "$feature"
-  mkdir -p "${MC_CONFIG_DIR}"
-  mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}" >/dev/null \
-    || die "Failed to configure MinIO client for ${feature}"
-}
-
-ensure_s3_source_nonempty_for_remove() {
-  local src="$1"
-  local feature="$2"
-  local tmp
-  tmp="$(mktemp)"
-
-  if ! mc find "$src" --print "{}" > "$tmp"; then
-    rm -f -- "$tmp"
-    die "Failed to list ${feature} source before remove sync: ${src}"
-  fi
-
-  if [[ ! -s "$tmp" ]]; then
-    rm -f -- "$tmp"
-    die "${feature} remove_extra requested but S3 source is empty: ${src}"
-  fi
-
-  rm -f -- "$tmp"
 }
 
 install_eula() {
@@ -1983,58 +1939,6 @@ activate_plugins() {
   fi
 
   return 0
-}
-
-install_world() {
-  local WORLD_DIR="${DATA_DIR}/world"
-
-  # ------------------------------------------------------------
-  # Guard
-  # ------------------------------------------------------------
-  if [[ -d "${WORLD_DIR}" && ! -f "${DATA_DIR}/reset-world.flag" ]]; then
-    log INFO "World already exists, skipping world install"
-    return 0
-  fi
-
-  if [[ -z "${WORLD_S3_BUCKET:-}" || -z "${WORLD_S3_KEY:-}" ]]; then
-    log INFO "WORLD_S3_BUCKET or WORLD_S3_KEY not set, skipping world install"
-    return 0
-  fi
-
-  log INFO "Installing world from S3"
-
-  # ------------------------------------------------------------
-  # Prepare
-  # ------------------------------------------------------------
-  rm -rf "${WORLD_DIR}"
-  mkdir -p "${WORLD_DIR}"
-
-  local TMP_ZIP="/tmp/world.zip"
-
-  # ------------------------------------------------------------
-  # Download
-  # ------------------------------------------------------------
-  configure_mc_alias "world"
-
-  mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}" \
-    || die "Failed to download world archive"
-
-  # ------------------------------------------------------------
-  # Extract
-  # ------------------------------------------------------------
-  unzip -q "${TMP_ZIP}" -d "${DATA_DIR}"
-
-  # Safety check if world/ is not directly inside zip
-  if [[ ! -d "${WORLD_DIR}" ]]; then
-    local EXTRACTED
-    EXTRACTED="$(find "${DATA_DIR}" -maxdepth 1 -type d -name "*world*" | head -n1 || true)"
-    [[ -n "${EXTRACTED}" ]] && mv "${EXTRACTED}" "${WORLD_DIR}"
-  fi
-
-  rm -f "${TMP_ZIP}"
-  rm -f "${DATA_DIR}/reset-world.flag"
-
-  log INFO "World installed successfully"
 }
 
 install_datapacks() {

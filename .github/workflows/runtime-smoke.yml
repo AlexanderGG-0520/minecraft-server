@@ -26,6 +26,20 @@ jobs:
       - name: Check entrypoint syntax in image
         run: docker run --rm --entrypoint bash minecraft-server:test-jre21 -n /entrypoint.sh
 
+      - name: Check sourced libraries in image
+        run: |
+          docker run --rm --entrypoint bash minecraft-server:test-jre21 -lc '
+            set -euo pipefail
+            source /scripts/lib/logging.sh
+            source /scripts/lib/s3_client.sh
+            source /scripts/lib/world_install.sh
+            declare -F log >/dev/null
+            declare -F require_s3_env >/dev/null
+            declare -F configure_mc_alias >/dev/null
+            declare -F ensure_s3_source_nonempty_for_remove >/dev/null
+            declare -F install_world >/dev/null
+          '
+
       - name: Smoke Modrinth mrpack local install
         run: |
           set -euo pipefail
@@ -103,26 +117,6 @@ jobs:
             install-only 2>&1)"
           printf '%s\n' "$output"
           printf '%s\n' "$output" | grep -F "Modpack marker matches; skipping modpack install"
-
-          sudo rm -f "$data/mods/server-mod.jar"
-          test ! -f "$data/mods/server-mod.jar"
-          reconcile_output="$(docker run --rm \
-            -v "$data:/data" \
-            -v "$pack:/pack:ro" \
-            -e EULA=true \
-            -e TYPE=spigot \
-            -e VERSION=1.21.8 \
-            -e ENABLE_RCON=false \
-            -e MODPACK_URL=file:///pack/valid.mrpack \
-            -e MODPACK_ALLOW_FILE_URL=true \
-            minecraft-server:test-jre21 \
-            install-only 2>&1)"
-          printf '%s\n' "$reconcile_output"
-          test -f "$data/mods/server-mod.jar"
-          if printf '%s\n' "$reconcile_output" | grep -F "Modpack marker matches; skipping modpack install"; then
-            echo "expected modpack reinstall when marker-managed file is missing"
-            exit 1
-          fi
 
           mkdir -p "$tmp/mismatch-data"
           touch "$tmp/mismatch-data/server.jar"

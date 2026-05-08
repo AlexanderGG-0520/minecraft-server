@@ -58,6 +58,8 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
     pciutils ocl-icd-libopencl1 jq unzip tar \
     rsync libpopt0 \
  && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/lib /scripts/lib
 # ============================================================
 # Java base images
 # ============================================================
@@ -237,6 +239,7 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 # --- entrypoint ---
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
+COPY scripts/lib /scripts/lib
 
 ENV RUNTIME_FLAVOR=gpu
 ENV ENABLE_C2ME_OPENCL=true
