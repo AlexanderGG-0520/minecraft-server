@@ -49,24 +49,27 @@ server type, S3 configuration, or filesystem layout.
 
 Suggested file: `scripts/lib/runtime.sh`
 
+Status: current staged helper boundary completed. Small runtime type predicates
+have moved, but `resolve_type_auto`, install marker handling, `run_server`, and
+runtime dispatch remain in `entrypoint.sh`.
+
 Owns:
 
 - Supported runtime type lists and validation.
 - `TYPE=auto` marker/artifact resolution.
 - Runtime-specific launch command selection.
 
-Do not move all runtime behavior immediately. `runtime` currently depends on
-`run_server`, shutdown/RCON state, `JVM_ARGS_FILE`, and install marker helpers.
-Extract after introducing small helper functions such as `is_supported_type` and
-`server_runtime_family`, then move dispatch once call sites are stable.
+Do not move all runtime behavior immediately. Runtime dispatch currently depends
+on `run_server`, shutdown/RCON state, `JVM_ARGS_FILE`, and install marker
+helpers. Move marker interpretation and dispatch only after call sites are
+stable.
 
 ### Server properties bootstrap
 
 Suggested file: `scripts/lib/server_properties.sh`
 
-Status: current staged boundary completed. `ensure_server_properties` and
-`bootstrap_server_properties` have moved. Runtime type resolution and reset
-behavior have not moved.
+Status: completed. `ensure_server_properties` and `bootstrap_server_properties`
+have moved. Runtime type resolution and reset behavior have not moved.
 
 Owns:
 
@@ -122,10 +125,11 @@ move should be mechanical only.
 2. Extract S3 client helpers with no call-site behavior changes. Done.
 3. Extract world installation only; leave reset behavior in `entrypoint.sh`. Done.
 4. Extract server.properties bootstrap helpers. Done.
-5. Introduce runtime type predicate helpers in `runtime.sh`, then migrate
-   preflight validation and `TYPE=auto` resolution.
-6. Move world reset handling separately, with extra smoke coverage.
-7. Revisit larger install/runtime groupings only after the above boundaries are
+5. Introduce runtime type predicate helpers in `runtime.sh`. Done.
+6. Migrate `TYPE=auto` resolution and marker interpretation after helper call
+   sites are stable.
+7. Move world reset handling separately, with extra smoke coverage.
+8. Revisit larger install/runtime groupings only after the above boundaries are
    stable.
 
 ## Risks and compatibility checks

@@ -4,6 +4,8 @@ set -Eeuo pipefail
 ENTRYPOINT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=scripts/lib/logging.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/logging.sh"
+# shellcheck source=scripts/lib/runtime.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/runtime.sh"
 # shellcheck source=scripts/lib/s3_client.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/s3_client.sh"
 # shellcheck source=scripts/lib/world_install.sh
@@ -142,12 +144,9 @@ preflight() {
 
   [[ -n "${EULA:-}" ]] || die "EULA is not set"
 
-  case "${TYPE:-vanilla}" in
-    auto|AUTO)
-      ;;
-    fabric|forge|mohist|neoforge|paper|purpur|quilt|spigot|taiyitist|vanilla|velocity|youer) ;;
-    *) die "Invalid TYPE: ${TYPE}" ;;
-  esac
+  if ! is_auto_type "${TYPE:-vanilla}" && ! is_supported_runtime_type "${TYPE:-vanilla}"; then
+    die "Invalid TYPE: ${TYPE}"
+  fi
 
   if [[ "${TYPE:-vanilla}" != "vanilla" && "${TYPE:-vanilla}" != "auto" && -z "${VERSION:-}" ]]; then
     die "VERSION must be set when TYPE is not vanilla"
