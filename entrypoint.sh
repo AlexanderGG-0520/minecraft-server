@@ -8,6 +8,8 @@ source "${ENTRYPOINT_DIR%/}/scripts/lib/logging.sh"
 source "${ENTRYPOINT_DIR%/}/scripts/lib/s3_client.sh"
 # shellcheck source=scripts/lib/world_install.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/world_install.sh"
+# shellcheck source=scripts/lib/server_properties.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/server_properties.sh"
 
 # shellcheck disable=SC2034  # Reserved global for PID-oriented lifecycle handling.
 MC_PID=""
@@ -1263,30 +1265,6 @@ EOF
   log INFO "velocity.toml generated"
 }
 
-ensure_server_properties() {
-  local props="${DATA_DIR}/server.properties"
-
-  case "${TYPE:-}" in
-    vanilla|paper|purpur|spigot|fabric|forge|neoforge)
-      ;;
-    velocity)
-      log INFO "TYPE=${TYPE} does not use server.properties, skipping bootstrap"
-      return 0
-      ;;
-    *)
-      log INFO "TYPE=${TYPE} does not use server.properties, skipping bootstrap"
-      return 0
-      ;;
-  esac
-
-  if [[ ! -f "$props" ]]; then
-    log INFO "server.properties not found, generating via bootstrap"
-    bootstrap_server_properties
-  else
-    log INFO "server.properties already exists"
-  fi
-}
-
 reset_world() {
   log INFO "Requested world reset"
 
@@ -1366,44 +1344,6 @@ handle_reset_world_flag() {
   else
     log INFO "No reset-world.flag detected, skipping world reset"
   fi
-}
-
-bootstrap_server_properties() {
-  local props="${DATA_DIR}/server.properties"
-
-  if [[ -f "$props" ]]; then
-    log INFO "server.properties already exists"
-    return 0
-  fi
-
-  log INFO "server.properties not found, bootstrapping via official server"
-
-  case "${TYPE}" in
-    vanilla|paper|purpur|spigot)
-      timeout 15s java -jar "${DATA_DIR}/server.jar" nogui || true
-      ;;
-    fabric)
-      timeout 15s java -jar "${DATA_DIR}/fabric-server-launch.jar" nogui || true
-      ;;
-    forge|neoforge)
-      # NeoForge / Forge must go through run.sh
-      if [[ -x "${DATA_DIR}/run.sh" ]]; then
-        timeout 15s "${DATA_DIR}/run.sh" nogui || true
-      else
-        log WARN "run.sh not found, cannot bootstrap properties yet"
-        return 1
-      fi
-      ;;
-    *)
-      die "bootstrap_server_properties: unsupported TYPE=${TYPE}"
-      ;;
-  esac
-
-  if [[ ! -f "$props" ]]; then
-    die "server.properties still not generated after bootstrap"
-  fi
-
-  log INFO "server.properties successfully bootstrapped"
 }
 
 install_mods() {
