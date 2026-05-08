@@ -64,6 +64,10 @@ Extract after introducing small helper functions such as `is_supported_type` and
 
 Suggested file: `scripts/lib/server_properties.sh`
 
+Status: current staged boundary completed. `ensure_server_properties` and
+`bootstrap_server_properties` have moved. Runtime type resolution and reset
+behavior have not moved.
+
 Owns:
 
 - Deciding whether a runtime uses `server.properties`.
@@ -71,15 +75,16 @@ Owns:
 - `bootstrap_server_properties`.
 - Server-property diff/application helpers once their env contract is documented.
 
-Move cautiously because property bootstrap intentionally launches server artifacts
-with short timeouts and has runtime-specific behavior for vanilla, Paper-family,
-Fabric, Forge, and NeoForge.
+Moved cautiously because property bootstrap intentionally launches server
+artifacts with short timeouts and has runtime-specific behavior for vanilla,
+Paper-family, Fabric, Forge, and NeoForge. Broader server-property diff and
+application helpers remain in `entrypoint.sh` for now.
 
 ### World install
 
 Suggested file: `scripts/lib/world_install.sh`
 
-Status: current staged boundary completed for world installation only.
+Status: completed for world installation only.
 `install_world` has moved, but `reset_world` and `handle_reset_world_flag` have
 not moved and reset behavior remains owned by `entrypoint.sh` for now.
 
@@ -97,9 +102,8 @@ behavior.
 
 Suggested file: `scripts/lib/s3_client.sh`
 
-Status: completed current staged boundary. This extraction is limited to the
-client mechanics needed by existing call sites; world install and reset behavior
-remain in `entrypoint.sh` until the later world-install boundary.
+Status: completed. This extraction is limited to the client mechanics needed by
+existing call sites; reset behavior remains in `entrypoint.sh`.
 
 Owns:
 
@@ -117,9 +121,9 @@ move should be mechanical only.
 1. Extract logging/timestamps and package the new library in Docker images. Done.
 2. Extract S3 client helpers with no call-site behavior changes. Done.
 3. Extract world installation only; leave reset behavior in `entrypoint.sh`. Done.
-4. Introduce runtime type predicate helpers in `runtime.sh`, then migrate
+4. Extract server.properties bootstrap helpers. Done.
+5. Introduce runtime type predicate helpers in `runtime.sh`, then migrate
    preflight validation and `TYPE=auto` resolution.
-5. Move server property bootstrap functions after the runtime predicates exist.
 6. Move world reset handling separately, with extra smoke coverage.
 7. Revisit larger install/runtime groupings only after the above boundaries are
    stable.
