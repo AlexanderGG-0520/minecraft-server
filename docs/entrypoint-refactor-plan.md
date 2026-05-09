@@ -68,6 +68,9 @@ Do not move all runtime behavior immediately. Runtime dispatch currently depends
 on `run_server`, shutdown/RCON state, and `JVM_ARGS_FILE`. Move dispatch only
 after call sites are stable. Server artifact installation has not moved.
 
+The proposed server artifact installation boundary is documented in
+[`docs/server-artifact-install-boundary.md`](server-artifact-install-boundary.md).
+
 ### Server properties bootstrap
 
 Suggested file: `scripts/lib/server_properties.sh`
