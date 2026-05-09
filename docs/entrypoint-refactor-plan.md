@@ -49,10 +49,10 @@ server type, S3 configuration, or filesystem layout.
 
 Suggested file: `scripts/lib/runtime.sh`
 
-Status: current staged runtime marker boundary completed. Small runtime type
-predicates, install marker path/write/validation helpers, and
+Status: completed for runtime type and install marker helpers. Small runtime
+type predicates, install marker path/write/validation helpers, and
 `resolve_type_auto` have moved. Server artifact installation, `run_server`, and
-runtime dispatch remain in `entrypoint.sh`.
+runtime dispatch have not moved and remain in `entrypoint.sh`.
 
 Owns:
 
@@ -69,7 +69,8 @@ after call sites are stable. Server artifact installation has not moved.
 Suggested file: `scripts/lib/server_properties.sh`
 
 Status: completed. `ensure_server_properties` and `bootstrap_server_properties`
-have moved. Runtime type resolution and reset behavior have not moved.
+have moved. Runtime type resolution and world reset behavior have separate
+completed boundaries.
 
 Owns:
 
@@ -88,25 +89,34 @@ application helpers remain in `entrypoint.sh` for now.
 Suggested file: `scripts/lib/world_install.sh`
 
 Status: completed for world installation only.
-`install_world` has moved, but `reset_world` and `handle_reset_world_flag` have
-not moved and reset behavior remains owned by `entrypoint.sh` for now.
+`install_world` has moved. World reset handling has moved separately to
+`scripts/lib/world_reset.sh`.
 
 Owns:
 
 - World zip download/extract/install behavior.
 - Validation of extracted world layout.
 
-`reset_world` and `handle_reset_world_flag` should move later as their own staged
-boundary. They delete and recreate directories, so that migration should include
-a focused smoke test around missing flags, expired flags, and existing world skip
-behavior.
+### World reset
+
+Suggested file: `scripts/lib/world_reset.sh`
+
+Status: completed. `reset_world` and `handle_reset_world_flag` have moved.
+`entrypoint.sh` still decides when reset handling runs relative to world install
+and the rest of startup.
+
+Owns:
+
+- `reset-world.flag` validation and expiration handling.
+- Destructive world directory reset behavior.
+- Optional world backup and mods removal behavior during reset.
 
 ### S3 / MinIO client handling
 
 Suggested file: `scripts/lib/s3_client.sh`
 
 Status: completed. This extraction is limited to the client mechanics needed by
-existing call sites; reset behavior remains in `entrypoint.sh`.
+existing call sites.
 
 Owns:
 
@@ -128,7 +138,7 @@ move should be mechanical only.
 5. Introduce runtime type predicate helpers in `runtime.sh`. Done.
 6. Migrate `TYPE=auto` resolution into `runtime.sh`. Done.
 7. Move runtime install marker helpers into `runtime.sh`. Done.
-8. Move world reset handling separately, with extra smoke coverage.
+8. Move world reset handling separately, with extra smoke coverage. Done.
 9. Revisit larger install/runtime groupings only after the above boundaries are
    stable.
 
@@ -141,8 +151,7 @@ move should be mechanical only.
 - Preserve log line format unless a change is explicitly documented.
 - Avoid changing S3 alias names, bucket/key layouts, or `mc` command behavior
   during extraction.
-- Avoid moving destructive world reset logic until tests cover existing skip and
-  flag behavior.
+- Keep destructive world reset checks scoped to temporary directories.
 - Run `bash -n entrypoint.sh scripts/lib/*.sh`.
 - Run `shellcheck -x -s bash entrypoint.sh scripts/lib/*.sh` when ShellCheck is
   available.
