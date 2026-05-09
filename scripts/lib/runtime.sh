@@ -29,6 +29,52 @@ uses_server_properties() {
   esac
 }
 
+server_install_marker() {
+  printf '%s/.server-install.json' "${DATA_DIR}"
+}
+
+assert_server_install_matches() {
+  local artifact="$1"
+  local requested_type="$2"
+  local requested_version="$3"
+  local marker
+  marker="$(server_install_marker)"
+
+  if [[ ! -f "$marker" ]]; then
+    log WARN "${artifact} exists without install marker; leaving it in place"
+    return 0
+  fi
+
+  local installed_type installed_version installed_artifact
+  installed_type="$(jq -r '.type // empty' "$marker")"
+  installed_version="$(jq -r '.version // empty' "$marker")"
+  installed_artifact="$(jq -r '.artifact // empty' "$marker")"
+
+  if [[ "$installed_type" != "$requested_type" \
+     || "$installed_version" != "$requested_version" \
+     || "$installed_artifact" != "$artifact" ]]; then
+    die "${artifact} was installed as TYPE=${installed_type:-unknown} VERSION=${installed_version:-unknown}; requested TYPE=${requested_type} VERSION=${requested_version}. Refusing to replace existing server artifact automatically"
+  fi
+}
+
+write_server_install_marker() {
+  local artifact="$1"
+  local installed_type="$2"
+  local installed_version="$3"
+  local build="${4:-}"
+  local marker tmp
+  marker="$(server_install_marker)"
+  tmp="${marker}.tmp.$$"
+
+  jq -n \
+    --arg artifact "$artifact" \
+    --arg type "$installed_type" \
+    --arg version "$installed_version" \
+    --arg build "$build" \
+    '{artifact:$artifact,type:$type,version:$version,build:$build}' > "$tmp"
+  mv -f "$tmp" "$marker"
+}
+
 resolve_type_auto() {
   [[ "${TYPE:-}" == "auto" || "${TYPE:-}" == "AUTO" ]] || return 0
 
