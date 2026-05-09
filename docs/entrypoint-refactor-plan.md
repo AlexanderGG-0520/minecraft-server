@@ -4,6 +4,10 @@
 home for unrelated bootstrapping concerns. The immediate goal is to define stable
 responsibility boundaries before moving substantial behavior.
 
+Deferred non-mechanical cleanup and hardening items are tracked in
+[`docs/entrypoint-cleanup-backlog.md`](entrypoint-cleanup-backlog.md). Keep those
+items out of future mechanical moves.
+
 This is not a literal MVC split. The useful analogy is:
 
 - `entrypoint.sh`: controller/orchestration. It should make the boot order easy to
