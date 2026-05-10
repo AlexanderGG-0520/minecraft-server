@@ -12,9 +12,9 @@ Suggested future file: `scripts/lib/server_install.sh`
 
 Status: started. `scripts/lib/server_install.sh` now owns the pure atomic server
 artifact download helpers plus the vanilla, Fabric, Quilt, Forge, NeoForge,
-Paper, Purpur, Mohist, Taiyitist, Youer, and Spigot artifact install or
-validation helpers. `install_server` and the remaining runtime-specific
-installer branches still remain in `entrypoint.sh`.
+Paper, Purpur, Mohist, Taiyitist, Youer, Spigot, and Velocity artifact install
+or validation helpers. `install_server` remains in `entrypoint.sh`.
+`generate_velocity_toml` ownership has not been redesigned.
 
 The future library should answer:
 
@@ -51,8 +51,9 @@ Likely server artifact install responsibilities currently found:
 - `download_vanilla_server_atomic`
   - Vanilla-specific atomic download helper with SHA-1 verification.
   - Implemented in `scripts/lib/server_install.sh`.
-- Vanilla/Fabric/Quilt/Forge/NeoForge/Paper/Purpur/Mohist/Taiyitist/Youer
-  artifact install helpers and the Spigot existing-artifact validation helper
+- Artifact install helpers for Vanilla, Fabric, Quilt, Forge, NeoForge, Paper,
+  Purpur, Mohist, Taiyitist, Youer, and Velocity, plus the Spigot
+  existing-artifact validation helper
   - Implemented in `scripts/lib/server_install.sh`.
   - `install_server` still selects these helpers by `TYPE`.
 - `install_server`
@@ -218,6 +219,7 @@ Recommended implementation PRs:
      `FORCE_REDOWNLOAD`, temp filename behavior, size check, and marker build
      value.
    - Do not use this PR to redesign `generate_velocity_toml` ownership.
+   - Status: completed for artifact helper extraction only.
 6. Move special jar runtimes: Mohist, Taiyitist, and Youer.
    - Preserve each download source and marker write behavior.
    - Status: completed for artifact helper extraction only.
