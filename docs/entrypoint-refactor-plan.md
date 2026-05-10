@@ -55,8 +55,9 @@ Suggested file: `scripts/lib/runtime.sh`
 
 Status: completed for runtime type and install marker helpers. Small runtime
 type predicates, install marker path/write/validation helpers, and
-`resolve_type_auto` have moved. Server artifact installation, `run_server`, and
-runtime dispatch have not moved and remain in `entrypoint.sh`.
+`resolve_type_auto` have moved. Server artifact installation has moved to
+`scripts/lib/server_install.sh`; `run_server` and runtime dispatch have not
+moved and remain in `entrypoint.sh`.
 
 Owns:
 
@@ -66,7 +67,7 @@ Owns:
 
 Do not move all runtime behavior immediately. Runtime dispatch currently depends
 on `run_server`, shutdown/RCON state, and `JVM_ARGS_FILE`. Move dispatch only
-after call sites are stable. Server artifact installation has not moved.
+after call sites are stable.
 
 The proposed server artifact installation boundary is documented in
 [`docs/server-artifact-install-boundary.md`](server-artifact-install-boundary.md).
@@ -74,8 +75,9 @@ Initial extraction has started: pure server artifact download helpers now live i
 `scripts/lib/server_install.sh`. Vanilla, Fabric, Quilt, Forge, NeoForge, Paper,
 Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
 existing-artifact validation helper have also moved there. Velocity artifact
-installation has moved there too, while `install_server` remains in
-`entrypoint.sh`; `generate_velocity_toml` ownership has not been redesigned.
+installation and `install_server` dispatch have moved there too. `run_server`
+and runtime launch dispatch remain in `entrypoint.sh`; `generate_velocity_toml`
+ownership has not been redesigned.
 
 ### Server properties bootstrap
 

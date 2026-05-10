@@ -319,63 +319,6 @@ install_eula() {
   esac
 }
 
-install_server() {
-  log INFO "Resolving server (TYPE=${TYPE}, VERSION=${VERSION:-auto})"
-
-  case "${TYPE}" in
-    vanilla)
-      install_vanilla_server_artifact
-      ;;
-
-    fabric)
-      install_fabric_server_artifact
-      ;;
-
-    quilt)
-      install_quilt_server_artifact
-      ;;
-
-    forge)
-      install_forge_server_artifact
-      ;;
-
-    neoforge)
-      install_neoforge_server_artifact
-      ;;
-
-    paper)
-      install_paper_server_artifact
-      ;;
-
-    purpur)
-      install_purpur_server_artifact
-      ;;
-
-    mohist)
-      install_mohist_server_artifact
-      ;;
-
-    taiyitist)
-      install_taiyitist_server_artifact
-      ;;
-
-    youer)
-      install_youer_server_artifact
-      ;;
-
-    spigot)
-      install_spigot_server_artifact
-      ;;
-
-  velocity)
-    install_velocity_server_artifact
-    ;;
-    *)
-      die "install_server: TYPE=${TYPE} not implemented yet"
-      ;;
-  esac
-}
-
 clear_fabric_cache() {
 # -----------------------------
 # Clean Fabric mapping cache
