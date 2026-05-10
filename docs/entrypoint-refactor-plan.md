@@ -73,9 +73,9 @@ The proposed server artifact installation boundary is documented in
 Initial extraction has started: pure server artifact download helpers now live in
 `scripts/lib/server_install.sh`. Vanilla, Fabric, Quilt, Forge, NeoForge, Paper,
 Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
-existing-artifact validation helper have also moved there, while
-`install_server` and the remaining runtime-specific installer branches remain in
-`entrypoint.sh`.
+existing-artifact validation helper have also moved there. Velocity artifact
+installation has moved there too, while `install_server` remains in
+`entrypoint.sh`; `generate_velocity_toml` ownership has not been redesigned.
 
 ### Server properties bootstrap
 
