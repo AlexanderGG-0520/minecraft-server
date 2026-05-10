@@ -13,8 +13,9 @@ Suggested future file: `scripts/lib/server_install.sh`
 Status: started. `scripts/lib/server_install.sh` now owns the pure atomic server
 artifact download helpers plus the vanilla, Fabric, Quilt, Forge, NeoForge,
 Paper, Purpur, Mohist, Taiyitist, Youer, Spigot, and Velocity artifact install
-or validation helpers. `install_server` remains in `entrypoint.sh`.
-`generate_velocity_toml` ownership has not been redesigned.
+or validation helpers and the `install_server` dispatcher. `run_server` and
+runtime launch dispatch remain in `entrypoint.sh`. `generate_velocity_toml`
+ownership has not been redesigned.
 
 The future library should answer:
 
@@ -37,9 +38,9 @@ log messages, and first-boot versus restart behavior.
 
 ## Current inventory
 
-The runtime-specific server artifact installation implementation is still in
-`entrypoint.sh`. Pure server artifact download helpers now live in
-`scripts/lib/server_install.sh`.
+The runtime-specific server artifact installation implementation now lives in
+`scripts/lib/server_install.sh`. `entrypoint.sh` still decides when
+`install_server` runs in the boot sequence.
 
 Likely server artifact install responsibilities currently found:
 
@@ -58,6 +59,7 @@ Likely server artifact install responsibilities currently found:
   - `install_server` still selects these helpers by `TYPE`.
 - `install_server`
   - Runtime-specific server artifact dispatcher.
+  - Implemented in `scripts/lib/server_install.sh`.
   - Validates existing artifacts with `assert_server_install_matches`.
   - Writes `.server-install.json` with `write_server_install_marker`.
 
@@ -129,7 +131,8 @@ Runtime-specific behavior currently found in `install_server`:
   - Fails fast if `TYPE=spigot` is selected without an existing artifact.
 - Velocity
   - Requires `VERSION`.
-  - Calls `generate_velocity_toml` from inside `install_server` today.
+  - Calls `generate_velocity_toml` from inside the Velocity artifact helper
+    invoked by `install_server` today.
   - Resolves Velocity builds through PaperMC Fill v3.
   - Honors `VELOCITY_CHANNEL`, `VELOCITY_UA`, and `FORCE_REDOWNLOAD`.
   - Downloads `${DATA_DIR}/velocity.jar` through a Velocity-specific temp file.
@@ -143,8 +146,8 @@ Related functions and call sites:
   - Treat as adjacent cleanup, not part of the first artifact install move unless
     the PR explicitly preserves the same call order and behavior.
 - `generate_velocity_toml`
-  - Currently called both inside the Velocity branch of `install_server` and
-    later in the install sequence.
+  - Currently called both during Velocity artifact installation and later in the
+    install sequence.
   - Treat this as configuration generation, not artifact installation. Do not
     mix a Velocity config boundary with the artifact install move unless the
     call must remain temporarily for a mechanical extraction.
@@ -228,7 +231,11 @@ Recommended implementation PRs:
    - If managed BuildTools/self-build support is ever added, handle it in a
      dedicated behavior PR with extra smoke coverage.
    - Status: completed for existing-artifact validation helper extraction only.
-8. Only after `server_install.sh` stabilizes, consider a separate runtime
+8. Move `install_server` dispatch into `scripts/lib/server_install.sh`.
+   - Preserve case labels, branch ordering, helper call order, and default
+     error behavior.
+   - Status: completed for dispatcher extraction only.
+9. Only after `server_install.sh` stabilizes, consider a separate runtime
    dispatch or `run_server` boundary.
 
 ## Risk notes
