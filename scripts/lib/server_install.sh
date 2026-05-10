@@ -67,6 +67,76 @@ install_vanilla_server_artifact() {
   write_server_install_marker "server.jar" "vanilla" "${VERSION}"
 }
 
+install_fabric_server_artifact() {
+  [[ -n "${VERSION:-}" ]] || die "VERSION is required for fabric"
+
+  if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
+    assert_server_install_matches "fabric-server-launch.jar" "fabric" "${VERSION}"
+    log INFO "fabric-server-launch.jar already exists, skipping"
+    return
+  fi
+
+  json="$(curl -fsSL "https://meta.fabricmc.net/v2/versions/loader/${VERSION}" || true)"
+
+  LOADER_VERSION="$(printf '%s' "$json" | jq -er '
+    if type=="array" and length>0 and .[0].loader.version
+    then .[0].loader.version
+    else empty
+    end
+  ')"
+
+  [[ -n "${LOADER_VERSION}" ]] || die "Failed to resolve Fabric loader version"
+
+
+  # ---- resolve installer (from Maven) ----
+  INSTALLER_VERSION="${FABRIC_INSTALLER_VERSION:-latest}"
+  if [[ "${INSTALLER_VERSION}" == "latest" ]]; then
+    INSTALLER_VERSION="$(curl -fsSL \
+      "https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml" \
+      | tr -d '\r' \
+      | grep -oPm1 '(?<=<latest>)[^<]+')" \
+      || die "Failed to resolve Fabric installer version"
+  fi
+
+  log INFO "Installing Fabric server (MC=${VERSION}, loader=${LOADER_VERSION}, installer=${INSTALLER_VERSION})"
+
+  curl -fL \
+    "https://maven.fabricmc.net/net/fabricmc/fabric-installer/${INSTALLER_VERSION}/fabric-installer-${INSTALLER_VERSION}.jar" \
+    -o /tmp/fabric-installer.jar \
+    || die "Failed to download Fabric installer"
+
+  java -jar /tmp/fabric-installer.jar \
+    server \
+    -mcversion "${VERSION}" \
+    -loader "${LOADER_VERSION}" \
+    -downloadMinecraft \
+    -dir "${DATA_DIR}" \
+    || die "Fabric installer failed"
+
+  log INFO "Fabric server.jar ready"
+  write_server_install_marker "fabric-server-launch.jar" "fabric" "${VERSION}" "${LOADER_VERSION}"
+}
+
+install_quilt_server_artifact() {
+  [[ -n "${VERSION:-}" ]] || die "VERSION is required for quilt"
+
+  if [[ -f "${DATA_DIR}/server.jar" ]]; then
+    assert_server_install_matches "server.jar" "quilt" "${VERSION}"
+    log INFO "server.jar already exists, skipping"
+    return
+  fi
+
+  log INFO "Installing Quilt server ${VERSION}"
+
+  download_file_atomic \
+    "https://meta.quiltmc.org/v3/versions/loader/${VERSION}/latest/server/jar" \
+    "${DATA_DIR}/server.jar" \
+    "Quilt server.jar"
+
+  log INFO "Quilt server.jar ready"
+  write_server_install_marker "server.jar" "quilt" "${VERSION}"
+}
+
 install_paper_server_artifact() {
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for paper"
 

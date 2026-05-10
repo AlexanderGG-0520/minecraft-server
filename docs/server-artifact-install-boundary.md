@@ -11,9 +11,9 @@ marker behavior, or change runtime launch behavior as part of this document.
 Suggested future file: `scripts/lib/server_install.sh`
 
 Status: started. `scripts/lib/server_install.sh` now owns the pure atomic server
-artifact download helpers and the vanilla, Paper, and Purpur artifact install
-helpers. `install_server` and the remaining runtime-specific installer branches
-still remain in `entrypoint.sh`.
+artifact download helpers plus the vanilla, Fabric, Quilt, Paper, and Purpur
+artifact install helpers. `install_server` and the remaining runtime-specific
+installer branches still remain in `entrypoint.sh`.
 
 The future library should answer:
 
@@ -50,7 +50,7 @@ Likely server artifact install responsibilities currently found:
 - `download_vanilla_server_atomic`
   - Vanilla-specific atomic download helper with SHA-1 verification.
   - Implemented in `scripts/lib/server_install.sh`.
-- Vanilla/Paper/Purpur artifact install helpers
+- Vanilla/Fabric/Quilt/Paper/Purpur artifact install helpers
   - Implemented in `scripts/lib/server_install.sh`.
   - `install_server` still selects these helpers by `TYPE`.
 - `install_server`
@@ -205,6 +205,7 @@ Recommended implementation PRs:
    - Preserve Fabric loader/installer version resolution and Quilt download
      behavior.
    - Keep `clear_fabric_cache` call timing unchanged.
+   - Status: completed for artifact helper extraction only.
 4. Move Forge and NeoForge artifact installation.
    - Preserve `/tmp` installer filenames, `${DATA_DIR}/run.sh` checks, legacy
      `.installed-forge-*` and `.installed-neoforge-*` markers, and JSON server
