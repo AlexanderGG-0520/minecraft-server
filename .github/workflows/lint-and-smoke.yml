@@ -41,6 +41,7 @@ jobs:
           source ./scripts/lib/logging.sh
           source ./scripts/lib/runtime.sh
           source ./scripts/lib/s3_client.sh
+          source ./scripts/lib/server_install.sh
           source ./scripts/lib/world_install.sh
           source ./scripts/lib/world_reset.sh
           source ./scripts/lib/server_properties.sh
@@ -55,6 +56,8 @@ jobs:
           declare -F require_s3_env >/dev/null
           declare -F configure_mc_alias >/dev/null
           declare -F ensure_s3_source_nonempty_for_remove >/dev/null
+          declare -F download_file_atomic >/dev/null
+          declare -F download_vanilla_server_atomic >/dev/null
           declare -F install_world >/dev/null
           declare -F reset_world >/dev/null
           declare -F handle_reset_world_flag >/dev/null
