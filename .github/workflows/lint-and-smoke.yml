@@ -58,6 +58,9 @@ jobs:
           declare -F ensure_s3_source_nonempty_for_remove >/dev/null
           declare -F download_file_atomic >/dev/null
           declare -F download_vanilla_server_atomic >/dev/null
+          declare -F install_vanilla_server_artifact >/dev/null
+          declare -F install_paper_server_artifact >/dev/null
+          declare -F install_purpur_server_artifact >/dev/null
           declare -F install_world >/dev/null
           declare -F reset_world >/dev/null
           declare -F handle_reset_world_flag >/dev/null
