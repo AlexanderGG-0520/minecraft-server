@@ -10,9 +10,10 @@ marker behavior, or change runtime launch behavior as part of this document.
 
 Suggested future file: `scripts/lib/server_install.sh`
 
-Status: started. `scripts/lib/server_install.sh` now owns only the pure atomic
-server artifact download helpers. Runtime-specific server artifact installation
-still remains in `entrypoint.sh`.
+Status: started. `scripts/lib/server_install.sh` now owns the pure atomic server
+artifact download helpers and the vanilla, Paper, and Purpur artifact install
+helpers. `install_server` and the remaining runtime-specific installer branches
+still remain in `entrypoint.sh`.
 
 The future library should answer:
 
@@ -49,6 +50,9 @@ Likely server artifact install responsibilities currently found:
 - `download_vanilla_server_atomic`
   - Vanilla-specific atomic download helper with SHA-1 verification.
   - Implemented in `scripts/lib/server_install.sh`.
+- Vanilla/Paper/Purpur artifact install helpers
+  - Implemented in `scripts/lib/server_install.sh`.
+  - `install_server` still selects these helpers by `TYPE`.
 - `install_server`
   - Runtime-specific server artifact dispatcher.
   - Validates existing artifacts with `assert_server_install_matches`.
@@ -196,6 +200,7 @@ Recommended implementation PRs:
    - These all produce `${DATA_DIR}/server.jar`.
    - Preserve `VERSION`, `PAPER_BUILD`, `PURPUR_BUILD`, filename, and marker
      semantics.
+   - Status: completed for artifact helper extraction only.
 3. Move Fabric and Quilt artifact installation.
    - Preserve Fabric loader/installer version resolution and Quilt download
      behavior.
