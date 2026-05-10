@@ -352,73 +352,15 @@ install_server() {
       ;;
 
     mohist)
-      [[ -n "${VERSION:-}" ]] || die "VERSION is required for mohist"
-
-      if [[ -f "${DATA_DIR}/server.jar" ]]; then
-        assert_server_install_matches "server.jar" "mohist" "${VERSION}"
-        log INFO "server.jar already exists, skipping"
-        return
-      fi
-
-      log INFO "Installing Mohist server ${VERSION}"
-
-      download_file_atomic \
-        "https://mohistmc.com/api/v2/projects/mohist/${VERSION}/builds/latest/download" \
-        "${DATA_DIR}/server.jar" \
-        "Mohist server.jar"
-
-      log INFO "Mohist server.jar ready"
-      write_server_install_marker "server.jar" "mohist" "${VERSION}"
+      install_mohist_server_artifact
       ;;
 
     taiyitist)
-      [[ -n "${VERSION:-}" ]] || die "VERSION is required for taiyitist"
-
-      if [[ -f "${DATA_DIR}/server.jar" ]]; then
-        assert_server_install_matches "server.jar" "taiyitist" "${VERSION}"
-        log INFO "server.jar already exists, skipping"
-        return
-      fi
-
-      log INFO "Resolving Taiyitist ${VERSION} release asset"
-
-      TAIYITIST_VERSION="${VERSION}-release"
-
-      ASSET_URL=$(
-        curl -fsSL "https://api.github.com/repos/TaiyitistMC/Taiyitist/releases/tags/${TAIYITIST_VERSION}" \
-          | grep browser_download_url \
-          | grep taiyitist-server \
-          | cut -d '"' -f 4
-      )
-
-      [[ -n "${ASSET_URL}" ]] || die "Failed to resolve Taiyitist release asset"
-
-      log INFO "Downloading ${ASSET_URL}"
-
-      download_file_atomic "${ASSET_URL}" "${DATA_DIR}/server.jar" "Taiyitist server.jar"
-
-      log INFO "Taiyitist server.jar ready"
-      write_server_install_marker "server.jar" "taiyitist" "${VERSION}"
+      install_taiyitist_server_artifact
       ;;
 
     youer)
-      [[ -n "${VERSION:-}" ]] || die "VERSION is required for youer"
-
-      if [[ -f "${DATA_DIR}/server.jar" ]]; then
-        assert_server_install_matches "server.jar" "youer" "${VERSION}"
-        log INFO "server.jar already exists, skipping"
-        return
-      fi
-
-      log INFO "Installing Youer server ${VERSION}"
-
-      download_file_atomic \
-        "https://api.youer.org/v1/projects/youer/${VERSION}/builds/latest/download" \
-        "${DATA_DIR}/server.jar" \
-        "Youer server.jar"
-
-      log INFO "Youer server.jar ready"
-      write_server_install_marker "server.jar" "youer" "${VERSION}"
+      install_youer_server_artifact
       ;;
 
     spigot)

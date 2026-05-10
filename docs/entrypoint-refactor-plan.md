@@ -72,9 +72,9 @@ The proposed server artifact installation boundary is documented in
 [`docs/server-artifact-install-boundary.md`](server-artifact-install-boundary.md).
 Initial extraction has started: pure server artifact download helpers now live in
 `scripts/lib/server_install.sh`. Vanilla, Fabric, Quilt, Forge, NeoForge, Paper,
-and Purpur artifact install helpers have also moved there, while
-`install_server` and the remaining runtime-specific installer branches remain in
-`entrypoint.sh`.
+Purpur, Mohist, Taiyitist, and Youer artifact install helpers have also moved
+there, while `install_server` and the remaining runtime-specific installer
+branches remain in `entrypoint.sh`.
 
 ### Server properties bootstrap
 
