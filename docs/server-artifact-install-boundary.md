@@ -10,6 +10,10 @@ marker behavior, or change runtime launch behavior as part of this document.
 
 Suggested future file: `scripts/lib/server_install.sh`
 
+Status: started. `scripts/lib/server_install.sh` now owns only the pure atomic
+server artifact download helpers. Runtime-specific server artifact installation
+still remains in `entrypoint.sh`.
+
 The future library should answer:
 
 - How do we install or validate the server artifact for the selected runtime
@@ -31,17 +35,20 @@ log messages, and first-boot versus restart behavior.
 
 ## Current inventory
 
-The current server artifact installation implementation is still in
-`entrypoint.sh`.
+The runtime-specific server artifact installation implementation is still in
+`entrypoint.sh`. Pure server artifact download helpers now live in
+`scripts/lib/server_install.sh`.
 
 Likely server artifact install responsibilities currently found:
 
 - `download_file_atomic`
-  - Shared atomic download helper currently used by server artifact installers.
+  - Shared atomic download helper used by server artifact installers.
+  - Implemented in `scripts/lib/server_install.sh`.
   - Current server-artifact call sites: Quilt, Paper, Purpur, Mohist,
     Taiyitist, and Youer.
 - `download_vanilla_server_atomic`
   - Vanilla-specific atomic download helper with SHA-1 verification.
+  - Implemented in `scripts/lib/server_install.sh`.
 - `install_server`
   - Runtime-specific server artifact dispatcher.
   - Validates existing artifacts with `assert_server_install_matches`.
@@ -184,6 +191,7 @@ Recommended implementation PRs:
      they remain used only by server artifact installation.
    - Source the new library from `entrypoint.sh`.
    - Do not change `install_server` behavior yet.
+   - Status: completed for the two download helpers only.
 2. Move vanilla, Paper, and Purpur artifact installation.
    - These all produce `${DATA_DIR}/server.jar`.
    - Preserve `VERSION`, `PAPER_BUILD`, `PURPUR_BUILD`, filename, and marker

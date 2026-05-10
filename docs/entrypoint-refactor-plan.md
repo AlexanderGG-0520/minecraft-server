@@ -70,6 +70,9 @@ after call sites are stable. Server artifact installation has not moved.
 
 The proposed server artifact installation boundary is documented in
 [`docs/server-artifact-install-boundary.md`](server-artifact-install-boundary.md).
+Initial extraction has started: pure server artifact download helpers now live in
+`scripts/lib/server_install.sh`; runtime-specific installer branches remain in
+`entrypoint.sh`.
 
 ### Server properties bootstrap
 
