@@ -53,6 +53,8 @@ jobs:
             declare -F install_vanilla_server_artifact >/dev/null
             declare -F install_fabric_server_artifact >/dev/null
             declare -F install_quilt_server_artifact >/dev/null
+            declare -F install_forge_server_artifact >/dev/null
+            declare -F install_neoforge_server_artifact >/dev/null
             declare -F install_paper_server_artifact >/dev/null
             declare -F install_purpur_server_artifact >/dev/null
             declare -F install_world >/dev/null

@@ -137,6 +137,102 @@ install_quilt_server_artifact() {
   write_server_install_marker "server.jar" "quilt" "${VERSION}"
 }
 
+install_forge_server_artifact() {
+  [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
+
+  FORGE_VER="${FORGE_VERSION:-latest}"
+  FORGE_META_URL="https://files.minecraftforge.net/net/minecraftforge/forge/index_${VERSION}.html"
+
+  # ---- resolve version FIRST ----
+  if [[ "${FORGE_VER}" == "latest" ]]; then
+    log INFO "Resolving latest Forge version for MC ${VERSION}"
+
+    html="$(curl -fsSL "${FORGE_META_URL}" || true)"
+
+    FORGE_VER="$(printf '%s' "$html" \
+      | grep -oP 'forge-\K[0-9.]+' \
+      | head -n 1)"
+
+    [[ -n "${FORGE_VER}" ]] || {
+      log ERROR "Failed to resolve Forge version. Response was:"
+      log ERROR "$(echo "$html" | head -c 300)"
+      die "Invalid Forge version"
+    }
+  fi
+
+  # ---- sanity check ----
+  [[ -n "${FORGE_VER}" && "${FORGE_VER}" != "null" ]] \
+    || die "Invalid Forge version resolved: ${FORGE_VER}"
+
+  MARKER="${DATA_DIR}/.installed-forge-${VERSION}-${FORGE_VER}"
+
+  if [[ -f "${MARKER}" ]]; then
+    assert_server_install_matches "run.sh" "forge" "${VERSION}"
+    log INFO "Forge already installed (MC=${VERSION}, forge=${FORGE_VER}), skipping"
+  else
+    log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
+
+    INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
+    curl -fL \
+      "https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}" \
+      -o "/tmp/${INSTALLER}" \
+      || die "Failed to download Forge installer"
+
+    java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
+      || die "Forge installer failed"
+
+    [[ -x "${DATA_DIR}/run.sh" ]] || die "Forge install finished but run.sh not found"
+
+    touch "${MARKER}"
+    write_server_install_marker "run.sh" "forge" "${VERSION}" "${FORGE_VER}"
+    log INFO "Forge installed marker created: ${MARKER}"
+  fi
+}
+
+install_neoforge_server_artifact() {
+  [[ -n "${VERSION:-}" ]] || die "VERSION is required for neoforge"
+
+  NEO_VER="${NEOFORGE_VERSION:-latest}"
+  META_URL="https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
+
+  if [[ -z "$NEO_VER" || "$NEO_VER" == "latest" ]]; then
+    log INFO "Resolving latest NeoForge (non-craftmine only)"
+    json="$(curl -fsSL "$META_URL")"
+
+    NEO_VER="$(
+      printf '%s' "$json" | jq -r '
+        .versions[]
+        | select(test("craftmine") | not)
+        | select(test("^21\\.1\\."))
+      ' | head -n 1
+    )"
+  fi
+
+  MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}-${NEO_VER}"
+
+  if [[ -f "${MARKER}" ]]; then
+    assert_server_install_matches "run.sh" "neoforge" "${VERSION}"
+    log INFO "NeoForge already installed (MC=${VERSION}, neoforge=${NEO_VER}), skipping"
+  else
+    log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
+
+    INSTALLER="neoforge-${NEO_VER}-installer.jar"
+    curl -fL \
+      "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/${INSTALLER}" \
+      -o "/tmp/${INSTALLER}" \
+      || die "Failed to download NeoForge installer"
+
+    java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
+      || die "NeoForge installer failed"
+
+    [[ -x "${DATA_DIR}/run.sh" ]] || die "NeoForge install finished but run.sh not found"
+
+    touch "${MARKER}"
+    write_server_install_marker "run.sh" "neoforge" "${VERSION}" "${NEO_VER}"
+    log INFO "NeoForge installed marker created: ${MARKER}"
+  fi
+}
+
 install_paper_server_artifact() {
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for paper"
 
