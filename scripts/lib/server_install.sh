@@ -406,6 +406,10 @@ install_spigot_server_artifact() {
 
 install_velocity_server_artifact() {
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for velocity"
+
+  if ! declare -F generate_velocity_toml >/dev/null; then
+    die "generate_velocity_toml is not available; source the script that defines it before calling install_velocity_server_artifact"
+  fi
   generate_velocity_toml
 
   # ============================================================
