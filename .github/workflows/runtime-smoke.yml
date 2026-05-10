@@ -60,6 +60,7 @@ jobs:
             declare -F install_mohist_server_artifact >/dev/null
             declare -F install_taiyitist_server_artifact >/dev/null
             declare -F install_youer_server_artifact >/dev/null
+            declare -F install_spigot_server_artifact >/dev/null
             declare -F install_world >/dev/null
             declare -F reset_world >/dev/null
             declare -F handle_reset_world_flag >/dev/null

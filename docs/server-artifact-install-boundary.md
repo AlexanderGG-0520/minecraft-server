@@ -12,9 +12,9 @@ Suggested future file: `scripts/lib/server_install.sh`
 
 Status: started. `scripts/lib/server_install.sh` now owns the pure atomic server
 artifact download helpers plus the vanilla, Fabric, Quilt, Forge, NeoForge,
-Paper, Purpur, Mohist, Taiyitist, and Youer artifact install helpers.
-`install_server` and the remaining runtime-specific installer branches still
-remain in `entrypoint.sh`.
+Paper, Purpur, Mohist, Taiyitist, Youer, and Spigot artifact install or
+validation helpers. `install_server` and the remaining runtime-specific
+installer branches still remain in `entrypoint.sh`.
 
 The future library should answer:
 
@@ -52,7 +52,7 @@ Likely server artifact install responsibilities currently found:
   - Vanilla-specific atomic download helper with SHA-1 verification.
   - Implemented in `scripts/lib/server_install.sh`.
 - Vanilla/Fabric/Quilt/Forge/NeoForge/Paper/Purpur/Mohist/Taiyitist/Youer
-  artifact install helpers
+  artifact install helpers and the Spigot existing-artifact validation helper
   - Implemented in `scripts/lib/server_install.sh`.
   - `install_server` still selects these helpers by `TYPE`.
 - `install_server`
@@ -225,6 +225,7 @@ Recommended implementation PRs:
    - Preserve the current behavior that no managed Spigot installer is provided.
    - If managed BuildTools/self-build support is ever added, handle it in a
      dedicated behavior PR with extra smoke coverage.
+   - Status: completed for existing-artifact validation helper extraction only.
 8. Only after `server_install.sh` stabilizes, consider a separate runtime
    dispatch or `run_server` boundary.
 
