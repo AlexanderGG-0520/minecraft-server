@@ -79,7 +79,7 @@ Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
 existing-artifact validation helper have also moved there. Velocity artifact
 installation and `install_server` dispatch have moved there too. `run_server`
 and runtime launch dispatch remain in `entrypoint.sh`; `generate_velocity_toml`
-ownership has not been redesigned.
+has moved to `scripts/lib/velocity_config.sh` without changing its call timing.
 
 ### Server properties bootstrap
 
