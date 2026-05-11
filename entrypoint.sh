@@ -2291,48 +2291,6 @@ rcon_stop_once() {
 # Single source of truth for signals (make sure there is only ONE trap)
 trap 'graceful_shutdown' TERM INT QUIT
 
-# ==========================================================
-# Runtime
-# ==========================================================
-runtime() {
-  log INFO "Starting runtime (TYPE=${TYPE})"
-  run_phase_hooks "pre-runtime"
-
-  case "${TYPE}" in
-    fabric)
-      log INFO "Launching Fabric server (single JVM)"
-      run_server java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/fabric-server-launch.jar" nogui
-      ;;
-
-    quilt|paper|purpur|spigot|mohist|taiyitist|youer|vanilla)
-      log INFO "Launching ${TYPE} server (single JVM)"
-      run_server java @"${JVM_ARGS_FILE}" \
-        -jar "${DATA_DIR}/server.jar" nogui
-      ;;
-
-    forge|neoforge)
-      cd "${DATA_DIR}"
-      [[ -x "./run.sh" ]] || die "NeoForge runtime not installed (run.sh missing)"
-      chmod +x ./run.sh
-
-      log INFO "Launching ${TYPE} server"
-      run_server ./run.sh nogui
-      ;;
-
-    velocity)
-      [[ -f "${DATA_DIR}/velocity.jar" ]] || die "velocity.jar not found at ${DATA_DIR}/velocity.jar"
-      cd "${DATA_DIR}"
-      log INFO "Launching Velocity server"
-      run_server java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/velocity.jar"
-      ;;
-
-    *)
-      die "Unknown TYPE: ${TYPE}"
-      ;;
-  esac
-}
-
 case "${1:-run}" in
   run)
     shift || true

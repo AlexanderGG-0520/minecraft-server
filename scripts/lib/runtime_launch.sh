@@ -31,3 +31,43 @@ run_server() {
   rm -f "${DATA_DIR}/.ready" 2>/dev/null || true
   return "$status"
 }
+
+runtime() {
+  log INFO "Starting runtime (TYPE=${TYPE})"
+  run_phase_hooks "pre-runtime"
+
+  case "${TYPE}" in
+    fabric)
+      log INFO "Launching Fabric server (single JVM)"
+      run_server java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/fabric-server-launch.jar" nogui
+      ;;
+
+    quilt|paper|purpur|spigot|mohist|taiyitist|youer|vanilla)
+      log INFO "Launching ${TYPE} server (single JVM)"
+      run_server java @"${JVM_ARGS_FILE}" \
+        -jar "${DATA_DIR}/server.jar" nogui
+      ;;
+
+    forge|neoforge)
+      cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR: ${DATA_DIR}"
+      [[ -f "./run.sh" ]] || die "${TYPE} runtime not installed (run.sh missing)"
+      chmod +x ./run.sh || die "Failed to make ./run.sh executable for ${TYPE} runtime"
+      [[ -x "./run.sh" ]] || die "./run.sh is not executable for ${TYPE} runtime"
+
+      log INFO "Launching ${TYPE} server"
+      run_server ./run.sh nogui
+      ;;
+
+    velocity)
+      [[ -f "${DATA_DIR}/velocity.jar" ]] || die "velocity.jar not found at ${DATA_DIR}/velocity.jar"
+      cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR: ${DATA_DIR}"
+      log INFO "Launching Velocity server"
+      run_server java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/velocity.jar"
+      ;;
+
+    *)
+      die "Unknown TYPE: ${TYPE}"
+      ;;
+  esac
+}
