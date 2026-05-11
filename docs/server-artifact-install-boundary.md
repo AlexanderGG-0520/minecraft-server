@@ -239,7 +239,9 @@ Recommended implementation PRs:
      error behavior.
    - Status: completed for dispatcher extraction only.
 9. Only after `server_install.sh` stabilizes, consider a separate runtime
-   dispatch or `run_server` boundary.
+   dispatch or `run_server` boundary. See
+   [`docs/runtime-launch-boundary.md`](runtime-launch-boundary.md) for the
+   proposed runtime launch ownership boundary.
 
 ## Risk notes
 
