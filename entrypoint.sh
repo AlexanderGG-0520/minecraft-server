@@ -10,6 +10,8 @@ source "${ENTRYPOINT_DIR%/}/scripts/lib/runtime.sh"
 source "${ENTRYPOINT_DIR%/}/scripts/lib/lifecycle.sh"
 # shellcheck source=scripts/lib/rcon.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/rcon.sh"
+# shellcheck source=scripts/lib/shutdown.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/shutdown.sh"
 # shellcheck source=scripts/lib/s3_client.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/s3_client.sh"
 # shellcheck source=scripts/lib/velocity_config.sh
@@ -2089,41 +2091,11 @@ graceful_shutdown() {
   exit 0
 }
 
-RCON_STOP_RESULT=1
-
 # Put the lock on ephemeral filesystem (NOT on /data / PVC)
+RCON_STOP_RESULT=1
 RCON_STOP_LOCK="${RCON_STOP_LOCK:-/tmp/.rcon-stop.lockdir}"
 RCON_STOP_IN_PROGRESS=0
 SERVER_PID=""
-
-cleanup_rcon_lock_on_boot() {
-  # Remove stale lock from previous container runs (best-effort)
-  rm -rf "${RCON_STOP_LOCK}" 2>/dev/null || true
-}
-
-acquire_rcon_stop_lock() {
-  mkdir "${RCON_STOP_LOCK}" 2>/dev/null
-}
-
-rcon_stop_once() {
-  # Prevent re-entrance within same process
-  if [ "${RCON_STOP_IN_PROGRESS}" = "1" ]; then
-    return "${RCON_STOP_RESULT}"
-  fi
-
-  # Prevent double execution across preStop/trap (but allow first run)
-  if ! acquire_rcon_stop_lock; then
-    log INFO "rcon_stop already running (lock exists), skipping"
-    return "${RCON_STOP_RESULT}"
-  fi
-
-  # Mark as in-progress ONLY after acquiring the lock
-  RCON_STOP_IN_PROGRESS=1
-
-  rcon_stop
-  RCON_STOP_RESULT=$?
-  return "${RCON_STOP_RESULT}"
-}
 
 # Single source of truth for signals (make sure there is only ONE trap)
 trap 'graceful_shutdown' TERM INT QUIT

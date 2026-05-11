@@ -40,26 +40,17 @@ first, then pure RCON helpers, then shutdown orchestration last.
 The remaining shutdown, signal, and command-mode behavior is implemented in
 `entrypoint.sh`. `run_phase_hooks` has moved mechanically to
 `scripts/lib/lifecycle.sh`, the pure RCON command helpers have moved to
-`scripts/lib/rcon.sh`, and `rcon_stop` has now moved mechanically to
-`scripts/lib/rcon.sh` as the current RCON stop sequencing helper.
+`scripts/lib/rcon.sh`, `rcon_stop` has now moved mechanically to
+`scripts/lib/rcon.sh` as the current RCON stop sequencing helper, and the
+RCON stop lock/de-dupe helpers have moved mechanically to
+`scripts/lib/shutdown.sh`.
 
 Still in `entrypoint.sh` for now:
 
-- `rcon_stop_once`
-- `acquire_rcon_stop_lock`
-- `cleanup_rcon_lock_on_boot`
 - `graceful_shutdown`
 - `wait_for_server_exit`
 - signal trap registration
 - command-line mode selection
-
-The next boundary decision is whether `rcon_stop` should remain in
-`scripts/lib/rcon.sh` as a pure RCON stop sequence or migrate with shutdown
-coordination later. The current implementation spans both concerns: it uses
-RCON helpers from `scripts/lib/rcon.sh`, but it is invoked by
-`rcon_stop_once`, `graceful_shutdown`, and `rcon-stop` command mode, all of
-which are about shutdown policy and de-duplication rather than pure RCON
-transport.
 
 Current lifecycle hook behavior:
 
@@ -122,11 +113,14 @@ Current RCON stop lock behavior:
 - `RCON_STOP_IN_PROGRESS`
   - Prevents re-entrance within the same process.
 - `cleanup_rcon_lock_on_boot`
+  - Implemented in `scripts/lib/shutdown.sh`.
   - Removes a stale RCON stop lock best-effort.
   - Is called by `run_server` in `scripts/lib/runtime_launch.sh`.
 - `acquire_rcon_stop_lock`
+  - Implemented in `scripts/lib/shutdown.sh`.
   - Creates the lock directory.
 - `rcon_stop_once`
+  - Implemented in `scripts/lib/shutdown.sh`.
   - Prevents duplicate RCON stop execution across preStop/trap paths.
   - Calls `rcon_stop` once and stores the result.
 
@@ -219,6 +213,10 @@ Future `scripts/lib/shutdown.sh` may own:
 - Signal trap registration if a dedicated shutdown PR decides it belongs with
   shutdown implementation rather than `entrypoint.sh` orchestration.
 
+The first three lock/de-dupe helpers are implemented in
+`scripts/lib/shutdown.sh` now; the remaining items stay as future shutdown
+ownership guidance.
+
 Future `scripts/lib/shutdown.sh` should not own:
 
 - Runtime launch command dispatch.
@@ -265,7 +263,7 @@ The recommended next implementation split is:
   policy with it;
 - keep `rcon_stop_once`, `acquire_rcon_stop_lock`,
   `cleanup_rcon_lock_on_boot`, `graceful_shutdown`, and
-  `wait_for_server_exit` together under shutdown coordination;
+  `wait_for_server_exit` under shutdown coordination;
 - keep signal trap registration in `entrypoint.sh` until a dedicated shutdown
   PR decides otherwise;
 - keep command-line mode selection in `entrypoint.sh` until a dedicated CLI
