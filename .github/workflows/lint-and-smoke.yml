@@ -135,10 +135,12 @@ jobs:
           source ./scripts/lib/lifecycle.sh
 
           HOOKS_DIR="$tmp/hooks"
+          HOOK_OUTPUT="$HOOKS_DIR/ran.txt"
+          export HOOK_OUTPUT
           mkdir -p "$HOOKS_DIR/pre-install.d"
           cat > "$HOOKS_DIR/pre-install.d/01-write-phase" <<'EOF'
           #!/usr/bin/env bash
-          printf '%s\n' "$HOOK_PHASE" > "$HOOKS_DIR/ran.txt"
+          printf '%s\n' "$HOOK_PHASE" > "$HOOK_OUTPUT"
           EOF
           chmod +x "$HOOKS_DIR/pre-install.d/01-write-phase"
 
@@ -146,7 +148,7 @@ jobs:
           HOOKS_TIMEOUT_SEC=0
           HOOKS_STRICT=true
           run_phase_hooks pre-install
-          test "$(cat "$HOOKS_DIR/ran.txt")" = "pre-install"
+          test "$(cat "$HOOK_OUTPUT")" = "pre-install"
 
       - name: Modrinth mrpack parser validator skeleton
         run: |
