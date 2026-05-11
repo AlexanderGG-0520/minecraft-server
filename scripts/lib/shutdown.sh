@@ -43,3 +43,44 @@ wait_for_server_exit() {
 
   return 0
 }
+
+graceful_shutdown() {
+  log INFO "[shutdown] begin"
+
+  if [[ "${TYPE}" == "velocity" ]]; then
+    log INFO "[shutdown] velocity detected, skipping rcon_stop"
+  else
+    if ! rcon_stop_once; then
+      log WARN "[shutdown] RCON stop failed or unavailable, sending TERM to server process"
+      if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+        kill -TERM "${SERVER_PID}" 2>/dev/null || true
+      fi
+    fi
+  fi
+
+  log INFO "[shutdown] waiting for server process (timeout: ${SHUTDOWN_WAIT_TIMEOUT}s)"
+  if wait_for_server_exit "${SHUTDOWN_WAIT_TIMEOUT}"; then
+    log INFO "[shutdown] server process exited"
+    log INFO "[shutdown] end"
+    exit 0
+  fi
+
+  log WARN "[shutdown] timeout exceeded, sending TERM"
+  if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    kill -TERM "${SERVER_PID}" 2>/dev/null || true
+  fi
+
+  if wait_for_server_exit "${SHUTDOWN_TERM_WAIT}"; then
+    log INFO "[shutdown] server process exited after TERM"
+    log INFO "[shutdown] end"
+    exit 0
+  fi
+
+  log WARN "[shutdown] forcing kill"
+  if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+    kill -KILL "${SERVER_PID}" 2>/dev/null || true
+  fi
+
+  log INFO "[shutdown] end"
+  exit 0
+}
