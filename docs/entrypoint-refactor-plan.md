@@ -57,8 +57,10 @@ Suggested file: `scripts/lib/runtime.sh`
 
 Status: completed for runtime type and install marker helpers. Small runtime
 type predicates, install marker path/write/validation helpers, and
-`resolve_type_auto` have moved. Server artifact installation, `run_server`, and
-runtime dispatch have not moved and remain in `entrypoint.sh`.
+`resolve_type_auto` have moved. Server artifact installation has moved to
+`scripts/lib/server_install.sh`; `run_server` has moved to
+`scripts/lib/runtime_launch.sh`; runtime dispatch has not moved and remains in
+`entrypoint.sh`.
 
 Owns:
 
@@ -68,7 +70,32 @@ Owns:
 
 Do not move all runtime behavior immediately. Runtime dispatch currently depends
 on `run_server`, shutdown/RCON state, and `JVM_ARGS_FILE`. Move dispatch only
-after call sites are stable. Server artifact installation has not moved.
+after call sites are stable.
+
+The proposed server artifact installation boundary is documented in
+[`docs/server-artifact-install-boundary.md`](server-artifact-install-boundary.md).
+The proposed Velocity config generation boundary is documented in
+[`docs/velocity-config-boundary.md`](velocity-config-boundary.md).
+The proposed runtime launch boundary is documented in
+[`docs/runtime-launch-boundary.md`](runtime-launch-boundary.md).
+The proposed shutdown/RCON/lifecycle boundary is documented in
+[`docs/shutdown-rcon-lifecycle-boundary.md`](shutdown-rcon-lifecycle-boundary.md).
+The refined RCON stop and shutdown coupling is documented in
+[`docs/shutdown-rcon-lifecycle-boundary.md`](shutdown-rcon-lifecycle-boundary.md).
+`rcon_stop` has moved mechanically into `scripts/lib/rcon.sh`, and the
+RCON stop lock/de-dupe helpers now live in `scripts/lib/shutdown.sh`; the
+remaining shutdown orchestration stays in `entrypoint.sh` for now.
+`wait_for_server_exit` has also moved into `scripts/lib/shutdown.sh`.
+Initial extraction has started: pure server artifact download helpers now live in
+`scripts/lib/server_install.sh`. Vanilla, Fabric, Quilt, Forge, NeoForge, Paper,
+Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
+existing-artifact validation helper have also moved there. Velocity artifact
+installation and `install_server` dispatch have moved there too. `run_server`
+and runtime launch dispatch have moved to `scripts/lib/runtime_launch.sh`.
+Shutdown/RCON/signal handling, lifecycle hook implementation, command-line mode
+selection, and install-only orchestration remain in `entrypoint.sh`.
+`generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
+changing its call timing.
 
 ### Server properties bootstrap
 
@@ -148,6 +175,42 @@ move should be mechanical only.
 9. Revisit larger install/runtime groupings only after the above boundaries are
    stable.
 
+## Entrypoint orchestration responsibilities
+
+`entrypoint.sh` should continue to own orchestration and top-level process
+control:
+
+- source libraries in dependency order.
+- initialize process-global defaults and state that other helpers read.
+- select command mode (`run`, `install-only`, `rcon`, `rcon-say`, `rcon-stop`).
+- call install and runtime in the correct order.
+- exit early for `install-only` before runtime launch.
+- register the shutdown signal trap.
+- keep top-level `main()` execution and sourced guard behavior.
+
+These are not problems to solve by default. They are often the right things to
+keep in `entrypoint.sh` unless a future dedicated CLI, state, or signal PR has a
+clear reason to move them.
+
+Do not casually move:
+
+- signal trap registration
+- command-mode selection
+- install-only orchestration
+- source order
+- process-global initialization for `SERVER_PID`, `RCON_STOP_RESULT`,
+  `RCON_STOP_LOCK`, and `RCON_STOP_IN_PROGRESS`
+- `main()` call/guard logic
+
+Possible future dedicated boundaries, if needed:
+
+- CLI / command-mode boundary
+- process-state/global initialization boundary
+- signal-trap boundary
+
+Treat those as optional follow-on work, not a default continuation of the helper
+extractions.
+
 ## Risks and compatibility checks
 
 - Keep `set -Eeuo pipefail` in `entrypoint.sh`; libraries must be source-safe
@@ -163,3 +226,51 @@ move should be mechanical only.
   available.
 - Keep the existing Docker/runtime smoke checks as the regression gate for
   Kubernetes/container startup behavior.
+
+## Current status
+
+The helper-splitting phase is substantially complete.
+
+Most reusable behavior now lives in `scripts/lib/*.sh`:
+
+- `logging.sh`: logging and timestamp helpers.
+- `runtime.sh`: runtime type resolution and install marker helpers.
+- `lifecycle.sh`: lifecycle hook execution.
+- `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;
+  `rcon_tellraw_all` still depends on `json_escape` from `entrypoint.sh`.
+- `shutdown.sh`: RCON stop sequencing plus lock/de-dupe helpers,
+  `wait_for_server_exit`, and `graceful_shutdown`.
+- `s3_client.sh`: S3/MinIO client mechanics.
+- `server_install.sh`: server artifact download/install helpers and
+  `install_server`.
+- `velocity_config.sh`: Velocity config generation.
+- `runtime_launch.sh`: `run_server` and runtime dispatch.
+- `world_install.sh`: world install helpers.
+- `world_reset.sh`: world reset helpers.
+- `server_properties.sh`: server.properties bootstrap helpers.
+
+`entrypoint.sh` is now primarily orchestration. That is expected. Not every
+remaining line is refactor debt.
+
+What intentionally remains in `entrypoint.sh`:
+
+- source order.
+- process-global initialization and defaults.
+- command-mode selection.
+- install/runtime orchestration.
+- install-only early exit behavior.
+- signal trap registration.
+- `main()` execution and sourced-guard behavior.
+
+What should not be moved casually:
+
+- source order.
+- command-mode selection.
+- install-only orchestration.
+- process-global initialization for `SERVER_PID`, `RCON_STOP_RESULT`,
+  `RCON_STOP_LOCK`, and `RCON_STOP_IN_PROGRESS`.
+- signal trap timing.
+- top-level `main()`/sourced guard behavior.
+
+Cleanup backlog and behavior-specific hardening should be handled in dedicated
+PRs. Do not mix those with the mechanical responsibility split.

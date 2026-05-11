@@ -40,7 +40,13 @@ jobs:
           set -euo pipefail
           source ./scripts/lib/logging.sh
           source ./scripts/lib/runtime.sh
+          source ./scripts/lib/lifecycle.sh
+          source ./scripts/lib/rcon.sh
+          source ./scripts/lib/shutdown.sh
           source ./scripts/lib/s3_client.sh
+          source ./scripts/lib/velocity_config.sh
+          source ./scripts/lib/server_install.sh
+          source ./scripts/lib/runtime_launch.sh
           source ./scripts/lib/world_install.sh
           source ./scripts/lib/world_reset.sh
           source ./scripts/lib/server_properties.sh
@@ -52,9 +58,37 @@ jobs:
           declare -F assert_server_install_matches >/dev/null
           declare -F write_server_install_marker >/dev/null
           declare -F resolve_type_auto >/dev/null
+          declare -F run_phase_hooks >/dev/null
+          declare -F rcon_client >/dev/null
+          declare -F rcon_exec >/dev/null
+          declare -F rcon_say >/dev/null
+          declare -F rcon_tellraw_all >/dev/null
+          declare -F rcon_stop >/dev/null
+          declare -F acquire_rcon_stop_lock >/dev/null
+          declare -F cleanup_rcon_lock_on_boot >/dev/null
+          declare -F rcon_stop_once >/dev/null
+          declare -F wait_for_server_exit >/dev/null
           declare -F require_s3_env >/dev/null
           declare -F configure_mc_alias >/dev/null
           declare -F ensure_s3_source_nonempty_for_remove >/dev/null
+          declare -F generate_velocity_toml >/dev/null
+          declare -F download_file_atomic >/dev/null
+          declare -F download_vanilla_server_atomic >/dev/null
+          declare -F install_vanilla_server_artifact >/dev/null
+          declare -F install_fabric_server_artifact >/dev/null
+          declare -F install_quilt_server_artifact >/dev/null
+          declare -F install_forge_server_artifact >/dev/null
+          declare -F install_neoforge_server_artifact >/dev/null
+          declare -F install_paper_server_artifact >/dev/null
+          declare -F install_purpur_server_artifact >/dev/null
+          declare -F install_mohist_server_artifact >/dev/null
+          declare -F install_taiyitist_server_artifact >/dev/null
+          declare -F install_youer_server_artifact >/dev/null
+          declare -F install_spigot_server_artifact >/dev/null
+          declare -F install_velocity_server_artifact >/dev/null
+          declare -F install_server >/dev/null
+          declare -F run_server >/dev/null
+          declare -F runtime >/dev/null
           declare -F install_world >/dev/null
           declare -F reset_world >/dev/null
           declare -F handle_reset_world_flag >/dev/null
@@ -117,6 +151,150 @@ jobs:
           handle_reset_world_flag
           test ! -f "$DATA_DIR/reset-world.flag"
           test -f "$DATA_DIR/world/level.dat"
+
+      - name: Lifecycle hook smoke
+        run: |
+          set -euo pipefail
+          is_true() {
+            case "$1" in
+              true|1|yes|on) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          source ./scripts/lib/logging.sh
+          source ./scripts/lib/lifecycle.sh
+
+          HOOKS_DIR="$tmp/hooks"
+          HOOK_OUTPUT="$HOOKS_DIR/ran.txt"
+          export HOOK_OUTPUT
+          mkdir -p "$HOOKS_DIR/pre-install.d"
+          cat > "$HOOKS_DIR/pre-install.d/01-write-phase" <<'EOF'
+          #!/usr/bin/env bash
+          printf '%s\n' "$HOOK_PHASE" > "$HOOK_OUTPUT"
+          EOF
+          chmod +x "$HOOKS_DIR/pre-install.d/01-write-phase"
+
+          HOOKS_ENABLED=true
+          HOOKS_TIMEOUT_SEC=0
+          HOOKS_STRICT=true
+          run_phase_hooks pre-install
+          test "$(cat "$HOOK_OUTPUT")" = "pre-install"
+
+      - name: RCON stop smoke
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          mkdir -p "$tmp/bin"
+          cat > "$tmp/bin/rcon-cli" <<'EOF'
+          #!/usr/bin/env bash
+          printf '%s\n' "$*" >> "$TMP_DIR/commands.txt"
+          EOF
+          chmod +x "$tmp/bin/rcon-cli"
+
+          source ./scripts/lib/logging.sh
+          source ./scripts/lib/rcon.sh
+          json_escape() {
+            local s="$*"
+            s="${s//\\/\\\\}"
+            s="${s//\"/\\\"}"
+            s="${s//$'\n'/\\n}"
+            printf '%s' "$s"
+          }
+
+          TMP_DIR="$tmp"
+          export TMP_DIR
+          ENABLE_RCON=true
+          RCON_HOST=127.0.0.1
+          RCON_PORT=25575
+          RCON_PASSWORD=secret
+          RCON_TIMEOUT=1
+          RCON_RETRIES=1
+          RCON_RETRY_DELAY=0
+          PATH="$tmp/bin:$PATH"
+          DATA_DIR="$tmp/data"
+          mkdir -p "$DATA_DIR/plugins/Citizens"
+          touch "$DATA_DIR/plugins/Citizens/saves.yml"
+          STOP_SERVER_ANNOUNCE_DELAY=0
+
+          rcon_stop
+          test "$(sed -n '1p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret tellraw @a {"text":"Server shutting down now.","color":"yellow"}')"
+          test "$(sed -n '2p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret citizens save')"
+          test "$(sed -n '3p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret save-all')"
+          test "$(sed -n '4p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret stop')"
+
+      - name: RCON lock smoke
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          source ./scripts/lib/logging.sh
+          source ./scripts/lib/rcon.sh
+          source ./scripts/lib/shutdown.sh
+
+          RCON_STOP_LOCK="$tmp/lock"
+          RCON_STOP_IN_PROGRESS=0
+          RCON_STOP_RESULT=1
+
+          mkdir -p "$RCON_STOP_LOCK"
+          if acquire_rcon_stop_lock; then
+            echo "expected acquire_rcon_stop_lock to fail when the lock already exists" >&2
+            exit 1
+          fi
+
+          cleanup_rcon_lock_on_boot
+          test ! -d "$RCON_STOP_LOCK"
+
+          rcon_stop_calls=0
+          rcon_stop() {
+            rcon_stop_calls=$((rcon_stop_calls + 1))
+            return 7
+          }
+
+          set +e
+          rcon_stop_once
+          first_rc=$?
+          rcon_stop_once
+          second_rc=$?
+          set -e
+
+          test "$rcon_stop_calls" -eq 1
+          test "$first_rc" -eq 7
+          test "$second_rc" -eq 7
+          test "$RCON_STOP_RESULT" -eq 7
+
+      - name: Wait helper smoke
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          source ./scripts/lib/logging.sh
+          source ./scripts/lib/shutdown.sh
+
+          (
+            sleep 1
+          ) &
+          SERVER_PID=$!
+          wait_for_server_exit 5
+          test $? -eq 0
+
+          (
+            sleep 5
+          ) &
+          SERVER_PID=$!
+          set +e
+          wait_for_server_exit 1
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          kill "$SERVER_PID" 2>/dev/null || true
+          wait "$SERVER_PID" 2>/dev/null || true
 
       - name: Modrinth mrpack parser validator skeleton
         run: |
