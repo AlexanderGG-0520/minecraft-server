@@ -39,12 +39,12 @@ first, then pure RCON helpers, then shutdown orchestration last.
 
 The remaining shutdown, signal, and command-mode behavior is implemented in
 `entrypoint.sh`. `run_phase_hooks` has moved mechanically to
-`scripts/lib/lifecycle.sh`, and the pure RCON command helpers have moved to
-`scripts/lib/rcon.sh`.
+`scripts/lib/lifecycle.sh`, the pure RCON command helpers have moved to
+`scripts/lib/rcon.sh`, and `rcon_stop` has now moved mechanically to
+`scripts/lib/rcon.sh` as the current RCON stop sequencing helper.
 
 Still in `entrypoint.sh` for now:
 
-- `rcon_stop`
 - `rcon_stop_once`
 - `acquire_rcon_stop_lock`
 - `cleanup_rcon_lock_on_boot`
@@ -53,9 +53,10 @@ Still in `entrypoint.sh` for now:
 - signal trap registration
 - command-line mode selection
 
-The next boundary decision is whether `rcon_stop` belongs with command
-sequencing or with shutdown coordination. The current implementation spans both
-concerns: it uses RCON helpers from `scripts/lib/rcon.sh`, but it is invoked by
+The next boundary decision is whether `rcon_stop` should remain in
+`scripts/lib/rcon.sh` as a pure RCON stop sequence or migrate with shutdown
+coordination later. The current implementation spans both concerns: it uses
+RCON helpers from `scripts/lib/rcon.sh`, but it is invoked by
 `rcon_stop_once`, `graceful_shutdown`, and `rcon-stop` command mode, all of
 which are about shutdown policy and de-duplication rather than pure RCON
 transport.
@@ -188,11 +189,11 @@ Future `scripts/lib/rcon.sh` may own:
 - `rcon_exec`.
 - `rcon_say`.
 - `rcon_tellraw_all`.
+- `rcon_stop`.
 - RCON connection argument handling.
 - RCON retry and timeout behavior.
-- `rcon_stop` only if it remains a command-sequencing wrapper around
-  `rcon_exec`/`rcon_tellraw_all` and does not absorb shutdown lock or signal
-  policy.
+- `rcon_stop` command sequencing if it remains a thin wrapper around
+  `rcon_exec`/`rcon_tellraw_all` without shutdown lock or signal policy.
 
 Future `scripts/lib/rcon.sh` should not own:
 
@@ -260,7 +261,8 @@ Current coupling to preserve during future mechanical moves:
 The recommended next implementation split is:
 
 - keep `rcon_stop` with the RCON command-sequencing side only if a later PR can
-  move it mechanically without pulling lock or signal policy with it;
+  keep it mechanically in `scripts/lib/rcon.sh` without pulling lock or signal
+  policy with it;
 - keep `rcon_stop_once`, `acquire_rcon_stop_lock`,
   `cleanup_rcon_lock_on_boot`, `graceful_shutdown`, and
   `wait_for_server_exit` together under shutdown coordination;

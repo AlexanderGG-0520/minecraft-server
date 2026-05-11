@@ -73,3 +73,50 @@ rcon_tellraw_all() {
   fi
   return 0
 }
+
+rcon_stop() {
+  if [[ "${ENABLE_RCON}" != "true" ]]; then
+    log INFO "RCON disabled, skipping rcon_stop"
+    return 1
+  fi
+
+  local delay="${STOP_SERVER_ANNOUNCE_DELAY:-0}"
+  local citizens_file="${DATA_DIR}/plugins/Citizens/saves.yml"
+
+  if [[ -f "${citizens_file}" ]]; then
+    log INFO "Citizens data detected: ${citizens_file}"
+  else
+    log INFO "Citizens data not found at shutdown: ${citizens_file}"
+  fi
+
+  if (( delay > 0 )); then
+    rcon_tellraw_all "Server shutting down in ${delay} seconds." || true
+    sleep "${delay}"
+  else
+    rcon_tellraw_all "Server shutting down now." || true
+  fi
+
+  log INFO "[shutdown] rcon: citizens save"
+  if rcon_exec "citizens save"; then
+    log INFO "[shutdown] rcon: citizens save succeeded"
+  else
+    log WARN "[shutdown] rcon: citizens save failed"
+  fi
+
+  log INFO "[shutdown] rcon: save-all"
+  if rcon_exec "save-all"; then
+    log INFO "[shutdown] rcon: save-all succeeded"
+  else
+    log WARN "[shutdown] rcon: save-all failed"
+  fi
+
+  log INFO "[shutdown] rcon: stop"
+  if rcon_exec "stop"; then
+    log INFO "[shutdown] rcon: stop succeeded"
+  else
+    log WARN "[shutdown] rcon: stop failed"
+    return 1
+  fi
+
+  return 0
+}
