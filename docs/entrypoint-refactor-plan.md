@@ -80,6 +80,8 @@ The proposed shutdown/RCON/lifecycle boundary is documented in
 [`docs/shutdown-rcon-lifecycle-boundary.md`](shutdown-rcon-lifecycle-boundary.md).
 The refined RCON stop and shutdown coupling is documented in
 [`docs/shutdown-rcon-lifecycle-boundary.md`](shutdown-rcon-lifecycle-boundary.md).
+`rcon_stop` has now moved mechanically into `scripts/lib/rcon.sh`; the
+remaining lock and shutdown coordination stays in `entrypoint.sh` for now.
 Initial extraction has started: pure server artifact download helpers now live in
 `scripts/lib/server_install.sh`. Vanilla, Fabric, Quilt, Forge, NeoForge, Paper,
 Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot

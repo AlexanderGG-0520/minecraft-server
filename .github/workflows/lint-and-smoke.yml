@@ -62,6 +62,7 @@ jobs:
           declare -F rcon_exec >/dev/null
           declare -F rcon_say >/dev/null
           declare -F rcon_tellraw_all >/dev/null
+          declare -F rcon_stop >/dev/null
           declare -F require_s3_env >/dev/null
           declare -F configure_mc_alias >/dev/null
           declare -F ensure_s3_source_nonempty_for_remove >/dev/null
@@ -155,7 +156,7 @@ jobs:
           run_phase_hooks pre-install
           test "$(cat "$HOOK_OUTPUT")" = "pre-install"
 
-      - name: RCON helper smoke
+      - name: RCON stop smoke
         run: |
           set -euo pipefail
           tmp="$(mktemp -d)"
@@ -164,12 +165,19 @@ jobs:
           mkdir -p "$tmp/bin"
           cat > "$tmp/bin/rcon-cli" <<'EOF'
           #!/usr/bin/env bash
-          printf '%s\n' "$@" > "$TMP_DIR/args.txt"
+          printf '%s\n' "$*" >> "$TMP_DIR/commands.txt"
           EOF
           chmod +x "$tmp/bin/rcon-cli"
 
           source ./scripts/lib/logging.sh
           source ./scripts/lib/rcon.sh
+          json_escape() {
+            local s="$*"
+            s="${s//\\/\\\\}"
+            s="${s//\"/\\\"}"
+            s="${s//$'\n'/\\n}"
+            printf '%s' "$s"
+          }
 
           TMP_DIR="$tmp"
           export TMP_DIR
@@ -181,9 +189,16 @@ jobs:
           RCON_RETRIES=1
           RCON_RETRY_DELAY=0
           PATH="$tmp/bin:$PATH"
+          DATA_DIR="$tmp/data"
+          mkdir -p "$DATA_DIR/plugins/Citizens"
+          touch "$DATA_DIR/plugins/Citizens/saves.yml"
+          STOP_SERVER_ANNOUNCE_DELAY=0
 
-          rcon_exec "say hello"
-          test "$(cat "$TMP_DIR/args.txt")" = "$(printf '%s\n' --host 127.0.0.1 --port 25575 --password secret 'say hello')"
+          rcon_stop
+          test "$(sed -n '1p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret tellraw @a {"text":"Server shutting down now.","color":"yellow"}')"
+          test "$(sed -n '2p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret citizens save')"
+          test "$(sed -n '3p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret save-all')"
+          test "$(sed -n '4p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret stop')"
 
       - name: Modrinth mrpack parser validator skeleton
         run: |
