@@ -157,6 +157,20 @@ Current command-mode behavior:
 - `rcon-say` calls `rcon_say "$@"` and exits with that status.
 - `rcon-stop` calls `rcon_stop_once` and exits `0`.
 
+## Entrypoint orchestration
+
+The remaining top-level orchestration should stay in `entrypoint.sh` for now:
+
+- source ordering for the shell libraries.
+- process-global initialization and defaults that several helpers still read.
+- command-mode selection.
+- install-only orchestration and early exit before runtime launch.
+- signal trap registration timing.
+- `main()` execution and sourced-guard behavior.
+
+These are not automatic follow-on moves. They should only change when there is a
+dedicated CLI, state, or signal boundary with a clear reason to do so.
+
 ## Future lifecycle ownership
 
 Future `scripts/lib/lifecycle.sh` may own:

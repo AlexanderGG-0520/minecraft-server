@@ -173,6 +173,42 @@ move should be mechanical only.
 9. Revisit larger install/runtime groupings only after the above boundaries are
    stable.
 
+## Entrypoint orchestration responsibilities
+
+`entrypoint.sh` should continue to own orchestration and top-level process
+control:
+
+- source libraries in dependency order.
+- initialize process-global defaults and state that other helpers read.
+- select command mode (`run`, `install-only`, `rcon`, `rcon-say`, `rcon-stop`).
+- call install and runtime in the correct order.
+- exit early for `install-only` before runtime launch.
+- register the shutdown signal trap.
+- keep top-level `main()` execution and sourced guard behavior.
+
+These are not problems to solve by default. They are often the right things to
+keep in `entrypoint.sh` unless a future dedicated CLI, state, or signal PR has a
+clear reason to move them.
+
+Do not casually move:
+
+- signal trap registration
+- command-mode selection
+- install-only orchestration
+- source order
+- process-global initialization for `SERVER_PID`, `RCON_STOP_RESULT`,
+  `RCON_STOP_LOCK`, and `RCON_STOP_IN_PROGRESS`
+- `main()` call/guard logic
+
+Possible future dedicated boundaries, if needed:
+
+- CLI / command-mode boundary
+- process-state/global initialization boundary
+- signal-trap boundary
+
+Treat those as optional follow-on work, not a default continuation of the helper
+extractions.
+
 ## Risks and compatibility checks
 
 - Keep `set -Eeuo pipefail` in `entrypoint.sh`; libraries must be source-safe
