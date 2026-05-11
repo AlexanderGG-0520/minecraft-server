@@ -9,7 +9,12 @@ install order, or change install-only behavior as part of this document.
 
 ## Proposed boundary
 
-Recommended future file: `scripts/lib/runtime_launch.sh`
+Recommended file: `scripts/lib/runtime_launch.sh`
+
+Status: started. `run_server` has moved mechanically to
+`scripts/lib/runtime_launch.sh`. Runtime-specific dispatch remains in
+`entrypoint.sh`, and shutdown/RCON/signal handling, lifecycle hook orchestration,
+command-line mode selection, and install-only orchestration have not moved.
 
 Use `scripts/lib/runtime_launch.sh` because the boundary is about launching the
 selected runtime after install/bootstrap has completed. Avoid
@@ -39,11 +44,12 @@ The future library should answer:
 
 ## Current state
 
-Runtime launch behavior is currently implemented in `entrypoint.sh`.
+Runtime launch orchestration is currently implemented in `entrypoint.sh`.
 
 Current launch-related functions and variables:
 
 - `run_server`
+  - Implemented in `scripts/lib/runtime_launch.sh`.
   - Starts the provided command in the background.
   - Stores the process id in `SERVER_PID`.
   - Calls `cleanup_rcon_lock_on_boot` before launching.
@@ -165,7 +171,7 @@ Current couplings to preserve during any mechanical move:
 Recommended implementation PRs:
 
 1. Add this docs-only boundary plan.
-   - Status: this PR.
+   - Status: completed.
 2. Mechanically move tiny launch-only helpers, if any are identified.
    - Preserve call sites and source order.
    - Do not move RCON, shutdown, signal, or lifecycle behavior in this step.
@@ -175,6 +181,7 @@ Recommended implementation PRs:
    - Preserve `SERVER_PID` assignment.
    - Preserve wait and return-status behavior.
    - Preserve cleanup of the RCON stop lock if it remains coupled.
+   - Status: completed for `run_server` only.
 4. Keep process orchestration, signal handling, lifecycle hooks, and RCON
    behavior in `entrypoint.sh` unless they are inseparable from `run_server`.
 5. After `runtime_launch.sh` stabilizes, consider dedicated behavior-neutral
