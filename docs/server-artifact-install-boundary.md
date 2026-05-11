@@ -14,9 +14,11 @@ Status: started. `scripts/lib/server_install.sh` now owns the pure atomic server
 artifact download helpers plus the vanilla, Fabric, Quilt, Forge, NeoForge,
 Paper, Purpur, Mohist, Taiyitist, Youer, Spigot, and Velocity artifact install
 or validation helpers and the `install_server` dispatcher. `run_server` and
-runtime launch dispatch remain in `entrypoint.sh`. `generate_velocity_toml`
-now lives in `scripts/lib/velocity_config.sh`; its existing call from Velocity
-artifact installation remains in place.
+runtime launch dispatch are not owned by `server_install.sh`; `run_server` now
+lives in `scripts/lib/runtime_launch.sh`, and runtime launch dispatch remains in
+`entrypoint.sh`. `generate_velocity_toml` now lives in
+`scripts/lib/velocity_config.sh`; its existing call from Velocity artifact
+installation remains in place.
 
 The future library should answer:
 

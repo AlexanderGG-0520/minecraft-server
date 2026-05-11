@@ -56,8 +56,9 @@ Suggested file: `scripts/lib/runtime.sh`
 Status: completed for runtime type and install marker helpers. Small runtime
 type predicates, install marker path/write/validation helpers, and
 `resolve_type_auto` have moved. Server artifact installation has moved to
-`scripts/lib/server_install.sh`; `run_server` and runtime dispatch have not
-moved and remain in `entrypoint.sh`.
+`scripts/lib/server_install.sh`; `run_server` has moved to
+`scripts/lib/runtime_launch.sh`; runtime dispatch has not moved and remains in
+`entrypoint.sh`.
 
 Owns:
 
@@ -80,8 +81,9 @@ Initial extraction has started: pure server artifact download helpers now live i
 Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
 existing-artifact validation helper have also moved there. Velocity artifact
 installation and `install_server` dispatch have moved there too. `run_server`
-and runtime launch dispatch remain in `entrypoint.sh`; `generate_velocity_toml`
-has moved to `scripts/lib/velocity_config.sh` without changing its call timing.
+has moved to `scripts/lib/runtime_launch.sh`; runtime launch dispatch remains in
+`entrypoint.sh`. `generate_velocity_toml` has moved to
+`scripts/lib/velocity_config.sh` without changing its call timing.
 
 ### Server properties bootstrap
 
