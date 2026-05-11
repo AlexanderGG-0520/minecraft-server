@@ -198,9 +198,10 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
 - `logging.sh`: logging and timestamp helpers.
 - `runtime.sh`: runtime type resolution and install marker helpers.
 - `lifecycle.sh`: lifecycle hook execution.
-- `rcon.sh`: pure RCON command helpers and `rcon_stop` sequencing.
-- `shutdown.sh`: RCON stop lock/de-dupe helpers, `wait_for_server_exit`, and
-  `graceful_shutdown`.
+- `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;
+  `rcon_tellraw_all` still depends on `json_escape` from `entrypoint.sh`.
+- `shutdown.sh`: RCON stop sequencing plus lock/de-dupe helpers,
+  `wait_for_server_exit`, and `graceful_shutdown`.
 - `s3_client.sh`: S3/MinIO client mechanics.
 - `server_install.sh`: server artifact download/install helpers and
   `install_server`.
