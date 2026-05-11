@@ -2035,21 +2035,6 @@ json_escape() {
   printf '%s' "$s"
 }
 
-wait_for_server_exit() {
-  local timeout="$1"
-  local elapsed=0
-
-  while [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; do
-    if (( elapsed >= timeout )); then
-      return 1
-    fi
-    sleep 1
-    elapsed=$((elapsed + 1))
-  done
-
-  return 0
-}
-
 graceful_shutdown() {
   log INFO "[shutdown] begin"
 

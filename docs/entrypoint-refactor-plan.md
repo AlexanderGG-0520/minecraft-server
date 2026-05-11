@@ -83,6 +83,7 @@ The refined RCON stop and shutdown coupling is documented in
 `rcon_stop` has moved mechanically into `scripts/lib/rcon.sh`, and the
 RCON stop lock/de-dupe helpers now live in `scripts/lib/shutdown.sh`; the
 remaining shutdown orchestration stays in `entrypoint.sh` for now.
+`wait_for_server_exit` has also moved into `scripts/lib/shutdown.sh`.
 Initial extraction has started: pure server artifact download helpers now live in
 `scripts/lib/server_install.sh`. Vanilla, Fabric, Quilt, Forge, NeoForge, Paper,
 Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
