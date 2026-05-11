@@ -11,10 +11,10 @@ install order, or change install-only behavior as part of this document.
 
 Recommended file: `scripts/lib/runtime_launch.sh`
 
-Status: started. `run_server` has moved mechanically to
-`scripts/lib/runtime_launch.sh`. Runtime-specific dispatch remains in
-`entrypoint.sh`, and shutdown/RCON/signal handling, lifecycle hook orchestration,
-command-line mode selection, and install-only orchestration have not moved.
+Status: started. `run_server` and `runtime` have moved mechanically to
+`scripts/lib/runtime_launch.sh`. Shutdown/RCON/signal handling, lifecycle hook
+implementation, command-line mode selection, and install-only orchestration have
+not moved.
 
 Use `scripts/lib/runtime_launch.sh` because the boundary is about launching the
 selected runtime after install/bootstrap has completed. Avoid
@@ -44,7 +44,8 @@ The future library should answer:
 
 ## Current state
 
-Runtime launch orchestration is currently implemented in `entrypoint.sh`.
+Runtime launch implementation is currently split between
+`scripts/lib/runtime_launch.sh` and `entrypoint.sh`.
 
 Current launch-related functions and variables:
 
@@ -57,6 +58,7 @@ Current launch-related functions and variables:
   - Creates `${DATA_DIR}/.ready` while the process is still running.
   - Waits for the process and removes `${DATA_DIR}/.ready` on exit.
 - `runtime`
+  - Implemented in `scripts/lib/runtime_launch.sh`.
   - Logs `Starting runtime (TYPE=${TYPE})`.
   - Runs `run_phase_hooks "pre-runtime"` before dispatch.
   - Dispatches by `TYPE`.
@@ -184,6 +186,9 @@ Recommended implementation PRs:
    - Status: completed for `run_server` only.
 4. Keep process orchestration, signal handling, lifecycle hooks, and RCON
    behavior in `entrypoint.sh` unless they are inseparable from `run_server`.
+   - Status: completed for the `runtime` launch dispatch move only. Shutdown,
+     RCON, signal handling, lifecycle hook implementation, command-line mode
+     selection, and install-only orchestration remain in `entrypoint.sh`.
 5. After `runtime_launch.sh` stabilizes, consider dedicated behavior-neutral
    boundaries for lifecycle hooks, RCON, and shutdown/signal handling.
 6. Do not combine runtime launch moves with cleanup backlog items.

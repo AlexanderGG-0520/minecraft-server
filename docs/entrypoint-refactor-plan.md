@@ -81,9 +81,11 @@ Initial extraction has started: pure server artifact download helpers now live i
 Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
 existing-artifact validation helper have also moved there. Velocity artifact
 installation and `install_server` dispatch have moved there too. `run_server`
-has moved to `scripts/lib/runtime_launch.sh`; runtime launch dispatch remains in
-`entrypoint.sh`. `generate_velocity_toml` has moved to
-`scripts/lib/velocity_config.sh` without changing its call timing.
+and runtime launch dispatch have moved to `scripts/lib/runtime_launch.sh`.
+Shutdown/RCON/signal handling, lifecycle hook implementation, command-line mode
+selection, and install-only orchestration remain in `entrypoint.sh`.
+`generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
+changing its call timing.
 
 ### Server properties bootstrap
 
