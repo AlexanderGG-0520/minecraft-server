@@ -37,12 +37,14 @@ first, then pure RCON helpers, then shutdown orchestration last.
 
 ## Current state
 
-The remaining shutdown, RCON, lifecycle, signal, and command-mode behavior is
-implemented in `entrypoint.sh`.
+The remaining shutdown, RCON, signal, and command-mode behavior is implemented
+in `entrypoint.sh`. `run_phase_hooks` has moved mechanically to
+`scripts/lib/lifecycle.sh`.
 
 Current lifecycle hook behavior:
 
 - `run_phase_hooks`
+  - Implemented in `scripts/lib/lifecycle.sh`.
   - Uses `HOOKS_ENABLED` to enable or skip hooks.
   - Builds the hook directory from `HOOKS_DIR` and the phase name:
     `${HOOKS_DIR}/${phase}.d`.
@@ -229,7 +231,7 @@ Current coupling to preserve during future mechanical moves:
 Recommended implementation PRs:
 
 1. Add this docs-only boundary plan.
-   - Status: this PR.
+   - Status: completed for the lifecycle hook helper move only.
 2. Move lifecycle hook helpers mechanically into `scripts/lib/lifecycle.sh` if
    they remain mostly pure.
    - Preserve `run_phase_hooks` behavior.

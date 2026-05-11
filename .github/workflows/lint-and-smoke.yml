@@ -40,6 +40,7 @@ jobs:
           set -euo pipefail
           source ./scripts/lib/logging.sh
           source ./scripts/lib/runtime.sh
+          source ./scripts/lib/lifecycle.sh
           source ./scripts/lib/s3_client.sh
           source ./scripts/lib/velocity_config.sh
           source ./scripts/lib/server_install.sh
@@ -55,6 +56,7 @@ jobs:
           declare -F assert_server_install_matches >/dev/null
           declare -F write_server_install_marker >/dev/null
           declare -F resolve_type_auto >/dev/null
+          declare -F run_phase_hooks >/dev/null
           declare -F require_s3_env >/dev/null
           declare -F configure_mc_alias >/dev/null
           declare -F ensure_s3_source_nonempty_for_remove >/dev/null
@@ -116,6 +118,37 @@ jobs:
           handle_reset_world_flag
           test ! -f "$DATA_DIR/reset-world.flag"
           test -f "$DATA_DIR/world/level.dat"
+
+      - name: Lifecycle hook smoke
+        run: |
+          set -euo pipefail
+          is_true() {
+            case "$1" in
+              true|1|yes|on) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          source ./scripts/lib/logging.sh
+          source ./scripts/lib/lifecycle.sh
+
+          HOOKS_DIR="$tmp/hooks"
+          HOOK_OUTPUT="$HOOKS_DIR/ran.txt"
+          export HOOK_OUTPUT
+          mkdir -p "$HOOKS_DIR/pre-install.d"
+          cat > "$HOOKS_DIR/pre-install.d/01-write-phase" <<'EOF'
+          #!/usr/bin/env bash
+          printf '%s\n' "$HOOK_PHASE" > "$HOOK_OUTPUT"
+          EOF
+          chmod +x "$HOOKS_DIR/pre-install.d/01-write-phase"
+
+          HOOKS_ENABLED=true
+          HOOKS_TIMEOUT_SEC=0
+          HOOKS_STRICT=true
+          run_phase_hooks pre-install
+          test "$(cat "$HOOK_OUTPUT")" = "pre-install"
 
       - name: Modrinth mrpack parser validator skeleton
         run: |

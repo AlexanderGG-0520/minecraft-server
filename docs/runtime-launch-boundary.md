@@ -165,7 +165,8 @@ Current couplings to preserve during any mechanical move:
 - Shutdown behavior depends on `SERVER_PID` being set by `run_server`.
 - Signal handling calls `graceful_shutdown`, which may use RCON before sending
   process signals.
-- `pre-runtime` lifecycle hooks currently run inside `runtime` before dispatch.
+- `pre-runtime` lifecycle hooks now run via `scripts/lib/lifecycle.sh` before
+  dispatch.
 - Install-only behavior remains orchestration-owned in `main`; it exits before
   `runtime` is called.
 - The Velocity foreground footer is separate from `runtime` dispatch and should
