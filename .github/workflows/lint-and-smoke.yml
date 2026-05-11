@@ -41,6 +41,7 @@ jobs:
           source ./scripts/lib/logging.sh
           source ./scripts/lib/runtime.sh
           source ./scripts/lib/lifecycle.sh
+          source ./scripts/lib/rcon.sh
           source ./scripts/lib/s3_client.sh
           source ./scripts/lib/velocity_config.sh
           source ./scripts/lib/server_install.sh
@@ -57,6 +58,10 @@ jobs:
           declare -F write_server_install_marker >/dev/null
           declare -F resolve_type_auto >/dev/null
           declare -F run_phase_hooks >/dev/null
+          declare -F rcon_client >/dev/null
+          declare -F rcon_exec >/dev/null
+          declare -F rcon_say >/dev/null
+          declare -F rcon_tellraw_all >/dev/null
           declare -F require_s3_env >/dev/null
           declare -F configure_mc_alias >/dev/null
           declare -F ensure_s3_source_nonempty_for_remove >/dev/null
@@ -149,6 +154,36 @@ jobs:
           HOOKS_STRICT=true
           run_phase_hooks pre-install
           test "$(cat "$HOOK_OUTPUT")" = "pre-install"
+
+      - name: RCON helper smoke
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          mkdir -p "$tmp/bin"
+          cat > "$tmp/bin/rcon-cli" <<'EOF'
+          #!/usr/bin/env bash
+          printf '%s\n' "$@" > "$TMP_DIR/args.txt"
+          EOF
+          chmod +x "$tmp/bin/rcon-cli"
+
+          source ./scripts/lib/logging.sh
+          source ./scripts/lib/rcon.sh
+
+          TMP_DIR="$tmp"
+          export TMP_DIR
+          ENABLE_RCON=true
+          RCON_HOST=127.0.0.1
+          RCON_PORT=25575
+          RCON_PASSWORD=secret
+          RCON_TIMEOUT=1
+          RCON_RETRIES=1
+          RCON_RETRY_DELAY=0
+          PATH="$tmp/bin:$PATH"
+
+          rcon_exec "say hello"
+          test "$(cat "$TMP_DIR/args.txt")" = "$(printf '%s\n' --host 127.0.0.1 --port 25575 --password secret 'say hello')"
 
       - name: Modrinth mrpack parser validator skeleton
         run: |

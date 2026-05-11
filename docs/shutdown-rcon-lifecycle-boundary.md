@@ -37,9 +37,21 @@ first, then pure RCON helpers, then shutdown orchestration last.
 
 ## Current state
 
-The remaining shutdown, RCON, signal, and command-mode behavior is implemented
-in `entrypoint.sh`. `run_phase_hooks` has moved mechanically to
-`scripts/lib/lifecycle.sh`.
+The remaining shutdown, signal, and command-mode behavior is implemented in
+`entrypoint.sh`. `run_phase_hooks` has moved mechanically to
+`scripts/lib/lifecycle.sh`, and the pure RCON command helpers have moved to
+`scripts/lib/rcon.sh`.
+
+Still in `entrypoint.sh` for now:
+
+- `rcon_stop`
+- `rcon_stop_once`
+- `acquire_rcon_stop_lock`
+- `cleanup_rcon_lock_on_boot`
+- `graceful_shutdown`
+- `wait_for_server_exit`
+- signal trap registration
+- command-line mode selection
 
 Current lifecycle hook behavior:
 
@@ -65,9 +77,11 @@ Current lifecycle hook behavior:
 Current RCON behavior:
 
 - `rcon_client`
+  - Implemented in `scripts/lib/rcon.sh`.
   - Prefers `rcon-cli` when available.
   - Falls back to `mcrcon` when available.
 - `rcon_exec`
+  - Implemented in `scripts/lib/rcon.sh`.
   - Builds a command from its arguments.
   - Requires `ENABLE_RCON=true`.
   - Requires non-empty `RCON_PASSWORD`.
@@ -75,8 +89,10 @@ Current RCON behavior:
   - Retries according to `RCON_RETRIES` and `RCON_RETRY_DELAY`.
   - Logs final failure after retries are exhausted.
 - `rcon_say`
+  - Implemented in `scripts/lib/rcon.sh`.
   - Calls `rcon_exec "say $*"`.
 - `rcon_tellraw_all`
+  - Implemented in `scripts/lib/rcon.sh`.
   - JSON-escapes the message.
   - Tries `tellraw @a` first.
   - Falls back to `say` if tellraw fails.
@@ -239,6 +255,7 @@ Recommended implementation PRs:
    - Let `runtime_launch.sh` continue to call `run_phase_hooks` by Bash runtime
      name resolution.
 3. Move pure RCON command helpers into `scripts/lib/rcon.sh` if separable.
+   - Status: completed for the pure command helpers only.
    - Preserve `rcon`, `rcon-say`, and `rcon-stop` command-mode behavior.
    - Preserve env var behavior, retries, timeouts, log messages, and error
      messages.
