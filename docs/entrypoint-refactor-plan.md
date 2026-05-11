@@ -226,3 +226,51 @@ extractions.
   available.
 - Keep the existing Docker/runtime smoke checks as the regression gate for
   Kubernetes/container startup behavior.
+
+## Current status
+
+The helper-splitting phase is substantially complete.
+
+Most reusable behavior now lives in `scripts/lib/*.sh`:
+
+- `logging.sh`: logging and timestamp helpers.
+- `runtime.sh`: runtime type resolution and install marker helpers.
+- `lifecycle.sh`: lifecycle hook execution.
+- `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;
+  `rcon_tellraw_all` still depends on `json_escape` from `entrypoint.sh`.
+- `shutdown.sh`: RCON stop sequencing plus lock/de-dupe helpers,
+  `wait_for_server_exit`, and `graceful_shutdown`.
+- `s3_client.sh`: S3/MinIO client mechanics.
+- `server_install.sh`: server artifact download/install helpers and
+  `install_server`.
+- `velocity_config.sh`: Velocity config generation.
+- `runtime_launch.sh`: `run_server` and runtime dispatch.
+- `world_install.sh`: world install helpers.
+- `world_reset.sh`: world reset helpers.
+- `server_properties.sh`: server.properties bootstrap helpers.
+
+`entrypoint.sh` is now primarily orchestration. That is expected. Not every
+remaining line is refactor debt.
+
+What intentionally remains in `entrypoint.sh`:
+
+- source order.
+- process-global initialization and defaults.
+- command-mode selection.
+- install/runtime orchestration.
+- install-only early exit behavior.
+- signal trap registration.
+- `main()` execution and sourced-guard behavior.
+
+What should not be moved casually:
+
+- source order.
+- command-mode selection.
+- install-only orchestration.
+- process-global initialization for `SERVER_PID`, `RCON_STOP_RESULT`,
+  `RCON_STOP_LOCK`, and `RCON_STOP_IN_PROGRESS`.
+- signal trap timing.
+- top-level `main()`/sourced guard behavior.
+
+Cleanup backlog and behavior-specific hardening should be handled in dedicated
+PRs. Do not mix those with the mechanical responsibility split.
