@@ -32,6 +32,7 @@ jobs:
             set -euo pipefail
             source /scripts/lib/logging.sh
             source /scripts/lib/runtime.sh
+            source /scripts/lib/lifecycle.sh
             source /scripts/lib/s3_client.sh
             source /scripts/lib/velocity_config.sh
             source /scripts/lib/server_install.sh
@@ -47,6 +48,7 @@ jobs:
             declare -F assert_server_install_matches >/dev/null
             declare -F write_server_install_marker >/dev/null
             declare -F resolve_type_auto >/dev/null
+            declare -F run_phase_hooks >/dev/null
             declare -F require_s3_env >/dev/null
             declare -F configure_mc_alias >/dev/null
             declare -F ensure_s3_source_nonempty_for_remove >/dev/null
