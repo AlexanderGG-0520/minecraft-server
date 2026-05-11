@@ -42,6 +42,9 @@ The future library should answer:
 - How signal handling and shutdown orchestration are wired unless a later
   dedicated boundary moves them intentionally.
 
+The proposed shutdown, RCON, and lifecycle boundaries are documented in
+[`docs/shutdown-rcon-lifecycle-boundary.md`](shutdown-rcon-lifecycle-boundary.md).
+
 ## Current state
 
 Runtime launch implementation is currently split between
