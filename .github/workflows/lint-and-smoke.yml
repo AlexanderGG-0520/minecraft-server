@@ -61,6 +61,28 @@ jobs:
           declare -F ensure_server_properties >/dev/null
           declare -F bootstrap_server_properties >/dev/null
 
+      - name: Logging helper smoke
+        run: |
+          set -euo pipefail
+          source ./scripts/lib/logging.sh
+
+          output="$(log INFO hello world 2>&1)"
+          printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[INFO\] hello world$'
+
+          set +e
+          output="$(die single message 2>&1)"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] single message$'
+
+          set +e
+          output="$(die foo bar baz 2>&1)"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] foo bar baz$'
+
       - name: World reset helper smoke
         run: |
           set -euo pipefail
