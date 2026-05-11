@@ -51,8 +51,9 @@ runtime() {
 
     forge|neoforge)
       cd "${DATA_DIR}"
-      [[ -x "./run.sh" ]] || die "NeoForge runtime not installed (run.sh missing)"
-      chmod +x ./run.sh
+      [[ -f "./run.sh" ]] || die "${TYPE} runtime not installed (run.sh missing)"
+      chmod +x ./run.sh || die "Failed to make ./run.sh executable for ${TYPE} runtime"
+      [[ -x "./run.sh" ]] || die "./run.sh is not executable for ${TYPE} runtime"
 
       log INFO "Launching ${TYPE} server"
       run_server ./run.sh nogui
