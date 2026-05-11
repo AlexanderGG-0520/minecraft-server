@@ -9,7 +9,12 @@ change runtime launch behavior as part of this document.
 
 ## Proposed boundary
 
-Recommended future file: `scripts/lib/velocity_config.sh`
+Recommended file: `scripts/lib/velocity_config.sh`
+
+Status: completed for the mechanical function move.
+`generate_velocity_toml` now lives in `scripts/lib/velocity_config.sh`. The
+existing call from `install_velocity_server_artifact` and the later call from
+`install()` remain in place with unchanged timing.
 
 Use `scripts/lib/velocity_config.sh` while Velocity TOML is the only
 proxy-specific configuration generator in the project. The narrower name makes
@@ -38,7 +43,8 @@ The future library should answer:
 
 ## Current state
 
-`generate_velocity_toml` is currently implemented in `entrypoint.sh`.
+`generate_velocity_toml` is currently implemented in
+`scripts/lib/velocity_config.sh`.
 
 Current call sites:
 
@@ -60,7 +66,7 @@ intentionally changes it.
 
 ## What should move
 
-Future `scripts/lib/velocity_config.sh` may own:
+`scripts/lib/velocity_config.sh` owns:
 
 - `generate_velocity_toml`.
 - Velocity TOML generation.
@@ -70,7 +76,7 @@ Future `scripts/lib/velocity_config.sh` may own:
 
 ## What should not move
 
-Future `scripts/lib/velocity_config.sh` should not own:
+`scripts/lib/velocity_config.sh` should not own:
 
 - Velocity jar download.
 - Server artifact installation.
@@ -112,7 +118,7 @@ particular:
 Recommended implementation PRs:
 
 1. Add this docs-only boundary plan.
-   - Status: this PR.
+   - Status: completed.
 2. Mechanically move Velocity config generation.
    - Create `scripts/lib/velocity_config.sh`.
    - Move `generate_velocity_toml` mechanically.
@@ -120,6 +126,7 @@ Recommended implementation PRs:
      `server_install.sh` still calls `generate_velocity_toml`.
    - Preserve all current call sites and call timing.
    - Preserve generated `velocity.toml` content.
+   - Status: completed for the mechanical function move.
 3. Optionally change behavior later.
    - Decide whether `generate_velocity_toml` should be called once or multiple
      times.

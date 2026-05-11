@@ -15,7 +15,8 @@ artifact download helpers plus the vanilla, Fabric, Quilt, Forge, NeoForge,
 Paper, Purpur, Mohist, Taiyitist, Youer, Spigot, and Velocity artifact install
 or validation helpers and the `install_server` dispatcher. `run_server` and
 runtime launch dispatch remain in `entrypoint.sh`. `generate_velocity_toml`
-ownership has not been redesigned.
+now lives in `scripts/lib/velocity_config.sh`; its existing call from Velocity
+artifact installation remains in place.
 
 The future library should answer:
 
