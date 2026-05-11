@@ -50,7 +50,7 @@ runtime() {
       ;;
 
     forge|neoforge)
-      cd "${DATA_DIR}"
+      cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR: ${DATA_DIR}"
       [[ -f "./run.sh" ]] || die "${TYPE} runtime not installed (run.sh missing)"
       chmod +x ./run.sh || die "Failed to make ./run.sh executable for ${TYPE} runtime"
       [[ -x "./run.sh" ]] || die "./run.sh is not executable for ${TYPE} runtime"
@@ -61,7 +61,7 @@ runtime() {
 
     velocity)
       [[ -f "${DATA_DIR}/velocity.jar" ]] || die "velocity.jar not found at ${DATA_DIR}/velocity.jar"
-      cd "${DATA_DIR}"
+      cd "${DATA_DIR}" || die "Failed to cd to DATA_DIR: ${DATA_DIR}"
       log INFO "Launching Velocity server"
       run_server java @"${JVM_ARGS_FILE}" -jar "${DATA_DIR}/velocity.jar"
       ;;
