@@ -73,6 +73,8 @@ The proposed server artifact installation boundary is documented in
 [`docs/server-artifact-install-boundary.md`](server-artifact-install-boundary.md).
 The proposed Velocity config generation boundary is documented in
 [`docs/velocity-config-boundary.md`](velocity-config-boundary.md).
+The proposed runtime launch boundary is documented in
+[`docs/runtime-launch-boundary.md`](runtime-launch-boundary.md).
 Initial extraction has started: pure server artifact download helpers now live in
 `scripts/lib/server_install.sh`. Vanilla, Fabric, Quilt, Forge, NeoForge, Paper,
 Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
