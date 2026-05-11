@@ -28,3 +28,18 @@ rcon_stop_once() {
   RCON_STOP_RESULT=$?
   return "${RCON_STOP_RESULT}"
 }
+
+wait_for_server_exit() {
+  local timeout="$1"
+  local elapsed=0
+
+  while [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; do
+    if (( elapsed >= timeout )); then
+      return 1
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  return 0
+}

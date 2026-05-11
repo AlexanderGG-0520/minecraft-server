@@ -43,12 +43,12 @@ The remaining shutdown, signal, and command-mode behavior is implemented in
 `scripts/lib/rcon.sh`, `rcon_stop` has now moved mechanically to
 `scripts/lib/rcon.sh` as the current RCON stop sequencing helper, and the
 RCON stop lock/de-dupe helpers have moved mechanically to
-`scripts/lib/shutdown.sh`.
+`scripts/lib/shutdown.sh`. `wait_for_server_exit` has now moved mechanically to
+`scripts/lib/shutdown.sh` as the server-exit wait helper.
 
 Still in `entrypoint.sh` for now:
 
 - `graceful_shutdown`
-- `wait_for_server_exit`
 - signal trap registration
 - command-line mode selection
 
@@ -127,6 +127,7 @@ Current RCON stop lock behavior:
 Current shutdown behavior:
 
 - `wait_for_server_exit`
+  - Implemented in `scripts/lib/shutdown.sh`.
   - Polls `SERVER_PID` until the process exits or a timeout is reached.
 - `graceful_shutdown`
   - Logs shutdown start.
@@ -200,12 +201,10 @@ Future `scripts/lib/rcon.sh` should not own:
 ## Future shutdown ownership
 
 Future `scripts/lib/shutdown.sh` may own:
-
 - `rcon_stop_once`.
 - `acquire_rcon_stop_lock`.
 - `cleanup_rcon_lock_on_boot`.
 - `graceful_shutdown`.
-- `wait_for_server_exit`.
 - Signal-driven shutdown orchestration.
 - `SERVER_PID` shutdown behavior.
 - Fallback `TERM` and `KILL` behavior.
@@ -216,6 +215,9 @@ Future `scripts/lib/shutdown.sh` may own:
 The first three lock/de-dupe helpers are implemented in
 `scripts/lib/shutdown.sh` now; the remaining items stay as future shutdown
 ownership guidance.
+`wait_for_server_exit` is implemented in `scripts/lib/shutdown.sh` now as well;
+`graceful_shutdown` and the signal trap remain in `entrypoint.sh` for the next
+boundary decision.
 
 Future `scripts/lib/shutdown.sh` should not own:
 
