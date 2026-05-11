@@ -151,6 +151,8 @@ Related functions and call sites:
   - Treat this as configuration generation, not artifact installation. Do not
     mix a Velocity config boundary with the artifact install move unless the
     call must remain temporarily for a mechanical extraction.
+  - See [`docs/velocity-config-boundary.md`](velocity-config-boundary.md) for the
+    proposed Velocity config ownership boundary.
 - `assert_server_install_matches`, `write_server_install_marker`, and
   `server_install_marker`
   - Implemented in `scripts/lib/runtime.sh`.
