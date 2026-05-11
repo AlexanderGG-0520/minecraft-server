@@ -53,6 +53,13 @@ Still in `entrypoint.sh` for now:
 - signal trap registration
 - command-line mode selection
 
+The next boundary decision is whether `rcon_stop` belongs with command
+sequencing or with shutdown coordination. The current implementation spans both
+concerns: it uses RCON helpers from `scripts/lib/rcon.sh`, but it is invoked by
+`rcon_stop_once`, `graceful_shutdown`, and `rcon-stop` command mode, all of
+which are about shutdown policy and de-duplication rather than pure RCON
+transport.
+
 Current lifecycle hook behavior:
 
 - `run_phase_hooks`
@@ -180,11 +187,12 @@ Future `scripts/lib/rcon.sh` may own:
 - `rcon_client`.
 - `rcon_exec`.
 - `rcon_say`.
-- `rcon_stop`.
 - `rcon_tellraw_all`.
 - RCON connection argument handling.
 - RCON retry and timeout behavior.
-- RCON stop lock/result helpers only if they are not inseparable from shutdown.
+- `rcon_stop` only if it remains a command-sequencing wrapper around
+  `rcon_exec`/`rcon_tellraw_all` and does not absorb shutdown lock or signal
+  policy.
 
 Future `scripts/lib/rcon.sh` should not own:
 
@@ -198,10 +206,12 @@ Future `scripts/lib/rcon.sh` should not own:
 
 Future `scripts/lib/shutdown.sh` may own:
 
+- `rcon_stop_once`.
+- `acquire_rcon_stop_lock`.
+- `cleanup_rcon_lock_on_boot`.
 - `graceful_shutdown`.
 - `wait_for_server_exit`.
 - Signal-driven shutdown orchestration.
-- `cleanup_rcon_lock_on_boot` if it remains shutdown/RCON lock cleanup.
 - `SERVER_PID` shutdown behavior.
 - Fallback `TERM` and `KILL` behavior.
 - RCON stop integration if it remains part of shutdown policy.
@@ -236,11 +246,29 @@ Current coupling to preserve during future mechanical moves:
 - `wait_for_server_exit` polls `SERVER_PID`.
 - `rcon_stop_once` depends on `RCON_STOP_LOCK`, `RCON_STOP_IN_PROGRESS`,
   `RCON_STOP_RESULT`, `acquire_rcon_stop_lock`, and `rcon_stop`.
+- `rcon_stop` uses helpers from `scripts/lib/rcon.sh`, but it still couples to
+  shutdown policy because it is called by `rcon_stop_once`, `graceful_shutdown`,
+  and `rcon-stop` command mode.
 - `rcon-stop` command mode shares `rcon_stop_once` with `graceful_shutdown`.
 - Signal trap registration calls `graceful_shutdown`.
 - Install-only behavior exits before `runtime` and should remain
   orchestration-owned for now.
 - Velocity intentionally skips `rcon_stop` in `graceful_shutdown`.
+
+## Preferred split
+
+The recommended next implementation split is:
+
+- keep `rcon_stop` with the RCON command-sequencing side only if a later PR can
+  move it mechanically without pulling lock or signal policy with it;
+- keep `rcon_stop_once`, `acquire_rcon_stop_lock`,
+  `cleanup_rcon_lock_on_boot`, `graceful_shutdown`, and
+  `wait_for_server_exit` together under shutdown coordination;
+- keep signal trap registration in `entrypoint.sh` until a dedicated shutdown
+  PR decides otherwise;
+- keep command-line mode selection in `entrypoint.sh` until a dedicated CLI
+  boundary exists;
+- move shutdown orchestration last.
 
 ## Staged migration order
 
