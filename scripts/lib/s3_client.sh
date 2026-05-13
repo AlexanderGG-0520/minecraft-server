@@ -21,18 +21,16 @@ configure_mc_alias() {
 ensure_s3_source_nonempty_for_remove() {
   local src="$1"
   local feature="$2"
+  local error_message=""
   local tmp
   tmp="$(mktemp)"
 
   if ! mc find "$src" --print "{}" > "$tmp"; then
-    rm -f -- "$tmp"
-    die "Failed to list ${feature} source before remove sync: ${src}"
-  fi
-
-  if [[ ! -s "$tmp" ]]; then
-    rm -f -- "$tmp"
-    die "${feature} remove_extra requested but S3 source is empty: ${src}"
+    error_message="Failed to list ${feature} source before remove sync: ${src}"
+  elif [[ ! -s "$tmp" ]]; then
+    error_message="${feature} remove_extra requested but S3 source is empty: ${src}"
   fi
 
   rm -f -- "$tmp"
+  [[ -z "$error_message" ]] || die "$error_message"
 }
