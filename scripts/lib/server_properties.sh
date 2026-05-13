@@ -2,9 +2,10 @@
 
 ensure_server_properties() {
   local props="${DATA_DIR}/server.properties"
+  local type="${TYPE:-}"
 
-  if ! uses_server_properties "${TYPE:-}"; then
-    log INFO "TYPE=${TYPE:-} does not use server.properties, skipping bootstrap"
+  if ! uses_server_properties "$type"; then
+    log INFO "TYPE=${type} does not use server.properties, skipping bootstrap"
     return 0
   fi
 
@@ -18,6 +19,7 @@ ensure_server_properties() {
 
 bootstrap_server_properties() {
   local props="${DATA_DIR}/server.properties"
+  local type="${TYPE:-}"
 
   if [[ -f "$props" ]]; then
     log INFO "server.properties already exists"
@@ -26,7 +28,7 @@ bootstrap_server_properties() {
 
   log INFO "server.properties not found, bootstrapping via official server"
 
-  case "${TYPE}" in
+  case "$type" in
     vanilla|paper|purpur|spigot)
       timeout 15s java -jar "${DATA_DIR}/server.jar" nogui || true
       ;;
@@ -43,7 +45,7 @@ bootstrap_server_properties() {
       fi
       ;;
     *)
-      die "bootstrap_server_properties: unsupported TYPE=${TYPE}"
+      die "bootstrap_server_properties: unsupported TYPE=${type}"
       ;;
   esac
 

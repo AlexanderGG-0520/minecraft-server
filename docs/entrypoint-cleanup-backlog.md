@@ -26,6 +26,8 @@ a behavior change.
     helper.
 
 - `server_properties.sh` - review `TYPE` access under `set -u`.
+  - Status: completed. `server_properties.sh` now localizes `TYPE` with an
+    unset-safe default before bootstrap decisions.
   - Risk: low.
   - Suggested PR boundary: `scripts/lib/server_properties.sh`.
   - Do not change bootstrap behavior or log semantics.
@@ -176,6 +178,7 @@ a behavior change.
 - Review `TYPE` access under `set -u`.
 - Make `TYPE` handling consistently safe where practical.
 - Preserve bootstrap behavior and log semantics unless intentionally changed.
+- Status: completed for the focused `TYPE`/`set -u` safety pass.
 
 ## runtime.sh
 
