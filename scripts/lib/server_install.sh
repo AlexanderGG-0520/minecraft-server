@@ -46,6 +46,9 @@ download_vanilla_server_atomic() {
 }
 
 install_vanilla_server_artifact() {
+  local meta_url
+  local sha1
+
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for vanilla"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
@@ -68,6 +71,10 @@ install_vanilla_server_artifact() {
 }
 
 install_fabric_server_artifact() {
+  local json
+  local LOADER_VERSION
+  local INSTALLER_VERSION
+
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for fabric"
 
   if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
@@ -138,6 +145,12 @@ install_quilt_server_artifact() {
 }
 
 install_forge_server_artifact() {
+  local FORGE_META_URL
+  local FORGE_VER
+  local html
+  local INSTALLER
+  local MARKER
+
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
 
   FORGE_VER="${FORGE_VERSION:-latest}"
@@ -190,6 +203,12 @@ install_forge_server_artifact() {
 }
 
 install_neoforge_server_artifact() {
+  local INSTALLER
+  local json
+  local MARKER
+  local META_URL
+  local NEO_VER
+
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for neoforge"
 
   NEO_VER="${NEOFORGE_VERSION:-latest}"
@@ -234,6 +253,10 @@ install_neoforge_server_artifact() {
 }
 
 install_paper_server_artifact() {
+  local BUILD
+  local JAR_NAME
+  local json
+
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for paper"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
@@ -280,6 +303,10 @@ install_paper_server_artifact() {
 }
 
 install_purpur_server_artifact() {
+  local BUILD
+  local JAR_NAME
+  local json
+
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for purpur"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
@@ -343,6 +370,9 @@ install_mohist_server_artifact() {
 }
 
 install_taiyitist_server_artifact() {
+  local ASSET_URL
+  local TAIYITIST_VERSION
+
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for taiyitist"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
@@ -405,6 +435,12 @@ install_spigot_server_artifact() {
 }
 
 install_velocity_server_artifact() {
+  local BUILD_ID
+  local BUILD_OBJ
+  local BUILDS_JSON
+  local DL_URL
+  local VELOCITY_TMP
+
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for velocity"
 
   if ! declare -F generate_velocity_toml >/dev/null; then
