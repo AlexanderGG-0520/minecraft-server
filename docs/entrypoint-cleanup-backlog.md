@@ -42,6 +42,8 @@ a behavior change.
 
 - `runtime_launch.sh` - review launch error wording and keep launch commands
   unchanged.
+  - Status: completed. Forge/NeoForge missing `run.sh` launch errors are
+    covered to use the current `TYPE` in the message.
   - Risk: low.
   - Suggested PR boundary: `scripts/lib/runtime_launch.sh`.
   - Do not change `run_server`, `runtime`, `JVM_ARGS_FILE`, `cd`,

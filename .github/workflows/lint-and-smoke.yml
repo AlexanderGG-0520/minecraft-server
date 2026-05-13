@@ -120,6 +120,39 @@ jobs:
           test "$status" -eq 1
           printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] bootstrap_server_properties: unsupported TYPE=$'
 
+      - name: Runtime launch message smoke
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          is_true() {
+            value="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+            case "$value" in
+              true|1|yes|y|on) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          source ./scripts/lib/logging.sh
+          source ./scripts/lib/lifecycle.sh
+          source ./scripts/lib/runtime_launch.sh
+
+          TYPE=forge
+          DATA_DIR="$tmp/data"
+          JVM_ARGS_FILE="$DATA_DIR/jvm.args"
+          HOOKS_ENABLED=false
+          HOOKS_DIR="$tmp/hooks"
+          mkdir -p "$DATA_DIR"
+
+          set +e
+          output="$(runtime 2>&1)"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] forge runtime not installed \(run.sh missing\)$'
+          ! printf '%s\n' "$output" | grep -F 'NeoForge runtime not installed'
+
       - name: Logging helper smoke
         run: |
           set -euo pipefail
