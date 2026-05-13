@@ -95,6 +95,31 @@ jobs:
           declare -F ensure_server_properties >/dev/null
           declare -F bootstrap_server_properties >/dev/null
 
+      - name: Server properties TYPE smoke
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          source ./scripts/lib/logging.sh
+          source ./scripts/lib/runtime.sh
+          source ./scripts/lib/server_properties.sh
+
+          DATA_DIR="$tmp/data"
+          mkdir -p "$DATA_DIR"
+          unset TYPE
+
+          output="$(ensure_server_properties 2>&1)"
+          printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[INFO\] TYPE= does not use server.properties, skipping bootstrap$'
+          test ! -f "$DATA_DIR/server.properties"
+
+          set +e
+          output="$(bootstrap_server_properties 2>&1)"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] bootstrap_server_properties: unsupported TYPE=$'
+
       - name: Logging helper smoke
         run: |
           set -euo pipefail
