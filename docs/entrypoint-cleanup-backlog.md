@@ -35,6 +35,8 @@ a behavior change.
 
 - `server_install.sh` - localize preserved variables where safe and review
   wording around missing `run.sh` / artifact-selection failures.
+  - Status: local-variable hygiene pass completed for obvious function-local
+    installer temporaries only.
   - Risk: low.
   - Suggested PR boundary: `scripts/lib/server_install.sh`.
   - Do not change download URLs, marker semantics, or install order.
