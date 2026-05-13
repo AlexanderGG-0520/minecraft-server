@@ -16,6 +16,8 @@ a behavior change.
 ### 1. Low-risk shell hygiene
 
 - `logging.sh` - review `die` argument handling.
+  - Status: completed. `die` now forwards all arguments through `log` while
+    preserving the existing log format.
   - Risk: low.
   - Suggested PR boundary: `scripts/lib/logging.sh`.
   - Do not change log format semantics or error text shape unless the PR is

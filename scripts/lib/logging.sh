@@ -17,4 +17,4 @@ log() {
   printf '[%s] [%s] %s\n' "$(ts)" "$level" "$*" >&2
 }
 
-die() { log ERROR "$1"; exit 1; }
+die() { log ERROR "$@"; exit 1; }
