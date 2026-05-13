@@ -56,6 +56,8 @@ a behavior change.
 
 - `s3_client.sh` - harden temporary-file cleanup in
   `ensure_s3_source_nonempty_for_remove`.
+  - Status: design-ready. See `docs/s3-client-cleanup-boundary.md` for the
+    behavior-preserving implementation boundary.
   - Risk: medium.
   - Suggested PR boundary: `scripts/lib/s3_client.sh`.
   - Do not change S3 environment variable names, alias name `s3`, or remove
@@ -167,6 +169,7 @@ a behavior change.
 - Keep the MinIO alias name `s3` unchanged.
 - Preserve existing behavior unless intentionally changed in a dedicated
   hardening PR.
+- Design boundary: `docs/s3-client-cleanup-boundary.md`.
 
 ## world_install.sh
 
