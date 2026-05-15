@@ -11,7 +11,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
-RUN git clone --depth 1 --branch ${MC_RELEASE} https://github.com/minio/mc.git .
+RUN set -eux; \
+    for i in 1 2 3; do \
+      git clone --depth 1 --branch "${MC_RELEASE}" https://github.com/minio/mc.git . && break; \
+      if [ "$i" = "3" ]; then \
+        echo "Failed to clone MinIO mc after ${i} attempts" >&2; \
+        exit 1; \
+      fi; \
+      find . -mindepth 1 -maxdepth 1 -exec rm -rf {} +; \
+      sleep 2; \
+    done
 
 # security updates
 RUN go get golang.org/x/crypto@v0.43.0 \

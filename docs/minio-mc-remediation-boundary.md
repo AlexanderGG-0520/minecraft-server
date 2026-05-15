@@ -3,9 +3,12 @@
 This note defines the boundary for future MinIO `mc` dependency remediation,
 vulnerability remediation, and build reliability hardening.
 
-This note is documentation-only. It does not change runtime or build behavior.
+This note records the remediation boundary for MinIO `mc` build and dependency
+work.
 
-Implementation status: design-ready only.
+Implementation status: build reliability hardening completed for bounded
+`git clone` retries. Vulnerability remediation, acquisition strategy changes,
+and optional client replacement remain separate.
 
 ## Current Behavior To Preserve
 
@@ -19,7 +22,7 @@ Current build behavior:
 - `MC_RELEASE` defaults to `RELEASE.2025-08-13T08-35-41Z`.
 - `GO_VERSION` defaults to `1.25.9`.
 - The builder installs `git` and `ca-certificates`.
-- The builder fetches source with:
+- The builder fetches source with a bounded retry loop around:
   - `git clone --depth 1 --branch ${MC_RELEASE} https://github.com/minio/mc.git .`
 - The builder applies current dependency updates with `go get`, runs
   `go mod tidy`, and builds a static binary with:
@@ -94,6 +97,8 @@ A future PR may:
 - Preserve runtime S3 semantics.
 
 This PR should not change `mc` command behavior or S3 helper behavior.
+
+Status: completed for bounded retry around the existing pinned source clone.
 
 ### C. Vulnerability remediation
 

@@ -134,7 +134,8 @@ a behavior change.
 
 - `s3_client.sh` / packaging - plan MinIO `mc` dependency or vulnerability
   remediation as a dedicated cleanup PR.
-  - Status: design-ready only. See
+  - Status: build reliability hardening completed for bounded source clone
+    retries; vulnerability remediation remains separate. See
     [`docs/minio-mc-remediation-boundary.md`](minio-mc-remediation-boundary.md)
     for build reliability and vulnerability remediation boundaries.
   - Risk: behavior-changing / remediation.
@@ -182,7 +183,8 @@ a behavior change.
 - Design boundary: `docs/s3-client-cleanup-boundary.md`.
 - MinIO `mc` remediation boundary:
   [`docs/minio-mc-remediation-boundary.md`](minio-mc-remediation-boundary.md).
-- Keep build reliability hardening, vulnerability remediation, and optional
+- Build reliability hardening is completed for bounded source clone retries.
+- Keep vulnerability remediation, acquisition strategy changes, and optional
   client replacement as separate work.
 
 ## world_install.sh
