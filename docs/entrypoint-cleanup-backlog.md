@@ -76,8 +76,8 @@ a behavior change.
 
 - `world_install.sh` - improve `unzip` error handling and review the fixed
   `/tmp/world.zip` temp path.
-  - Status: fixed temp archive cleanup completed; unzip error handling remains
-    separate. See
+  - Status: fixed temp archive cleanup and unzip error-message cleanup
+    completed. See
     [`docs/world-install-cleanup-boundary.md`](world-install-cleanup-boundary.md)
     for separate temp archive and extraction cleanup boundaries.
   - Risk: medium.
@@ -183,7 +183,7 @@ a behavior change.
 - Design boundary: [`docs/world-install-cleanup-boundary.md`](world-install-cleanup-boundary.md).
 - Keep temp archive cleanup, unzip error handling, extracted-world detection,
   and path-safety hardening in separate PRs.
-- Improve `unzip` error handling with an explicit `die` or log message.
+- Unzip error-message cleanup is completed with an explicit extract failure.
 - Fixed archive temp path cleanup is completed for `/tmp/world.zip`.
 - Harden `DATA_DIR` / `WORLD_DIR` path safety before `rm -rf`.
 - Improve extracted world directory detection instead of broad matching such as

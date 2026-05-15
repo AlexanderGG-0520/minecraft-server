@@ -6,8 +6,8 @@ extraction handling in `scripts/lib/world_install.sh`.
 This note records current behavior and cleanup boundaries for world install
 archive handling.
 
-Implementation status: fixed temp archive cleanup completed. Unzip error
-messaging, extracted-world detection, path-safety hardening, and
+Implementation status: fixed temp archive cleanup and unzip error-message
+cleanup completed. Extracted-world detection, path-safety hardening, and
 `world_reset.sh` cleanup remain separate.
 
 ## Current behavior to preserve
@@ -37,7 +37,8 @@ Inside `install_world`, current behavior is:
 - Download failure calls `die "Failed to download world archive"`.
 - Extraction currently runs:
   - `unzip -q "${TMP_ZIP}" -d "${DATA_DIR}"`
-- There is no explicit `die` message attached to `unzip` failure.
+- Unzip failure removes the temporary archive and calls
+  `die "Failed to extract world archive"`.
 - Because `${WORLD_DIR}` is created before extraction, the fallback detection
   block is normally not reached after a successful prepare step.
 - If `${WORLD_DIR}` does not exist after extraction, the fallback detection
@@ -53,8 +54,7 @@ Inside `install_world`, current behavior is:
 Current failure behavior is also part of the boundary:
 
 - A failed `mc cp` fails with the existing download error message.
-- A failed `unzip` currently relies on shell error behavior rather than a
-  world-install-specific error message.
+- A failed `unzip` logs the explicit extract failure message.
 - If extraction succeeds but no `${WORLD_DIR}` exists and no fallback directory
   is found, the function still continues to remove the temp archive and reset
   flag, then logs success.
@@ -102,6 +102,8 @@ A separate PR may:
 
 Keep this separate unless it is trivially and clearly part of the temp archive
 cleanup without changing behavior.
+
+Status: completed with explicit `Failed to extract world archive` messaging.
 
 ### C. Extracted world directory detection improvement
 
