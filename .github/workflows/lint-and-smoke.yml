@@ -225,6 +225,7 @@ jobs:
           mkdir -p "$tmp/bin"
           cat > "$tmp/bin/mc" <<'EOF'
           #!/usr/bin/env bash
+          set -euo pipefail
           test "$1" = "cp"
           test "$2" = "s3/bucket/world.zip"
           printf '%s\n' "$3" > "$TMP_ARCHIVE_TARGET"
