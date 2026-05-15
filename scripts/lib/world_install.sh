@@ -42,7 +42,8 @@ install_world() {
   # ------------------------------------------------------------
   if ! unzip -q "${TMP_ZIP}" -d "${DATA_DIR}"; then
     rm -f "${TMP_ZIP}"
-    die "Failed to extract world archive"
+    log ERROR "Failed to extract world archive"
+    return 1
   fi
 
   # Safety check if world/ is not directly inside zip
