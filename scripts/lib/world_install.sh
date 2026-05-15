@@ -24,13 +24,13 @@ install_world() {
   rm -rf "${WORLD_DIR}"
   mkdir -p "${WORLD_DIR}"
 
-  local TMP_ZIP
-  TMP_ZIP="$(mktemp /tmp/world.XXXXXX.zip)" || return 1
-
   # ------------------------------------------------------------
   # Download
   # ------------------------------------------------------------
   configure_mc_alias "world"
+
+  local TMP_ZIP
+  TMP_ZIP="$(mktemp /tmp/world.XXXXXX.zip)" || return 1
 
   mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}" || {
     rm -f "${TMP_ZIP}"
