@@ -76,6 +76,9 @@ a behavior change.
 
 - `world_install.sh` - improve `unzip` error handling and review the fixed
   `/tmp/world.zip` temp path.
+  - Status: design-ready only. See
+    [`docs/world-install-cleanup-boundary.md`](world-install-cleanup-boundary.md)
+    for separate temp archive and extraction cleanup boundaries.
   - Risk: medium.
   - Suggested PR boundary: `scripts/lib/world_install.sh`.
   - Do not change world install order or extracted contents in the same PR.
@@ -176,6 +179,9 @@ a behavior change.
 
 ## world_install.sh
 
+- Design boundary: [`docs/world-install-cleanup-boundary.md`](world-install-cleanup-boundary.md).
+- Keep temp archive cleanup, unzip error handling, extracted-world detection,
+  and path-safety hardening in separate PRs.
 - Improve `unzip` error handling with an explicit `die` or log message.
 - Review the fixed `/tmp/world.zip`; consider `mktemp` to avoid collisions.
 - Harden `DATA_DIR` / `WORLD_DIR` path safety before `rm -rf`.
