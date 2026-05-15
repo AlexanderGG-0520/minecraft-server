@@ -24,20 +24,26 @@ install_world() {
   rm -rf "${WORLD_DIR}"
   mkdir -p "${WORLD_DIR}"
 
-  local TMP_ZIP="/tmp/world.zip"
+  local TMP_ZIP
+  TMP_ZIP="$(mktemp /tmp/world.XXXXXX.zip)" || return 1
 
   # ------------------------------------------------------------
   # Download
   # ------------------------------------------------------------
   configure_mc_alias "world"
 
-  mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}" \
-    || die "Failed to download world archive"
+  mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}" || {
+    rm -f "${TMP_ZIP}"
+    die "Failed to download world archive"
+  }
 
   # ------------------------------------------------------------
   # Extract
   # ------------------------------------------------------------
-  unzip -q "${TMP_ZIP}" -d "${DATA_DIR}"
+  if ! unzip -q "${TMP_ZIP}" -d "${DATA_DIR}"; then
+    rm -f "${TMP_ZIP}"
+    return 1
+  fi
 
   # Safety check if world/ is not directly inside zip
   if [[ ! -d "${WORLD_DIR}" ]]; then
