@@ -4,10 +4,12 @@ This note defines the boundary for a future behavior-preserving cleanup of
 temporary-file handling in `scripts/lib/runtime.sh`, especially
 `write_server_install_marker`.
 
-This note is documentation-only. It records current marker behavior to preserve
-before any implementation PR changes marker temporary-file handling.
+This note records current marker behavior to preserve across marker
+temporary-file cleanup work.
 
-Implementation status: design-ready only. No runtime behavior has changed.
+Implementation status: completed for the focused `write_server_install_marker`
+temporary-file cleanup pass. Marker semantics and runtime behavior are
+unchanged.
 
 ## Current behavior to preserve
 

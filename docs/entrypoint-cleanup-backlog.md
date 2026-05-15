@@ -66,7 +66,7 @@ a behavior change.
 
 - `runtime.sh` - consider safer marker temp-file handling in
   `write_server_install_marker`.
-  - Status: design-ready only. See
+  - Status: completed for the focused marker temp-file cleanup pass. See
     [`docs/runtime-marker-cleanup-boundary.md`](runtime-marker-cleanup-boundary.md)
     for the behavior-preserving marker temp-file cleanup boundary.
   - Risk: medium.

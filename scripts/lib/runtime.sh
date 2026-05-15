@@ -62,17 +62,27 @@ write_server_install_marker() {
   local installed_type="$2"
   local installed_version="$3"
   local build="${4:-}"
-  local marker tmp
+  local marker marker_dir tmp
   marker="$(server_install_marker)"
-  tmp="${marker}.tmp.$$"
+  marker_dir="$(dirname "$marker")"
+  tmp="$(mktemp "${marker_dir}/.server-install.json.tmp.XXXXXX")" || return 1
 
-  jq -n \
+  if ! jq -n \
     --arg artifact "$artifact" \
     --arg type "$installed_type" \
     --arg version "$installed_version" \
     --arg build "$build" \
-    '{artifact:$artifact,type:$type,version:$version,build:$build}' > "$tmp"
-  mv -f "$tmp" "$marker"
+    '{artifact:$artifact,type:$type,version:$version,build:$build}' > "$tmp"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+
+  if ! mv -f "$tmp" "$marker"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+
+  rm -f -- "$tmp"
 }
 
 resolve_type_auto() {
