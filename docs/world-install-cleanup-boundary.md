@@ -7,8 +7,8 @@ This note records current behavior and cleanup boundaries for world install
 archive handling.
 
 Implementation status: fixed temp archive cleanup and unzip error-message
-cleanup completed. Extracted-world detection, path-safety hardening, and
-`world_reset.sh` cleanup remain separate.
+cleanup completed. Extracted-world detection is design-ready only; path-safety
+hardening and `world_reset.sh` cleanup remain separate.
 
 ## Current behavior to preserve
 
@@ -37,8 +37,8 @@ Inside `install_world`, current behavior is:
 - Download failure calls `die "Failed to download world archive"`.
 - Extraction currently runs:
   - `unzip -q "${TMP_ZIP}" -d "${DATA_DIR}"`
-- Unzip failure removes the temporary archive and calls
-  `die "Failed to extract world archive"`.
+- Unzip failure removes the temporary archive, logs
+  `Failed to extract world archive`, and returns failure.
 - Because `${WORLD_DIR}` is created before extraction, the fallback detection
   block is normally not reached after a successful prepare step.
 - If `${WORLD_DIR}` does not exist after extraction, the fallback detection
@@ -107,6 +107,9 @@ Status: completed with explicit `Failed to extract world archive` messaging.
 
 ### C. Extracted world directory detection improvement
 
+Design boundary:
+[`docs/world-install-extraction-detection.md`](world-install-extraction-detection.md).
+
 A dedicated behavior-sensitive PR may:
 
 - Replace the broad `find ... -name "*world*" | head -n1` fallback.
@@ -115,6 +118,8 @@ A dedicated behavior-sensitive PR may:
   ambiguous layouts.
 
 Treat detection changes as behavior-changing unless proven otherwise.
+
+Status: design-ready only.
 
 ### D. DATA_DIR/WORLD_DIR path-safety hardening
 

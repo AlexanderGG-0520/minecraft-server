@@ -188,6 +188,8 @@ a behavior change.
 - Harden `DATA_DIR` / `WORLD_DIR` path safety before `rm -rf`.
 - Improve extracted world directory detection instead of broad matching such as
   `find "${DATA_DIR}" -maxdepth 1 -type d -name "*world*" | head -n1`.
+  - Status: design-ready only. See
+    [`docs/world-install-extraction-detection.md`](world-install-extraction-detection.md).
 - Preserve current behavior until a dedicated non-mechanical improvement PR.
 
 ## server_properties.sh
