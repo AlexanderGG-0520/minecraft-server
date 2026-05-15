@@ -3,10 +3,12 @@
 This note defines safe PR boundaries for future cleanup of temporary-file and
 extraction handling in `scripts/lib/world_install.sh`.
 
-This note is documentation-only. It records current behavior before any shell
-code changes.
+This note records current behavior and cleanup boundaries for world install
+archive handling.
 
-Implementation status: design-ready only. No runtime behavior has changed.
+Implementation status: fixed temp archive cleanup completed. Unzip error
+messaging, extracted-world detection, path-safety hardening, and
+`world_reset.sh` cleanup remain separate.
 
 ## Current behavior to preserve
 
@@ -28,7 +30,7 @@ Inside `install_world`, current behavior is:
 - When installation proceeds, it logs `Installing world from S3`.
 - Existing `${WORLD_DIR}` is removed with `rm -rf "${WORLD_DIR}"`.
 - `${WORLD_DIR}` is recreated with `mkdir -p "${WORLD_DIR}"`.
-- The archive path is fixed as `/tmp/world.zip`.
+- The archive path is created with `mktemp /tmp/world.XXXXXX.zip`.
 - The MinIO client alias is configured with `configure_mc_alias "world"`.
 - The archive is downloaded with:
   - `mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}"`
@@ -43,8 +45,8 @@ Inside `install_world`, current behavior is:
   `*world*`:
   - `find "${DATA_DIR}" -maxdepth 1 -type d -name "*world*" | head -n1`
 - If that fallback finds a directory, it is moved to `${WORLD_DIR}`.
-- The fixed archive path is removed with `rm -f "${TMP_ZIP}"` after extraction
-  and fallback detection complete.
+- The temporary archive path is removed with `rm -f "${TMP_ZIP}"` after
+  extraction and fallback detection complete.
 - `${DATA_DIR}/reset-world.flag` is removed after the archive cleanup.
 - Success logs `World installed successfully`.
 
@@ -56,8 +58,7 @@ Current failure behavior is also part of the boundary:
 - If extraction succeeds but no `${WORLD_DIR}` exists and no fallback directory
   is found, the function still continues to remove the temp archive and reset
   flag, then logs success.
-- Temp archive cleanup after failed download or failed unzip is not guaranteed
-  by the current function.
+- Temp archive cleanup is attempted after failed download or failed unzip.
 
 Current S3/MinIO dependency behavior:
 
@@ -80,6 +81,8 @@ A focused implementation PR may:
 - Preserve existing world replacement behavior.
 - Add temp archive cleanup on success and failure.
 - Keep the cleanup scoped to `scripts/lib/world_install.sh`.
+
+Status: completed for the fixed temp archive path cleanup.
 
 That PR must not:
 

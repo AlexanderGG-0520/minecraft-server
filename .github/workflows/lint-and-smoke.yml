@@ -205,6 +205,76 @@ jobs:
           printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] mods remove_extra requested but S3 source is empty: s3/bucket/prefix$'
           assert_s3_tmp_empty
 
+      - name: World install temp archive smoke
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          test ! -e /tmp/world.zip
+
+          WORLD_FIXTURE_ZIP="$tmp/fixture-world.zip"
+          export WORLD_FIXTURE_ZIP
+          python3 - <<'PY'
+          import os
+          import zipfile
+
+          with zipfile.ZipFile(os.environ["WORLD_FIXTURE_ZIP"], "w") as zf:
+              zf.writestr("world/level.dat", "fixture")
+          PY
+
+          mkdir -p "$tmp/bin"
+          cat > "$tmp/bin/mc" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          test "$1" = "cp"
+          test "$2" = "s3/bucket/world.zip"
+          printf '%s\n' "$3" > "$TMP_ARCHIVE_TARGET"
+          case "${MC_MODE:-success}" in
+            success) cp "$WORLD_FIXTURE_ZIP" "$3" ;;
+            fail) : > "$3"; exit 7 ;;
+            *) exit 99 ;;
+          esac
+          EOF
+          chmod +x "$tmp/bin/mc"
+
+          source ./scripts/lib/logging.sh
+          source ./scripts/lib/world_install.sh
+          configure_mc_alias() {
+            test "$1" = "world"
+          }
+
+          PATH="$tmp/bin:$PATH"
+          WORLD_S3_BUCKET=bucket
+          WORLD_S3_KEY=world.zip
+          TMP_ARCHIVE_TARGET="$tmp/archive-target.txt"
+          export TMP_ARCHIVE_TARGET
+
+          DATA_DIR="$tmp/data"
+          mkdir -p "$DATA_DIR"
+          install_world
+          archive_target="$(cat "$TMP_ARCHIVE_TARGET")"
+          case "$archive_target" in
+            /tmp/world.*.zip) ;;
+            *) echo "unexpected temp archive path: $archive_target" >&2; exit 1 ;;
+          esac
+          test "$archive_target" != "/tmp/world.zip"
+          test ! -e "$archive_target"
+          test ! -e /tmp/world.zip
+          test -f "$DATA_DIR/world/level.dat"
+
+          DATA_DIR="$tmp/download-fail"
+          mkdir -p "$DATA_DIR"
+          set +e
+          output="$(MC_MODE=fail install_world 2>&1)"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] Failed to download world archive$'
+          archive_target="$(cat "$TMP_ARCHIVE_TARGET")"
+          test "$archive_target" != "/tmp/world.zip"
+          test ! -e "$archive_target"
+          test ! -e /tmp/world.zip
+
       - name: Logging helper smoke
         run: |
           set -euo pipefail
