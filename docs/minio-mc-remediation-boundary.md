@@ -7,8 +7,9 @@ This note records the remediation boundary for MinIO `mc` build and dependency
 work.
 
 Implementation status: build reliability hardening completed for bounded
-`git clone` retries. Vulnerability remediation, acquisition strategy changes,
-and optional client replacement remain separate.
+`git clone` retries. Vulnerability remediation is investigation/design-ready
+only; acquisition strategy changes and optional client replacement remain
+separate.
 
 ## Current Behavior To Preserve
 
@@ -102,12 +103,17 @@ Status: completed for bounded retry around the existing pinned source clone.
 
 ### C. Vulnerability remediation
 
+Investigation plan:
+[`docs/minio-mc-vulnerability-remediation-plan.md`](minio-mc-vulnerability-remediation-plan.md).
+
 A separate PR may:
 
 - Update `MC_RELEASE`, `GO_VERSION`, or selected Go module overrides.
 - Record the version, reason, and vulnerability remediation rationale.
 - Keep command behavior compatible.
 - Keep or add smoke coverage for build-time availability and library behavior.
+
+Status: investigation/design-ready only.
 
 ### D. Acquisition strategy decision
 
