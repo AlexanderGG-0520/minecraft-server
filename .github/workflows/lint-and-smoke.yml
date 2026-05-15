@@ -481,6 +481,27 @@ jobs:
           test "$(server_install_marker)" = "$tmp/.server-install.json"
           write_server_install_marker "server.jar" "paper" "1.21.8" "123"
           jq -e '.artifact == "server.jar" and .type == "paper" and .version == "1.21.8" and .build == "123"' "$tmp/.server-install.json"
+          ! find "$tmp" -maxdepth 1 -name '.server-install.json.tmp.*' -print -quit | grep -q .
+
+          write_server_install_marker "server.jar" "vanilla" "1.21.8"
+          jq -e '.artifact == "server.jar" and .type == "vanilla" and .version == "1.21.8" and .build == ""' "$tmp/.server-install.json"
+          ! find "$tmp" -maxdepth 1 -name '.server-install.json.tmp.*' -print -quit | grep -q .
+
+          fail_tmp="$(mktemp -d)"
+          (
+            DATA_DIR="$fail_tmp"
+            mv() { return 7; }
+
+            set +e
+            write_server_install_marker "server.jar" "paper" "1.21.8" "123"
+            status=$?
+            set -e
+            test "$status" -eq 1
+          )
+          test ! -f "$fail_tmp/.server-install.json"
+          ! find "$fail_tmp" -maxdepth 1 -name '.server-install.json.tmp.*' -print -quit | grep -q .
+
+          write_server_install_marker "server.jar" "paper" "1.21.8" "123"
           assert_server_install_matches "server.jar" "paper" "1.21.8"
 
           set +e
