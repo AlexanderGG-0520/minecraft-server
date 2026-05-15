@@ -4,8 +4,11 @@ This note defines the boundary for a future behavior-preserving cleanup of
 temporary-file handling in `scripts/lib/s3_client.sh`, especially
 `ensure_s3_source_nonempty_for_remove`.
 
-The implementation should happen in a later PR. This note is documentation
-only and does not change runtime behavior.
+This note was added before the implementation PR and documents the behavior
+boundary for that cleanup.
+
+Implementation status: completed for the focused
+`ensure_s3_source_nonempty_for_remove` temporary-file cleanup pass.
 
 ## Current behavior to preserve
 
