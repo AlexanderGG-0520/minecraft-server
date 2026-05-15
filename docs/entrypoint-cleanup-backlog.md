@@ -66,6 +66,9 @@ a behavior change.
 
 - `runtime.sh` - consider safer marker temp-file handling in
   `write_server_install_marker`.
+  - Status: design-ready only. See
+    [`docs/runtime-marker-cleanup-boundary.md`](runtime-marker-cleanup-boundary.md)
+    for the behavior-preserving marker temp-file cleanup boundary.
   - Risk: medium.
   - Suggested PR boundary: `scripts/lib/runtime.sh`.
   - Do not change marker path layout or JSON shape in the same PR.
@@ -189,6 +192,10 @@ a behavior change.
 
 ## runtime.sh
 
+- Marker temp-file cleanup design boundary:
+  [`docs/runtime-marker-cleanup-boundary.md`](runtime-marker-cleanup-boundary.md).
+- Future marker temp-file cleanup should stay behavior-preserving and scoped to
+  `write_server_install_marker`.
 - Review the inconsistency where `is_supported_runtime_type` includes `spigot`,
   while the `resolve_type_auto` marker-supported type list did not include
   `spigot` in the original moved code.
