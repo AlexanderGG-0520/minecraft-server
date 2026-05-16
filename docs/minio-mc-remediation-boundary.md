@@ -7,8 +7,9 @@ This note records the remediation boundary for MinIO `mc` build and dependency
 work.
 
 Implementation status: build reliability hardening completed for bounded
-`git clone` retries. Vulnerability findings collection is documented;
-remediation has not started. Acquisition strategy changes and optional client
+`git clone` retries. Docker Hub vulnerability findings are documented;
+remediation has not started. Next recommended action is a focused `mc`
+vulnerability remediation PR. Acquisition strategy changes and optional client
 replacement remain separate.
 
 ## Current Behavior To Preserve
@@ -115,7 +116,8 @@ A separate PR may:
 - Keep command behavior compatible.
 - Keep or add smoke coverage for build-time availability and library behavior.
 
-Status: findings collection documented; remediation not started.
+Status: Docker Hub findings documented; remediation not started. Next
+recommended action is a focused `mc` vulnerability remediation PR.
 
 ### D. Acquisition strategy decision
 
