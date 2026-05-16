@@ -7,10 +7,10 @@ This note records the remediation boundary for MinIO `mc` build and dependency
 work.
 
 Implementation status: build reliability hardening completed for bounded
-`git clone` retries. Docker Hub vulnerability findings are documented;
-remediation has not started. Next recommended action is a focused `mc`
-vulnerability remediation PR. Acquisition strategy changes and optional client
-replacement remain separate.
+`git clone` retries. Focused vulnerability remediation is implemented for the
+documented Docker Hub Layer 40 `mc` finding set. Docker image build validation
+and scanner rerun / Docker Hub rescan are still needed. Acquisition strategy
+changes and optional client replacement remain separate.
 
 ## Current Behavior To Preserve
 
@@ -22,7 +22,7 @@ Current build behavior:
 
 - `Dockerfile` has an `mc-builder` stage.
 - `MC_RELEASE` defaults to `RELEASE.2025-08-13T08-35-41Z`.
-- `GO_VERSION` defaults to `1.25.9`.
+- `GO_VERSION` defaults to `1.25.10`.
 - The builder installs `git` and `ca-certificates`.
 - The builder fetches source with a bounded retry loop around:
   - `git clone --depth 1 --branch ${MC_RELEASE} https://github.com/minio/mc.git .`
@@ -116,8 +116,9 @@ A separate PR may:
 - Keep command behavior compatible.
 - Keep or add smoke coverage for build-time availability and library behavior.
 
-Status: Docker Hub findings documented; remediation not started. Next
-recommended action is a focused `mc` vulnerability remediation PR.
+Status: focused remediation implemented for the documented Docker Hub Layer 40
+finding set. Docker image build validation and scanner rerun / Docker Hub
+rescan are still needed.
 
 ### D. Acquisition strategy decision
 

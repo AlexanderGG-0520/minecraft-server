@@ -2,7 +2,7 @@
 # mc builder
 # ============================================================
 ARG MC_RELEASE=RELEASE.2025-08-13T08-35-41Z
-ARG GO_VERSION=1.25.9
+ARG GO_VERSION=1.25.10
 
 FROM golang:${GO_VERSION}-bookworm AS mc-builder
 ARG MC_RELEASE
@@ -24,7 +24,9 @@ RUN set -eux; \
 
 # security updates
 RUN go get golang.org/x/crypto@v0.43.0 \
+    && go get golang.org/x/net@v0.53.0 \
     && go get google.golang.org/grpc@v1.79.3 \
+    && go get github.com/prometheus/prometheus@v0.311.3 \
     && go mod tidy
 
 # Build static mc binary
