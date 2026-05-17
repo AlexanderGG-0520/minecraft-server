@@ -34,10 +34,14 @@ documented Docker Hub Layer 40 findings:
   for run `25953580034`, jobs `76295838593` and `76295838594`.
 - `docker buildx imagetools inspect alecjp02/minecraft-server:runtime-jre25-gpu`.
 - `docker buildx imagetools inspect alecjp02/minecraft-server:runtime-jre25`.
+- User-provided Docker Scout / Docker Hub post-remediation evidence for last
+  pushed tag `runtime-jre25-gpu`.
 
-No post-remediation Docker Hub vulnerability scanner output was available in
-this pass. The pre-remediation Docker Hub scanner evidence remains recorded in
-[`docs/minio-mc-vulnerability-findings.md`](minio-mc-vulnerability-findings.md).
+Post-remediation Docker Scout / Docker Hub evidence is now available for the
+last pushed `runtime-jre25-gpu` tag. The pre-remediation Docker Hub scanner
+evidence remains recorded in
+[`docs/minio-mc-vulnerability-findings.md`](minio-mc-vulnerability-findings.md)
+for history.
 
 ## Verification Status
 
@@ -52,25 +56,37 @@ this pass. The pre-remediation Docker Hub scanner evidence remains recorded in
 | `mc --version` | Passed for GPU build log visibility | Publish job `76295838593` ran `chmod +x /usr/local/bin/mc && mc --version` and logged `mc version DEVELOPMENT.GOGET (commit-id=DEVELOPMENT.GOGET)`. |
 | Docker Hub published image | Available | `docker.io/alecjp02/minecraft-server:runtime-jre25-gpu` resolves to index digest `sha256:42350a90b444f66566dbd6334b68c403793dbe63e87c64f2d65dbc8fa2c6f8b1`; linux/amd64 manifest digest `sha256:f480be3b121b198ce15849989087cda6fd8bdd53c32f792017b76760ca0b9703`. |
 | Related non-GPU published image | Available | `docker.io/alecjp02/minecraft-server:runtime-jre25` resolves to index digest `sha256:998c2e5defaa3388e855c165d0b4fb747c99539ffce8e1576fde4ddc682f0ec3`; linux/amd64 manifest digest `sha256:e3d81b91cc4aceae4aaafef55cd874054919700ac4be697e8ed892ef181a4581`. |
-| Docker Hub scanner re-evaluation | Pending / unavailable | No post-remediation Docker Hub scanner evidence was available in this pass. Do not mark the documented Layer 40 findings resolved until scanner output is provided or inspected. |
+| Docker Hub scanner re-evaluation | Resolved / confirmed | User-provided Docker Scout / Docker Hub evidence for last pushed tag `runtime-jre25-gpu` showed health score `A`, no high-profile vulnerabilities, no fixable critical or high vulnerabilities, no unapproved base images, supply chain attestations present, no outdated base images, no AGPL v3 licenses, and default non-root user. |
 
-Build verification passed; scanner re-evaluation pending.
+Build verification passed. Docker Hub scanner re-evaluation confirms the
+documented Layer 40 findings are resolved for the post-remediation
+`runtime-jre25-gpu` image.
 
-## Remaining Unknowns
+## Docker Scout Evidence
 
-- Whether Docker Hub has rescanned
-  `alecjp02/minecraft-server:runtime-jre25-gpu@sha256:42350a90b444f66566dbd6334b68c403793dbe63e87c64f2d65dbc8fa2c6f8b1`.
-- Whether Docker Hub scanner re-evaluation confirms the documented Layer 40
-  findings are resolved.
-- Whether any scanner findings remain for the same CVE/package/path/current
-  version/fixed version set after the post-PR #111 image publish.
+User-provided Docker Scout / Docker Hub post-remediation evidence for last
+pushed tag `runtime-jre25-gpu` recorded:
 
-## Remaining Action
+- Health score: `A`
+- No high-profile vulnerabilities
+- No fixable critical or high vulnerabilities
+- No unapproved base images
+- Supply chain attestations present
+- No outdated base images
+- No AGPL v3 licenses
+- Default non-root user
 
-If scanner re-evaluation is pending, wait for Docker Hub to rescan the updated
-image or provide updated Docker Hub scanner screenshot/output for the published
-post-remediation digest.
+## Scanner Resolution
 
-If the scanner still reports findings, collect the exact CVE, package/component,
-path or layer, current version, fixed version, severity, image tag, image digest,
-and scanner evaluation time before starting any further remediation.
+The user-provided Docker Scout / Docker Hub evidence resolves the documented
+Docker Hub Layer 40 high vulnerability finding set for `runtime-jre25-gpu`.
+The evidence applies to the post-remediation last pushed
+`runtime-jre25-gpu` tag and does not make any claim about future scanner
+results, future base images, future Go vulnerabilities, or unrelated images.
+
+## Future Action
+
+If a future scanner run reports findings, collect the exact CVE,
+package/component, path or layer, current version, fixed version, severity,
+image tag, image digest, and scanner evaluation time before starting any
+further remediation.

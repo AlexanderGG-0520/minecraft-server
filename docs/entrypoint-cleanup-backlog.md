@@ -136,8 +136,9 @@ a behavior change.
   remediation as a dedicated cleanup PR.
   - Status: build reliability hardening completed for bounded source clone
     retries; focused MinIO `mc` vulnerability remediation is implemented for
-    the documented Docker Hub Layer 40 findings. Build verification passed;
-    scanner re-evaluation is pending. See
+    the documented Docker Hub Layer 40 findings. Build verification passed, and
+    Docker Scout / Docker Hub evidence confirms the documented
+    `runtime-jre25-gpu` finding set is resolved. See
     [`docs/minio-mc-remediation-boundary.md`](minio-mc-remediation-boundary.md)
     for build reliability and vulnerability remediation boundaries, and
     [`docs/minio-mc-remediation-verification.md`](minio-mc-remediation-verification.md)
@@ -193,8 +194,9 @@ a behavior change.
 - Vulnerability findings pass:
   [`docs/minio-mc-vulnerability-findings.md`](minio-mc-vulnerability-findings.md).
 - Focused MinIO `mc` vulnerability remediation is implemented for the
-  documented Docker Hub Layer 40 findings. Build verification passed; scanner
-  re-evaluation is pending. Post-remediation verification:
+  documented Docker Hub Layer 40 findings. Build verification passed, and
+  Docker Scout / Docker Hub evidence confirms the documented
+  `runtime-jre25-gpu` finding set is resolved. Post-remediation verification:
   [`docs/minio-mc-remediation-verification.md`](minio-mc-remediation-verification.md).
 - Keep future vulnerability remediation, acquisition strategy changes, and
   optional client replacement as separate work.
