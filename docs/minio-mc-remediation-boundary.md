@@ -8,9 +8,11 @@ work.
 
 Implementation status: build reliability hardening completed for bounded
 `git clone` retries. Focused vulnerability remediation is implemented for the
-documented Docker Hub Layer 40 `mc` finding set. Docker image build validation
-and scanner rerun / Docker Hub rescan are still needed. Acquisition strategy
-changes and optional client replacement remain separate.
+documented Docker Hub Layer 40 `mc` finding set. Post-remediation build
+verification passed, and user-provided Docker Scout / Docker Hub evidence
+confirms the documented `runtime-jre25-gpu` finding set is resolved for the
+post-remediation image. Acquisition strategy changes and optional client
+replacement remain separate.
 
 ## Current Behavior To Preserve
 
@@ -108,6 +110,8 @@ Investigation plan:
 [`docs/minio-mc-vulnerability-remediation-plan.md`](minio-mc-vulnerability-remediation-plan.md).
 Findings pass:
 [`docs/minio-mc-vulnerability-findings.md`](minio-mc-vulnerability-findings.md).
+Post-remediation verification:
+[`docs/minio-mc-remediation-verification.md`](minio-mc-remediation-verification.md).
 
 A separate PR may:
 
@@ -116,9 +120,10 @@ A separate PR may:
 - Keep command behavior compatible.
 - Keep or add smoke coverage for build-time availability and library behavior.
 
-Status: focused remediation implemented for the documented Docker Hub Layer 40
-finding set. Docker image build validation and scanner rerun / Docker Hub
-rescan are still needed.
+Status: focused remediation implemented and scanner-verified for the documented
+Docker Hub Layer 40 finding set on `runtime-jre25-gpu`. Build verification
+passed. See
+[`docs/minio-mc-remediation-verification.md`](minio-mc-remediation-verification.md).
 
 ### D. Acquisition strategy decision
 
