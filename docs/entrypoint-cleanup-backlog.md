@@ -76,8 +76,8 @@ a behavior change.
 
 - `world_install.sh` - improve `unzip` error handling and review the fixed
   `/tmp/world.zip` temp path.
-  - Status: fixed temp archive cleanup and unzip error-message cleanup
-    completed. See
+  - Status: fixed temp archive cleanup, unzip error-message cleanup, and
+    deterministic extracted-world detection completed. See
     [`docs/world-install-cleanup-boundary.md`](world-install-cleanup-boundary.md)
     for separate temp archive and extraction cleanup boundaries.
   - Risk: medium.
@@ -208,12 +208,16 @@ a behavior change.
   and path-safety hardening in separate PRs.
 - Unzip error-message cleanup is completed with an explicit extract failure.
 - Fixed archive temp path cleanup is completed for `/tmp/world.zip`.
+- Extracted-world detection behavior is completed with deterministic temporary
+  extraction, supported direct/single-root/flat layouts, and rejection for
+  ambiguous or missing `level.dat` layouts.
 - Harden `DATA_DIR` / `WORLD_DIR` path safety before `rm -rf`.
-- Improve extracted world directory detection instead of broad matching such as
+- Extracted world directory detection no longer uses broad matching such as
   `find "${DATA_DIR}" -maxdepth 1 -type d -name "*world*" | head -n1`.
-  - Status: design-ready only. See
+  - Status: completed. See
     [`docs/world-install-extraction-detection.md`](world-install-extraction-detection.md).
-- Preserve current behavior until a dedicated non-mechanical improvement PR.
+- Keep DATA_DIR/WORLD_DIR path-safety and `world_reset.sh` cleanup as separate
+  unresolved work.
 
 ## server_properties.sh
 
@@ -273,7 +277,7 @@ a behavior change.
    - corrupt marker JSON
 4. Behavior-decision PRs:
    - Spigot marker support
-   - improved extracted world detection
+   - improved extracted world detection. Done.
 
 ## Guardrails
 

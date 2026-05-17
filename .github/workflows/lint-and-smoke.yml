@@ -210,17 +210,6 @@ jobs:
           set -euo pipefail
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
-          test ! -e /tmp/world.zip
-
-          WORLD_FIXTURE_ZIP="$tmp/fixture-world.zip"
-          export WORLD_FIXTURE_ZIP
-          python3 - <<'PY'
-          import os
-          import zipfile
-
-          with zipfile.ZipFile(os.environ["WORLD_FIXTURE_ZIP"], "w") as zf:
-              zf.writestr("world/level.dat", "fixture")
-          PY
 
           mkdir -p "$tmp/bin"
           cat > "$tmp/bin/mc" <<'EOF'
@@ -238,6 +227,80 @@ jobs:
           EOF
           chmod +x "$tmp/bin/mc"
 
+          create_fixture_zip() {
+            local name="$1"
+            shift
+            WORLD_FIXTURE_ZIP="$tmp/${name}.zip"
+            export WORLD_FIXTURE_ZIP
+            python3 - "$WORLD_FIXTURE_ZIP" "$@" <<'PY'
+          import sys
+          import zipfile
+
+          with zipfile.ZipFile(sys.argv[1], "w") as zf:
+              for entry in sys.argv[2:]:
+                  zf.writestr(entry, "fixture")
+          PY
+          }
+
+          snapshot_world_install_temps() {
+            find /tmp -maxdepth 1 \( -name 'world.*.zip' -o -name 'world-extract.*' \) -print | sort
+          }
+
+          assert_world_install_temps_unchanged() {
+            diff -u "$WORLD_TEMP_SNAPSHOT" <(snapshot_world_install_temps)
+            test ! -e /tmp/world.zip
+          }
+
+          assert_archive_cleaned() {
+            local archive_target
+            archive_target="$(cat "$TMP_ARCHIVE_TARGET")"
+            case "$archive_target" in
+              /tmp/world.*.zip) ;;
+              *) echo "unexpected temp archive path: $archive_target" >&2; exit 1 ;;
+            esac
+            test "$archive_target" != "/tmp/world.zip"
+            test ! -e "$archive_target"
+          }
+
+          run_success_case() {
+            local name="$1"
+            shift
+            create_fixture_zip "$name" "$@"
+            DATA_DIR="$tmp/data-$name"
+            mkdir -p "$DATA_DIR"
+            touch "$DATA_DIR/reset-world.flag"
+
+            install_world
+
+            test -f "$DATA_DIR/world/level.dat"
+            test ! -f "$DATA_DIR/reset-world.flag"
+            assert_archive_cleaned
+            assert_world_install_temps_unchanged
+          }
+
+          run_failure_case() {
+            local name="$1"
+            local expected_message="$2"
+            shift 2
+            create_fixture_zip "$name" "$@"
+            DATA_DIR="$tmp/data-$name"
+            mkdir -p "$DATA_DIR/world"
+            printf '%s\n' old-world > "$DATA_DIR/world/level.dat"
+            touch "$DATA_DIR/reset-world.flag"
+
+            set +e
+            output="$(install_world 2>&1)"
+            status=$?
+            set -e
+
+            test "$status" -eq 1
+            printf '%s\n' "$output" | grep -E "^\[[^]]+\] \[ERROR\] ${expected_message}$"
+            test -f "$DATA_DIR/reset-world.flag"
+            test "$(cat "$DATA_DIR/world/level.dat")" = "old-world"
+            assert_archive_cleaned
+            assert_world_install_temps_unchanged
+          }
+
           source ./scripts/lib/logging.sh
           source ./scripts/lib/world_install.sh
           configure_mc_alias() {
@@ -249,45 +312,47 @@ jobs:
           WORLD_S3_KEY=world.zip
           TMP_ARCHIVE_TARGET="$tmp/archive-target.txt"
           export TMP_ARCHIVE_TARGET
-
-          DATA_DIR="$tmp/data"
-          mkdir -p "$DATA_DIR"
-          install_world
-          archive_target="$(cat "$TMP_ARCHIVE_TARGET")"
-          case "$archive_target" in
-            /tmp/world.*.zip) ;;
-            *) echo "unexpected temp archive path: $archive_target" >&2; exit 1 ;;
-          esac
-          test "$archive_target" != "/tmp/world.zip"
-          test ! -e "$archive_target"
+          WORLD_TEMP_SNAPSHOT="$tmp/world-temp-snapshot.txt"
+          snapshot_world_install_temps > "$WORLD_TEMP_SNAPSHOT"
           test ! -e /tmp/world.zip
-          test -f "$DATA_DIR/world/level.dat"
+
+          run_success_case direct-world world/level.dat
+          run_success_case single-root MyWorld/level.dat
+          run_success_case flat-root level.dat
+
+          run_failure_case no-level "Failed to detect world directory in archive" notes.txt
+          run_failure_case multiple-candidates "Ambiguous world archive layout" world/level.dat MyWorld/level.dat
+          run_failure_case nested-only "Failed to detect world directory in archive" backups/world/level.dat
 
           DATA_DIR="$tmp/download-fail"
-          mkdir -p "$DATA_DIR"
+          mkdir -p "$DATA_DIR/world"
+          printf '%s\n' old-world > "$DATA_DIR/world/level.dat"
+          touch "$DATA_DIR/reset-world.flag"
           set +e
           output="$(MC_MODE=fail install_world 2>&1)"
           status=$?
           set -e
           test "$status" -eq 1
           printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] Failed to download world archive$'
-          archive_target="$(cat "$TMP_ARCHIVE_TARGET")"
-          test "$archive_target" != "/tmp/world.zip"
-          test ! -e "$archive_target"
-          test ! -e /tmp/world.zip
+          test -f "$DATA_DIR/reset-world.flag"
+          test "$(cat "$DATA_DIR/world/level.dat")" = "old-world"
+          assert_archive_cleaned
+          assert_world_install_temps_unchanged
 
           DATA_DIR="$tmp/unzip-fail"
-          mkdir -p "$DATA_DIR"
+          mkdir -p "$DATA_DIR/world"
+          printf '%s\n' old-world > "$DATA_DIR/world/level.dat"
+          touch "$DATA_DIR/reset-world.flag"
           set +e
           output="$(MC_MODE=invalid install_world 2>&1)"
           status=$?
           set -e
           test "$status" -eq 1
           printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] Failed to extract world archive$'
-          archive_target="$(cat "$TMP_ARCHIVE_TARGET")"
-          test "$archive_target" != "/tmp/world.zip"
-          test ! -e "$archive_target"
-          test ! -e /tmp/world.zip
+          test -f "$DATA_DIR/reset-world.flag"
+          test "$(cat "$DATA_DIR/world/level.dat")" = "old-world"
+          assert_archive_cleaned
+          assert_world_install_temps_unchanged
 
       - name: Logging helper smoke
         run: |

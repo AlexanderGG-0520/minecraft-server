@@ -6,9 +6,9 @@ extraction handling in `scripts/lib/world_install.sh`.
 This note records current behavior and cleanup boundaries for world install
 archive handling.
 
-Implementation status: fixed temp archive cleanup and unzip error-message
-cleanup completed. Extracted-world detection is design-ready only; path-safety
-hardening and `world_reset.sh` cleanup remain separate.
+Implementation status: fixed temp archive cleanup, unzip error-message cleanup,
+and deterministic extracted-world detection are completed. Path-safety hardening
+and `world_reset.sh` cleanup remain separate.
 
 ## Current behavior to preserve
 
@@ -28,26 +28,26 @@ Inside `install_world`, current behavior is:
 - If either `WORLD_S3_BUCKET` or `WORLD_S3_KEY` is empty or unset, world install
   logs that the S3 world settings are missing and returns.
 - When installation proceeds, it logs `Installing world from S3`.
-- Existing `${WORLD_DIR}` is removed with `rm -rf "${WORLD_DIR}"`.
-- `${WORLD_DIR}` is recreated with `mkdir -p "${WORLD_DIR}"`.
 - The archive path is created with `mktemp /tmp/world.XXXXXX.zip`.
+- The extraction directory is created with `mktemp -d /tmp/world-extract.XXXXXX`.
 - The MinIO client alias is configured with `configure_mc_alias "world"`.
 - The archive is downloaded with:
   - `mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}"`
 - Download failure calls `die "Failed to download world archive"`.
-- Extraction currently runs:
-  - `unzip -q "${TMP_ZIP}" -d "${DATA_DIR}"`
+- Extraction runs into the temporary extraction directory:
+  - `unzip -q "${TMP_ZIP}" -d "${EXTRACT_DIR}"`
 - Unzip failure removes the temporary archive, logs
   `Failed to extract world archive`, and returns failure.
-- Because `${WORLD_DIR}` is created before extraction, the fallback detection
-  block is normally not reached after a successful prepare step.
-- If `${WORLD_DIR}` does not exist after extraction, the fallback detection
-  picks the first top-level directory under `${DATA_DIR}` whose name matches
-  `*world*`:
-  - `find "${DATA_DIR}" -maxdepth 1 -type d -name "*world*" | head -n1`
-- If that fallback finds a directory, it is moved to `${WORLD_DIR}`.
-- The temporary archive path is removed with `rm -f "${TMP_ZIP}"` after
-  extraction and fallback detection complete.
+- Detection supports direct `world/level.dat`, single-root `MyWorld/level.dat`,
+  and flat root `level.dat` layouts.
+- Multiple valid world candidates fail with `Ambiguous world archive layout`.
+- Missing supported top-level `level.dat` layouts fail with
+  `Failed to detect world directory in archive`.
+- Existing `${WORLD_DIR}` is removed with `rm -rf "${WORLD_DIR}"` only after the
+  archive has downloaded, extracted, and matched a supported layout.
+- The selected extracted source is moved to `${WORLD_DIR}`.
+- The temporary archive path and extraction directory are removed after
+  extraction detection and install complete.
 - `${DATA_DIR}/reset-world.flag` is removed after the archive cleanup.
 - Success logs `World installed successfully`.
 
@@ -55,10 +55,11 @@ Current failure behavior is also part of the boundary:
 
 - A failed `mc cp` fails with the existing download error message.
 - A failed `unzip` logs the explicit extract failure message.
-- If extraction succeeds but no `${WORLD_DIR}` exists and no fallback directory
-  is found, the function still continues to remove the temp archive and reset
-  flag, then logs success.
-- Temp archive cleanup is attempted after failed download or failed unzip.
+- Failed layout detection logs an explicit detection or ambiguity message,
+  removes temporary files, returns failure, and does not remove
+  `${DATA_DIR}/reset-world.flag`.
+- Temp archive and extraction directory cleanup is attempted after failed
+  download, failed unzip, or failed layout detection.
 
 Current S3/MinIO dependency behavior:
 
@@ -119,7 +120,7 @@ A dedicated behavior-sensitive PR may:
 
 Treat detection changes as behavior-changing unless proven otherwise.
 
-Status: design-ready only.
+Status: completed with deterministic temporary extraction detection.
 
 ### D. DATA_DIR/WORLD_DIR path-safety hardening
 

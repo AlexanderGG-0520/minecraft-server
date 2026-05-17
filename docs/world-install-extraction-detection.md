@@ -1,17 +1,16 @@
 # world install extraction detection
 
-This note defines the behavior boundary for a future improvement to extracted
-world directory detection in `scripts/lib/world_install.sh`.
+This note defines the behavior boundary for the extracted world directory
+detection improvement in `scripts/lib/world_install.sh`.
 
-This note is documentation-only. It does not change world install behavior.
+This is a behavior-changing world install update.
 
-Implementation status: design-ready only. Extracted-world detection is not
-changed.
+Implementation status: deterministic extraction detection is implemented.
 
-## Current Detection Behavior
+## Previous Detection Behavior
 
-`install_world` currently prepares and extracts a downloaded world archive as
-follows:
+Before this behavior PR, `install_world` prepared and extracted a downloaded
+world archive as follows:
 
 - `WORLD_DIR` is local to `install_world` and set to `${DATA_DIR}/world`.
 - Existing `${WORLD_DIR}` is removed with `rm -rf "${WORLD_DIR}"`.
@@ -24,15 +23,15 @@ follows:
 - If that fallback finds a directory, it moves it to `${WORLD_DIR}`.
 - The reset flag cleanup and success log happen after detection.
 
-Because `${WORLD_DIR}` is created before extraction, the fallback detection is
-normally bypassed after a successful prepare step. This means current archive
-layout behavior is mostly determined by what `unzip` writes into an already
+Because `${WORLD_DIR}` was created before extraction, the fallback detection was
+normally bypassed after a successful prepare step. This means previous archive
+layout behavior was mostly determined by what `unzip` wrote into an already
 existing `${DATA_DIR}/world` directory, not by the fallback finder.
 
-## Current Layout Ambiguity
+## Previous Layout Ambiguity
 
-These observations describe current behavior to preserve until a dedicated
-behavior PR intentionally changes it:
+These observations describe the behavior that made the detection change
+behavior-sensitive:
 
 - Direct world directory layout, such as `world/level.dat`:
   - Extracts into the pre-created `${DATA_DIR}/world`.
@@ -64,58 +63,67 @@ matching `*world*` and taking the first result can select an unexpected
 directory. Changing this behavior may change which archive layouts appear to
 install successfully.
 
-## Future Layout Policy Candidates
+## Implemented Layout Policy
 
-A future behavior PR should define supported layouts before changing code.
-Candidate policies:
+`install_world` now extracts into a temporary extraction directory, detects a
+supported top-level layout, and normalizes the selected contents into
+`${DATA_DIR}/world`.
 
-- Direct world directory layout: `world/level.dat`
-  - Candidate behavior: support as-is.
-  - Candidate validation: require `world/level.dat`.
-- Single-root world layout: `MyWorld/level.dat`
-  - Candidate behavior: normalize by moving exactly one validated root directory
-    into `${WORLD_DIR}`.
-  - Candidate validation: require exactly one top-level directory containing
-    `level.dat`.
-- Flat archive layout: `level.dat` at archive root
-  - Candidate behavior: either support by extracting into `${WORLD_DIR}` or
-    reject with an explicit error.
-  - Status: behavior decision.
-- Nested layout: `backups/world/level.dat`
-  - Candidate behavior: reject unless a future user opt-in is added.
-  - Status: behavior decision.
-- Multiple candidate directories:
-  - Candidate behavior: reject with a clear ambiguous layout error.
-  - Candidate validation: do not pick by name order.
-- Empty or invalid world layout:
-  - Candidate behavior: reject with a clear error after successful unzip.
-  - Malformed ZIP files should remain covered by the unzip failure path.
+Supported layouts:
 
-## Future Implementation Boundary
+- Direct world directory layout: `world/level.dat`.
+  - Installed as `${DATA_DIR}/world`.
+- Single-root world layout: `MyWorld/level.dat`.
+  - Supported only when it is the only top-level directory.
+  - Single-root detection is based on exactly one top-level directory containing
+    `level.dat`; unrelated top-level files are not treated as additional world
+    candidates.
+  - Installed as `${DATA_DIR}/world`.
+- Flat archive layout: `level.dat` at archive root.
+  - The extracted archive root is installed as `${DATA_DIR}/world`.
 
-A future extracted-world detection implementation may:
+Rejected layouts:
 
-- Extract into a temporary directory instead of directly into `${DATA_DIR}`, if
-  the PR explicitly owns detection behavior.
-- Inspect fixture layouts deterministically.
-- Move exactly one validated world directory into `${WORLD_DIR}`.
-- Reject ambiguous layouts with a clear error.
-- Add fixture ZIP smoke tests.
+- Multiple valid candidate world directories.
+  - Fails with `Ambiguous world archive layout`.
+- A flat root `level.dat` plus another valid top-level world directory.
+  - Fails with `Ambiguous world archive layout`.
+- A single valid non-`world` top-level directory plus other top-level
+  directories.
+  - Fails with `Ambiguous world archive layout`.
+- Nested-only layouts such as `backups/world/level.dat`.
+  - Fails with `Failed to detect world directory in archive`.
+- Archives without any supported top-level `level.dat`.
+  - Fail with `Failed to detect world directory in archive`.
+- Malformed ZIP files remain covered by the existing unzip failure path.
 
-A future extracted-world detection implementation must not:
+## Implementation Boundary
+
+The extracted-world detection implementation:
+
+- Extracts into a temporary directory instead of directly into `${DATA_DIR}`.
+- Inspects fixture layouts deterministically.
+- Moves exactly one validated source into `${WORLD_DIR}`.
+- Rejects ambiguous layouts with a clear error.
+- Adds fixture ZIP smoke tests.
+- Delays `rm -rf "${WORLD_DIR}"` until after download, unzip, and layout
+  detection succeed. This is intentional safer behavior for this detection PR,
+  not broader path-safety hardening.
+
+This implementation does not:
 
 - Change S3/MinIO behavior.
 - Change `WORLD_S3_BUCKET` or `WORLD_S3_KEY` semantics.
-- Change temp archive behavior unless required and documented.
-- Change `rm -rf` path-safety in the same PR.
-- Change `reset-world.flag` behavior in the same PR.
+- Change temp archive behavior.
+- Change `rm -rf` path-safety.
+- Change `reset-world.flag` cleanup after successful install.
 - Change `world_reset.sh`.
 - Change `install_world` call sites.
 - Combine with MinIO or `mc` dependency remediation.
 
-## Fixture Smoke Guidance
+## Fixture Smoke Coverage
 
-Future detection smoke tests should:
+Detection smoke tests:
 
 - Use temporary `DATA_DIR` values.
 - Use local fixture ZIP files.
@@ -124,12 +132,15 @@ Future detection smoke tests should:
 - Avoid Minecraft server boot.
 - Avoid server artifact downloads.
 - Avoid destructive paths outside temp directories.
+- Verify temporary archive cleanup and observable extraction temp cleanup.
+- Verify failed detection does not remove `reset-world.flag`.
 
-Recommended fixture layouts:
+Fixture layouts:
 
 - Direct `world/level.dat`.
-- Single-root valid world directory, such as `MyWorld/level.dat`.
-- Flat valid layout with root `level.dat`, if supported.
+- Single-root valid world directory: `MyWorld/level.dat`.
+- Flat valid layout with root `level.dat`.
 - Multiple candidate directories.
 - No `level.dat`.
-- Malformed archive, which should remain covered by unzip error smoke.
+- Nested-only layout: `backups/world/level.dat`.
+- Malformed archive remains covered by unzip error smoke.
