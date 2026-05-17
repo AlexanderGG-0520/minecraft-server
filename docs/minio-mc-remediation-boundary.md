@@ -8,9 +8,10 @@ work.
 
 Implementation status: build reliability hardening completed for bounded
 `git clone` retries. Focused vulnerability remediation is implemented for the
-documented Docker Hub Layer 40 `mc` finding set. Docker image build validation
-and scanner rerun / Docker Hub rescan are still needed. Acquisition strategy
-changes and optional client replacement remain separate.
+documented Docker Hub Layer 40 `mc` finding set. Post-remediation build
+verification passed; scanner re-evaluation is pending / unavailable in the
+current evidence pass. Acquisition strategy changes and optional client
+replacement remain separate.
 
 ## Current Behavior To Preserve
 
@@ -108,6 +109,8 @@ Investigation plan:
 [`docs/minio-mc-vulnerability-remediation-plan.md`](minio-mc-vulnerability-remediation-plan.md).
 Findings pass:
 [`docs/minio-mc-vulnerability-findings.md`](minio-mc-vulnerability-findings.md).
+Post-remediation verification:
+[`docs/minio-mc-remediation-verification.md`](minio-mc-remediation-verification.md).
 
 A separate PR may:
 
@@ -117,8 +120,8 @@ A separate PR may:
 - Keep or add smoke coverage for build-time availability and library behavior.
 
 Status: focused remediation implemented for the documented Docker Hub Layer 40
-finding set. Docker image build validation and scanner rerun / Docker Hub
-rescan are still needed.
+finding set. Build verification passed; scanner re-evaluation pending. See
+[`docs/minio-mc-remediation-verification.md`](minio-mc-remediation-verification.md).
 
 ### D. Acquisition strategy decision
 
