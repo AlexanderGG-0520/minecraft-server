@@ -124,6 +124,9 @@ Status: completed with deterministic temporary extraction detection.
 
 ### D. DATA_DIR/WORLD_DIR path-safety hardening
 
+Design boundary:
+[`docs/world-install-path-safety.md`](world-install-path-safety.md).
+
 A separate high-risk PR may:
 
 - Harden empty or unset `DATA_DIR` and `WORLD_DIR` checks before `rm -rf`.
@@ -132,6 +135,12 @@ A separate high-risk PR may:
 
 Do not combine this with temp archive cleanup or extracted-world detection
 changes.
+
+Status: design-ready only. Current `world_install.sh` still derives
+`WORLD_DIR` as `${DATA_DIR}/world` and removes it with `rm -rf "${WORLD_DIR}"`
+after successful download, unzip, and layout detection, but it does not yet
+explicitly validate empty or unset `DATA_DIR` or the resolved `WORLD_DIR` before
+that destructive operation.
 
 ### E. world_reset.sh cleanup
 
