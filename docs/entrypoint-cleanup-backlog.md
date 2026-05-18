@@ -99,7 +99,8 @@ a behavior change.
 
 - `world_reset.sh` - localize variables and harden path checks around
   destructive reset behavior.
-  - Status: path-safety design-ready, not implemented. See
+  - Status: path-safety completed; variable-localization cleanup remains
+    separate. See
     [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
   - Risk: high.
   - Suggested PR boundary: `scripts/lib/world_reset.sh`.
@@ -222,7 +223,7 @@ a behavior change.
   `find "${DATA_DIR}" -maxdepth 1 -type d -name "*world*" | head -n1`.
   - Status: completed. See
     [`docs/world-install-extraction-detection.md`](world-install-extraction-detection.md).
-- Keep `world_reset.sh` cleanup and path-safety as separate unresolved work.
+- Keep `world_reset.sh` cleanup separate from `world_install.sh` cleanup.
   - Path-safety design boundary:
     [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
 
@@ -255,9 +256,8 @@ a behavior change.
 
 - Path-safety design boundary:
   [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
-- Status: design-ready, not implemented. Keep implementation separate from
-  `world_install.sh` path-safety, reset timing changes, and variable
-  localization cleanup.
+- Status: path-safety completed. Keep variable localization cleanup separate
+  from reset timing changes and unrelated reset behavior changes.
 - Localize variables in `reset_world` / `handle_reset_world_flag`, including:
   - `FLAG_FILE`
   - `WORLD_DIR`
@@ -269,8 +269,11 @@ a behavior change.
   - `TS`
   - `BACKUP_DIR`
 - Harden `DATA_DIR` / `WORLD_DIR` safety checks.
+  - Status: completed for reset path-safety.
 - Guard against empty or unset `DATA_DIR`.
+  - Status: completed for reset path-safety.
 - Add path sanity checks before `rm -rf`.
+  - Status: completed for reset path-safety.
 - Consider safer temp/atomic handling where applicable.
 - Preserve existing reset behavior until a dedicated non-mechanical improvement
   PR.
