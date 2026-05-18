@@ -11,8 +11,9 @@ path-safety is completed separately in
 
 `world_reset.sh` currently defines `reset_world` and
 `handle_reset_world_flag`. The library is sourced by `entrypoint.sh`, and
-`handle_reset_world_flag` runs from the main install flow before world install,
-mods install, mod activation, and later startup preparation.
+`handle_reset_world_flag` runs from the main install flow before
+server-properties install, mods install, mod activation, and later startup
+preparation.
 
 Current reset behavior relevant to destructive paths:
 
