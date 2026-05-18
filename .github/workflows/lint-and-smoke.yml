@@ -89,6 +89,7 @@ jobs:
           declare -F install_server >/dev/null
           declare -F run_server >/dev/null
           declare -F runtime >/dev/null
+          declare -F validate_world_install_paths >/dev/null
           declare -F install_world >/dev/null
           declare -F reset_world >/dev/null
           declare -F handle_reset_world_flag >/dev/null
@@ -301,6 +302,53 @@ jobs:
             assert_world_install_temps_unchanged
           }
 
+          run_path_validation_failure_case() {
+            local name="$1"
+            local data_dir="$2"
+            local expected_message="$3"
+
+            create_fixture_zip "$name" world/level.dat
+            DATA_DIR="$data_dir"
+
+            set +e
+            output="$(install_world 2>&1)"
+            status=$?
+            set -e
+
+            test "$status" -eq 1
+            printf '%s\n' "$output" | grep -E "^\[[^]]+\] \[ERROR\] ${expected_message}$"
+            assert_archive_cleaned
+            assert_world_install_temps_unchanged
+          }
+
+          run_unset_data_dir_validation_failure_case() {
+            create_fixture_zip unset-data-dir world/level.dat
+            unset DATA_DIR
+
+            set +e
+            output="$(install_world 2>&1)"
+            status=$?
+            set -e
+
+            test "$status" -eq 1
+            printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] DATA_DIR is required for world install$'
+            assert_archive_cleaned
+            assert_world_install_temps_unchanged
+          }
+
+          assert_path_validation_failure() {
+            local expected_message="$1"
+            shift
+
+            set +e
+            output="$(validate_world_install_paths "$@" 2>&1)"
+            status=$?
+            set -e
+
+            test "$status" -eq 1
+            printf '%s\n' "$output" | grep -E "^\[[^]]+\] \[ERROR\] ${expected_message}$"
+          }
+
           source ./scripts/lib/logging.sh
           source ./scripts/lib/world_install.sh
           configure_mc_alias() {
@@ -316,6 +364,15 @@ jobs:
           snapshot_world_install_temps > "$WORLD_TEMP_SNAPSHOT"
           test ! -e /tmp/world.zip
 
+          valid_path_data="$tmp/path-valid"
+          validate_world_install_paths "$valid_path_data" "$valid_path_data/world"
+          assert_path_validation_failure "DATA_DIR is required for world install" "" "/world"
+          assert_path_validation_failure "Refusing unsafe world install path" "relative-data" "relative-data/world"
+          assert_path_validation_failure "Refusing unsafe world install path" "$valid_path_data" ""
+          assert_path_validation_failure "Refusing unsafe world install path" "/" "//world"
+          assert_path_validation_failure "Refusing unsafe world install path" "$valid_path_data" "$valid_path_data"
+          assert_path_validation_failure "Refusing unsafe world install path" "$valid_path_data" "$tmp/outside/world"
+
           run_success_case direct-world world/level.dat
           run_success_case single-root MyWorld/level.dat
           run_success_case flat-root level.dat
@@ -323,6 +380,30 @@ jobs:
           run_failure_case no-level "Failed to detect world directory in archive" notes.txt
           run_failure_case multiple-candidates "Ambiguous world archive layout" world/level.dat MyWorld/level.dat
           run_failure_case nested-only "Failed to detect world directory in archive" backups/world/level.dat
+
+          run_path_validation_failure_case empty-data-dir "" "DATA_DIR is required for world install"
+          run_unset_data_dir_validation_failure_case
+
+          create_fixture_zip relative-data-dir world/level.dat
+          (
+            cd "$tmp"
+            DATA_DIR="relative-data"
+            mkdir -p "$DATA_DIR/world"
+            printf '%s\n' old-world > "$DATA_DIR/world/level.dat"
+            touch "$DATA_DIR/reset-world.flag"
+
+            set +e
+            output="$(install_world 2>&1)"
+            status=$?
+            set -e
+
+            test "$status" -eq 1
+            printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] Refusing unsafe world install path$'
+            test -f "$DATA_DIR/reset-world.flag"
+            test "$(cat "$DATA_DIR/world/level.dat")" = "old-world"
+            assert_archive_cleaned
+            assert_world_install_temps_unchanged
+          )
 
           DATA_DIR="$tmp/download-fail"
           mkdir -p "$DATA_DIR/world"

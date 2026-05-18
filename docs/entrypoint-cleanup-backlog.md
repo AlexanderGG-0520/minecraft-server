@@ -90,7 +90,7 @@ a behavior change.
 
 - `world_install.sh` - harden `DATA_DIR` / `WORLD_DIR` path safety before
   `rm -rf`.
-  - Status: design-ready only. See
+  - Status: completed. See
     [`docs/world-install-path-safety.md`](world-install-path-safety.md).
   - Risk: high.
   - Suggested PR boundary: `scripts/lib/world_install.sh`.
@@ -214,14 +214,13 @@ a behavior change.
   extraction, supported direct/single-root/flat layouts, and rejection for
   ambiguous or missing `level.dat` layouts.
 - Harden `DATA_DIR` / `WORLD_DIR` path safety before `rm -rf`.
-  - Status: design-ready only. See
+  - Status: completed for `world_install.sh`. See
     [`docs/world-install-path-safety.md`](world-install-path-safety.md).
 - Extracted world directory detection no longer uses broad matching such as
   `find "${DATA_DIR}" -maxdepth 1 -type d -name "*world*" | head -n1`.
   - Status: completed. See
     [`docs/world-install-extraction-detection.md`](world-install-extraction-detection.md).
-- Keep DATA_DIR/WORLD_DIR path-safety and `world_reset.sh` cleanup as separate
-  unresolved work.
+- Keep `world_reset.sh` cleanup and path-safety as separate unresolved work.
 
 ## server_properties.sh
 

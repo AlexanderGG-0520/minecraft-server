@@ -1,12 +1,94 @@
 # shellcheck shell=bash
 
+validate_world_install_paths() {
+  local data_dir="${1:-}"
+  local world_dir="${2:-}"
+
+  if [[ -z "${data_dir}" ]]; then
+    log ERROR "DATA_DIR is required for world install"
+    return 1
+  fi
+
+  if [[ -z "${world_dir}" ]]; then
+    log ERROR "Refusing unsafe world install path"
+    return 1
+  fi
+
+  if [[ "${data_dir}" != /* || "${data_dir}" == "/" ]]; then
+    log ERROR "Refusing unsafe world install path"
+    return 1
+  fi
+
+  if [[ "${world_dir}" != "${data_dir}/world" ]]; then
+    log ERROR "Refusing unsafe world install path"
+    return 1
+  fi
+
+  case "${world_dir}" in
+    /|/world|/tmp)
+      log ERROR "Refusing unsafe world install path"
+      return 1
+      ;;
+  esac
+
+  if [[ "${world_dir}" == "${data_dir}" ]]; then
+    log ERROR "Refusing unsafe world install path"
+    return 1
+  fi
+
+  if ! command -v realpath >/dev/null 2>&1; then
+    log ERROR "Refusing unsafe world install path"
+    return 1
+  fi
+
+  local resolved_data_dir resolved_world_dir expected_world_dir
+  if ! resolved_data_dir="$(realpath -m -- "${data_dir}")"; then
+    log ERROR "Refusing unsafe world install path"
+    return 1
+  fi
+
+  if ! resolved_world_dir="$(realpath -m -- "${world_dir}")"; then
+    log ERROR "Refusing unsafe world install path"
+    return 1
+  fi
+
+  if ! expected_world_dir="$(realpath -m -- "${resolved_data_dir}/world")"; then
+    log ERROR "Refusing unsafe world install path"
+    return 1
+  fi
+
+  if [[ "${resolved_data_dir}" == "/" ||
+    "${resolved_world_dir}" == "/" ||
+    "${resolved_world_dir}" == "/world" ||
+    "${resolved_world_dir}" == "/tmp" ||
+    "${resolved_world_dir}" == "/data" ||
+    "${resolved_world_dir}" == "${resolved_data_dir}" ||
+    "${resolved_world_dir}" != "${expected_world_dir}" ||
+    "${resolved_world_dir##*/}" != "world" ]]; then
+    log ERROR "Refusing unsafe world install path"
+    return 1
+  fi
+
+  case "${resolved_world_dir}" in
+    "${resolved_data_dir}"/*) ;;
+    *)
+      log ERROR "Refusing unsafe world install path"
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
 install_world() {
-  local WORLD_DIR="${DATA_DIR}/world"
+  local WORLD_DIR="${DATA_DIR:-}/world"
 
   # ------------------------------------------------------------
   # Guard
   # ------------------------------------------------------------
-  if [[ -d "${WORLD_DIR}" && ! -f "${DATA_DIR}/reset-world.flag" ]]; then
+  if [[ -n "${DATA_DIR:-}" &&
+    -d "${WORLD_DIR}" &&
+    ! -f "${DATA_DIR}/reset-world.flag" ]]; then
     log INFO "World already exists, skipping world install"
     return 0
   fi
@@ -93,7 +175,19 @@ install_world() {
   # ------------------------------------------------------------
   # Install
   # ------------------------------------------------------------
+  if ! validate_world_install_paths "${DATA_DIR:-}" "${WORLD_DIR}"; then
+    rm -f "${TMP_ZIP}"
+    rm -rf "${EXTRACT_DIR}"
+    return 1
+  fi
+
   if ! mkdir -p "${DATA_DIR}"; then
+    rm -f "${TMP_ZIP}"
+    rm -rf "${EXTRACT_DIR}"
+    return 1
+  fi
+
+  if ! validate_world_install_paths "${DATA_DIR:-}" "${WORLD_DIR}"; then
     rm -f "${TMP_ZIP}"
     rm -rf "${EXTRACT_DIR}"
     return 1

@@ -7,8 +7,9 @@ This note records current behavior and cleanup boundaries for world install
 archive handling.
 
 Implementation status: fixed temp archive cleanup, unzip error-message cleanup,
-and deterministic extracted-world detection are completed. Path-safety hardening
-and `world_reset.sh` cleanup remain separate.
+deterministic extracted-world detection, and `world_install.sh`
+DATA_DIR/WORLD_DIR path-safety hardening are completed. `world_reset.sh`
+cleanup remains separate.
 
 ## Current behavior to preserve
 
@@ -45,6 +46,9 @@ Inside `install_world`, current behavior is:
   `Failed to detect world directory in archive`.
 - Existing `${WORLD_DIR}` is removed with `rm -rf "${WORLD_DIR}"` only after the
   archive has downloaded, extracted, and matched a supported layout.
+- `validate_world_install_paths` validates `DATA_DIR` and `WORLD_DIR` before
+  creating/replacing `${WORLD_DIR}` and immediately before
+  `rm -rf "${WORLD_DIR}"`.
 - The selected extracted source is moved to `${WORLD_DIR}`.
 - The temporary archive path and extraction directory are removed after
   extraction detection and install complete.
@@ -136,11 +140,9 @@ A separate high-risk PR may:
 Do not combine this with temp archive cleanup or extracted-world detection
 changes.
 
-Status: design-ready only. Current `world_install.sh` still derives
-`WORLD_DIR` as `${DATA_DIR}/world` and removes it with `rm -rf "${WORLD_DIR}"`
-after successful download, unzip, and layout detection, but it does not yet
-explicitly validate empty or unset `DATA_DIR` or the resolved `WORLD_DIR` before
-that destructive operation.
+Status: completed for `world_install.sh`. The implementation requires an
+absolute non-empty `DATA_DIR`, validates the derived and resolved `WORLD_DIR`,
+and fails before `rm -rf "${WORLD_DIR}"` when paths are unsafe.
 
 ### E. world_reset.sh cleanup
 
