@@ -91,6 +91,8 @@ jobs:
           declare -F runtime >/dev/null
           declare -F validate_world_install_paths >/dev/null
           declare -F install_world >/dev/null
+          declare -F validate_world_reset_flag_path >/dev/null
+          declare -F validate_world_reset_paths >/dev/null
           declare -F reset_world >/dev/null
           declare -F handle_reset_world_flag >/dev/null
           declare -F ensure_server_properties >/dev/null
@@ -466,6 +468,78 @@ jobs:
           source ./scripts/lib/logging.sh
           source ./scripts/lib/world_reset.sh
 
+          assert_reset_path_validation_failure() {
+            local expected_message="$1"
+            shift
+
+            set +e
+            output="$(validate_world_reset_paths "$@" 2>&1)"
+            status=$?
+            set -e
+
+            test "$status" -eq 1
+            printf '%s\n' "$output" | grep -E "^\[[^]]+\] \[ERROR\] ${expected_message}$"
+          }
+
+          assert_reset_flag_validation_failure() {
+            local expected_message="$1"
+            shift
+
+            set +e
+            output="$(validate_world_reset_flag_path "$@" 2>&1)"
+            status=$?
+            set -e
+
+            test "$status" -eq 1
+            printf '%s\n' "$output" | grep -E "^\[[^]]+\] \[ERROR\] ${expected_message}$"
+          }
+
+          valid_data="$tmp/path-valid"
+          validate_world_reset_flag_path "$valid_data" "$valid_data/reset-world.flag"
+          validate_world_reset_paths \
+            "$valid_data" \
+            "$valid_data/world" \
+            "$valid_data/reset-world.flag" \
+            "$valid_data/backups" \
+            "$valid_data/backups/world-20260101-000000.tar.gz" \
+            "$valid_data/mods" \
+            false \
+            true
+          validate_world_reset_paths \
+            "$valid_data" \
+            "$valid_data/world" \
+            "$valid_data/reset-world.flag" \
+            "$valid_data/backups" \
+            "" \
+            "$valid_data/mods" \
+            false \
+            false
+          validate_world_reset_paths \
+            "$valid_data" \
+            "$valid_data/world" \
+            "$valid_data/reset-world.flag" \
+            "$valid_data/backups" \
+            "$valid_data/backups/world-20260101-000000.tar.gz" \
+            "$valid_data/mods" \
+            true \
+            true
+
+          assert_reset_flag_validation_failure "DATA_DIR is required for world reset" "" "/reset-world.flag"
+          assert_reset_flag_validation_failure "Refusing unsafe reset flag path" "relative-data" "relative-data/reset-world.flag"
+          assert_reset_flag_validation_failure "Refusing unsafe reset flag path" "$valid_data" ""
+          assert_reset_flag_validation_failure "Refusing unsafe reset flag path" "$valid_data" "$tmp/outside/reset-world.flag"
+          assert_reset_flag_validation_failure "Refusing unsafe reset flag path" "$valid_data" "$valid_data"
+
+          assert_reset_path_validation_failure "DATA_DIR is required for world reset" "" "/world" "/reset-world.flag" "/backups" "/backups/world.tar.gz" "/mods" false true
+          assert_reset_path_validation_failure "Refusing unsafe world reset path" "relative-data" "relative-data/world" "relative-data/reset-world.flag" "relative-data/backups" "relative-data/backups/world.tar.gz" "relative-data/mods" false true
+          assert_reset_path_validation_failure "Refusing unsafe world reset path" "$valid_data" "" "$valid_data/reset-world.flag" "$valid_data/backups" "$valid_data/backups/world.tar.gz" "$valid_data/mods" false true
+          assert_reset_path_validation_failure "Refusing unsafe world reset path" "$valid_data" "$tmp/outside/world" "$valid_data/reset-world.flag" "$valid_data/backups" "$valid_data/backups/world.tar.gz" "$valid_data/mods" false true
+          assert_reset_path_validation_failure "Refusing unsafe reset flag path" "$valid_data" "$valid_data/world" "$tmp/outside/reset-world.flag" "$valid_data/backups" "$valid_data/backups/world.tar.gz" "$valid_data/mods" false true
+          assert_reset_path_validation_failure "Refusing unsafe world reset path" "$valid_data" "$valid_data/world" "$valid_data/reset-world.flag" "$tmp/outside/backups" "$tmp/outside/backups/world.tar.gz" "$valid_data/mods" false true
+          assert_reset_path_validation_failure "Refusing unsafe world reset path" "$valid_data" "$valid_data/world" "$valid_data/reset-world.flag" "$valid_data/backups" "$tmp/outside/world.tar.gz" "$valid_data/mods" false true
+          assert_reset_path_validation_failure "Refusing unsafe world reset path" "$valid_data" "$valid_data/world" "$valid_data/reset-world.flag" "$valid_data/backups" "$valid_data/backups/world.tar.gz" "$tmp/outside/mods" true true
+          assert_reset_path_validation_failure "Refusing unsafe world reset path" "$valid_data" "$valid_data/world" "$valid_data/reset-world.flag" "$valid_data/backups" "$valid_data/backups/world.tar.gz" "$valid_data/world" true true
+
           DATA_DIR="$tmp/no-flag"
           mkdir -p "$DATA_DIR/world"
           touch "$DATA_DIR/world/level.dat"
@@ -484,6 +558,20 @@ jobs:
           test ! -f "$DATA_DIR/world/level.dat"
           test -f "$DATA_DIR/mods/server-mod.jar"
 
+          DATA_DIR="$tmp/valid-backup"
+          mkdir -p "$DATA_DIR/world" "$DATA_DIR/mods"
+          touch "$DATA_DIR/world/level.dat" "$DATA_DIR/mods/server-mod.jar" "$DATA_DIR/.ready" "$DATA_DIR/reset-world.flag"
+          RESET_WORLD_BACKUP=true
+          RESET_WORLD_REMOVE_MODS=true
+          handle_reset_world_flag
+          test ! -f "$DATA_DIR/reset-world.flag"
+          test ! -f "$DATA_DIR/.ready"
+          test -d "$DATA_DIR/world"
+          test ! -f "$DATA_DIR/world/level.dat"
+          test -d "$DATA_DIR/mods"
+          test ! -f "$DATA_DIR/mods/server-mod.jar"
+          test "$(find "$DATA_DIR/backups" -maxdepth 1 -type f -name 'world-*.tar.gz' | wc -l)" -eq 1
+
           DATA_DIR="$tmp/expired-flag"
           mkdir -p "$DATA_DIR/world"
           touch "$DATA_DIR/world/level.dat" "$DATA_DIR/reset-world.flag"
@@ -491,6 +579,32 @@ jobs:
           handle_reset_world_flag
           test ! -f "$DATA_DIR/reset-world.flag"
           test -f "$DATA_DIR/world/level.dat"
+
+          DATA_DIR="$tmp/expired-flag-no-world"
+          mkdir -p "$DATA_DIR"
+          touch "$DATA_DIR/reset-world.flag"
+          touch -d '1 hour ago' "$DATA_DIR/reset-world.flag"
+          handle_reset_world_flag
+          test ! -f "$DATA_DIR/reset-world.flag"
+
+          (
+            cd "$tmp"
+            DATA_DIR="relative-data"
+            mkdir -p "$DATA_DIR/world"
+            touch "$DATA_DIR/world/level.dat" "$DATA_DIR/reset-world.flag"
+            RESET_WORLD_BACKUP=false
+            RESET_WORLD_REMOVE_MODS=false
+
+            set +e
+            output="$(reset_world 2>&1)"
+            status=$?
+            set -e
+
+            test "$status" -eq 1
+            printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] Refusing unsafe world reset path$'
+            test -f "$DATA_DIR/reset-world.flag"
+            test -f "$DATA_DIR/world/level.dat"
+          )
 
       - name: Lifecycle hook smoke
         run: |
