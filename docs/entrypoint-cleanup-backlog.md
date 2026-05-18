@@ -99,6 +99,8 @@ a behavior change.
 
 - `world_reset.sh` - localize variables and harden path checks around
   destructive reset behavior.
+  - Status: path-safety design-ready, not implemented. See
+    [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
   - Risk: high.
   - Suggested PR boundary: `scripts/lib/world_reset.sh`.
   - Do not change reset timing, backup behavior, or other reset semantics in
@@ -221,6 +223,8 @@ a behavior change.
   - Status: completed. See
     [`docs/world-install-extraction-detection.md`](world-install-extraction-detection.md).
 - Keep `world_reset.sh` cleanup and path-safety as separate unresolved work.
+  - Path-safety design boundary:
+    [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
 
 ## server_properties.sh
 
@@ -249,6 +253,11 @@ a behavior change.
 
 ## world_reset.sh
 
+- Path-safety design boundary:
+  [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
+- Status: design-ready, not implemented. Keep implementation separate from
+  `world_install.sh` path-safety, reset timing changes, and variable
+  localization cleanup.
 - Localize variables in `reset_world` / `handle_reset_world_flag`, including:
   - `FLAG_FILE`
   - `WORLD_DIR`

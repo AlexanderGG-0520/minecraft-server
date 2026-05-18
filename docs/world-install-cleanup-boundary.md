@@ -150,6 +150,9 @@ Keep `world_reset.sh` work separate from `world_install.sh` cleanup.
 Do not combine reset flag behavior, reset backups, reset path safety, or reset
 timing changes with world archive handling.
 
+Path-safety design boundary:
+[`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
+
 ## Guardrails
 
 Future implementation must not casually:
