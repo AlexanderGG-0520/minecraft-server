@@ -1,10 +1,12 @@
 # runtime.sh corrupt marker JSON boundary
 
-This note defines a docs-only boundary for future corrupt
+This note records the boundary and implementation for corrupt
 `${DATA_DIR}/.server-install.json` handling in `scripts/lib/runtime.sh`.
 
-Implementation status: design-ready, not implemented. Runtime behavior, marker
-format, install behavior, and `TYPE=auto` behavior are unchanged.
+Implementation status: completed. Runtime behavior now fails fast when an
+existing server install marker is corrupt or incomplete. Marker format, marker
+write behavior, install dispatch, server artifact download behavior, and the
+`TYPE=auto` marker-supported type list are unchanged.
 
 ## Current marker behavior
 
@@ -26,32 +28,28 @@ installation and `TYPE=auto` resolution.
   [`docs/runtime-marker-cleanup-boundary.md`](runtime-marker-cleanup-boundary.md)
   cleanup and is outside this boundary.
 
-`assert_server_install_matches` currently behaves as follows:
+`assert_server_install_matches` now behaves as follows:
 
 - It is called by server artifact installers when the expected artifact already
   exists.
 - If the artifact exists but the marker file is missing, it logs a warning and
   leaves the artifact in place.
-- If the marker exists, it reads `.type`, `.version`, and `.artifact` with
-  `jq -r '.field // empty'`.
-- Those `jq` reads do not suppress parse errors in this path.
+- If the marker exists, it validates the marker as a JSON object and reads the
+  required `artifact`, `type`, `version`, and `build` fields.
 - If any read value differs from the requested artifact, type, or version, it
   fails with the existing artifact mismatch error rather than replacing the
   artifact automatically.
-- If marker JSON is valid but a required field is missing, that field reads as
-  empty and the existing mismatch path fails with `unknown` for empty type or
-  version values.
-- If marker JSON is corrupt or unreadable, the current behavior is not a stable
-  project-level policy. Under the normal `entrypoint.sh` `set -e` execution
-  context, the unsuppressed `jq` failure is expected to stop execution before
-  the custom marker mismatch message. Other sourced test contexts may expose
-  raw `jq` failure behavior.
+- If marker JSON is corrupt or unreadable as JSON, it fails with
+  `Corrupt server install marker`.
+- If marker JSON is valid but missing a required field or has a null required
+  field, it fails with `Incomplete server install marker`.
+- An empty `build` field remains valid when the field exists.
 
-`resolve_type_auto` currently behaves as follows:
+`resolve_type_auto` now behaves as follows:
 
 - It only runs when `TYPE` is `auto` or `AUTO`.
-- If the marker exists, it reads `.type` and `.artifact` with `jq`, suppressing
-  parse errors with `2>/dev/null || true`.
+- If the marker exists, it validates the marker as a JSON object and reads the
+  required `artifact`, `type`, `version`, and `build` fields.
 - Marker-supported types in this path are currently:
   - `fabric`
   - `forge`
@@ -73,14 +71,12 @@ installation and `TYPE=auto` resolution.
 - If the marker is missing, it goes directly to artifact detection.
 - Artifact detection checks `velocity.jar`, `fabric-server-launch.jar`,
   Forge/NeoForge `run.sh`, and `server.jar`, then falls back to `vanilla`.
-- If marker JSON is valid but missing `.type`, the current behavior is the
-  empty-type warning followed by artifact detection.
-- If marker JSON has a supported `.type` but missing `.artifact`, the current
-  behavior is the artifact-missing warning with `unknown`, followed by artifact
-  detection.
-- If marker JSON is corrupt or unreadable, suppressed `jq` errors currently
-  produce empty marker values, log the empty-type fallback warning, and continue
+- If marker JSON is corrupt or unreadable as JSON, it fails with
+  `Corrupt server install marker` and does not continue to artifact detection.
+- If marker JSON is valid but missing a required field or has a null required
+  field, it fails with `Incomplete server install marker` and does not continue
   to artifact detection.
+- An empty `build` field remains valid when the field exists.
 
 ## Future policy candidates
 
@@ -122,44 +118,44 @@ Risk: it changes filesystem state during read/validation, may surprise users,
 and introduces naming, retention, and collision behavior that would need its
 own policy.
 
-## Recommended future policy
+## Implemented policy
 
-Prefer Option A: fail fast.
+The implementation follows Option A: fail fast.
 
 The project generally favors explicit, predictable failure for ambiguous install
 state. A corrupt marker is different from a missing marker: missing marker
 behavior is already non-fatal in some paths, but an existing corrupt marker
 claims to be authoritative install state and should not be silently ignored.
 
-Recommended policy for a future implementation:
+Current policy:
 
 - Missing marker remains non-fatal where currently non-fatal.
-- Existing corrupt marker fails fast with an explicit error.
-- Existing marker with missing required fields fails fast with an explicit
-  error.
+- Existing corrupt marker fails fast with `Corrupt server install marker`.
+- Existing marker with missing or null required fields fails fast with
+  `Incomplete server install marker`.
 - Valid marker mismatch continues to fail as today.
-- `TYPE=auto` does not silently ignore a corrupt marker.
-- The first implementation PR does not delete, rewrite, or quarantine corrupt
-  markers.
-- The first implementation PR does not change marker write behavior.
-- The first implementation PR does not change marker temporary-file handling.
+- `TYPE=auto` does not silently ignore a corrupt or incomplete marker.
+- The implementation does not delete, rewrite, or quarantine corrupt markers.
+- The implementation does not change marker write behavior.
+- The implementation does not change marker temporary-file handling.
 
-## Future implementation boundary
+## Implementation boundary
 
-A future implementation PR may:
+The implementation:
 
-- Add a small marker-reading helper in `scripts/lib/runtime.sh`.
-- Centralize `jq` marker reads.
-- Detect invalid JSON explicitly.
-- Detect missing required marker fields explicitly.
-- Emit stable error messages.
-- Add smoke tests for corrupt marker JSON and missing required fields.
-- Preserve existing valid marker behavior.
-- Preserve existing missing marker behavior.
+- Adds a small marker-reading helper in `scripts/lib/runtime.sh`.
+- Centralizes server install marker reads for `assert_server_install_matches`
+  and `resolve_type_auto`.
+- Detects invalid JSON explicitly.
+- Detects missing required marker fields explicitly.
+- Emits stable error messages.
+- Adds offline smoke tests for corrupt marker JSON and missing required fields.
+- Preserves existing valid marker behavior.
+- Preserves existing missing marker behavior.
 
-A future implementation PR must not:
+The implementation does not:
 
-- Change server install marker write format unless intentionally scoped.
+- Change server install marker write format.
 - Change marker temporary-file handling.
 - Change `install_server` dispatch.
 - Change server artifact download behavior.
@@ -168,20 +164,21 @@ A future implementation PR must not:
 - Change S3/MinIO behavior.
 - Combine with unrelated cleanup.
 
-## Smoke guidance
+## Smoke coverage
 
-Future implementation smoke tests should:
+Smoke tests cover:
 
-- Use a temporary `DATA_DIR`.
-- Source `scripts/lib/runtime.sh` under `set -euo pipefail`.
-- Verify a valid marker matching expected artifact, type, version, and build
-  behaves as before.
-- Verify a valid marker mismatch fails as before.
-- Verify missing marker behavior remains as currently expected.
-- Verify corrupt marker JSON fails with an explicit error.
-- Verify valid JSON missing required fields fails with an explicit error.
-- Verify `TYPE=auto` with a valid marker resolves as before.
-- Verify `TYPE=auto` with a corrupt marker fails explicitly.
+- Valid marker matching expected artifact, type, version, and build.
+- Valid marker mismatch failing as before.
+- Missing marker behavior remaining non-fatal where currently non-fatal.
+- Corrupt marker JSON failing with `Corrupt server install marker`.
+- Valid JSON missing required fields failing with
+  `Incomplete server install marker`.
+- `TYPE=auto` with a valid marker resolving as before.
+- `TYPE=auto` with corrupt marker failing with
+  `Corrupt server install marker`.
+- `TYPE=auto` with incomplete marker failing with
+  `Incomplete server install marker`.
 - Avoid Minecraft server boot.
 - Avoid artifact downloads.
 - Avoid S3/MinIO.

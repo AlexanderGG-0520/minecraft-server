@@ -33,6 +33,26 @@ server_install_marker() {
   printf '%s/.server-install.json' "${DATA_DIR}"
 }
 
+read_server_install_marker_field() {
+  local marker="$1"
+  local field="$2"
+  local value
+
+  if ! jq -e 'type == "object"' "$marker" >/dev/null 2>&1; then
+    die "Corrupt server install marker"
+  fi
+
+  if ! jq -e --arg field "$field" 'has($field) and .[$field] != null' "$marker" >/dev/null 2>&1; then
+    die "Incomplete server install marker"
+  fi
+
+  if ! value="$(jq -r --arg field "$field" '.[$field]' "$marker" 2>/dev/null)"; then
+    die "Corrupt server install marker"
+  fi
+
+  printf '%s' "$value"
+}
+
 assert_server_install_matches() {
   local artifact="$1"
   local requested_type="$2"
@@ -46,9 +66,10 @@ assert_server_install_matches() {
   fi
 
   local installed_type installed_version installed_artifact
-  installed_type="$(jq -r '.type // empty' "$marker")"
-  installed_version="$(jq -r '.version // empty' "$marker")"
-  installed_artifact="$(jq -r '.artifact // empty' "$marker")"
+  installed_artifact="$(read_server_install_marker_field "$marker" artifact)"
+  installed_type="$(read_server_install_marker_field "$marker" type)"
+  installed_version="$(read_server_install_marker_field "$marker" version)"
+  read_server_install_marker_field "$marker" build >/dev/null
 
   if [[ "$installed_type" != "$requested_type" \
      || "$installed_version" != "$requested_version" \
@@ -92,8 +113,10 @@ resolve_type_auto() {
   marker="$(server_install_marker)"
 
   if [[ -f "${marker}" ]]; then
-    installed_type="$(jq -r '.type // empty' "${marker}" 2>/dev/null || true)"
-    installed_artifact="$(jq -r '.artifact // empty' "${marker}" 2>/dev/null || true)"
+    installed_artifact="$(read_server_install_marker_field "${marker}" artifact)"
+    installed_type="$(read_server_install_marker_field "${marker}" type)"
+    read_server_install_marker_field "${marker}" version >/dev/null
+    read_server_install_marker_field "${marker}" build >/dev/null
 
     case "${installed_type}" in
       fabric|forge|mohist|neoforge|paper|purpur|quilt|taiyitist|vanilla|velocity|youer)
