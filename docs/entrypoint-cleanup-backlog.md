@@ -256,9 +256,11 @@ a behavior change.
 
 - Path-safety design boundary:
   [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
-- Status: path-safety completed. Keep variable localization cleanup separate
-  from reset timing changes and unrelated reset behavior changes.
+- Status: path-safety and obvious function-local variable localization
+  completed. Keep other reset cleanup separate from reset timing changes and
+  unrelated reset behavior changes.
 - Localize variables in `reset_world` / `handle_reset_world_flag`, including:
+  - Status: completed for obvious function-local reset variables.
   - `FLAG_FILE`
   - `WORLD_DIR`
   - `MODS_DIR`
@@ -268,6 +270,7 @@ a behavior change.
   - `MTIME`
   - `TS`
   - `BACKUP_DIR`
+  - `BACKUP_ARCHIVE`
 - Harden `DATA_DIR` / `WORLD_DIR` safety checks.
   - Status: completed for reset path-safety.
 - Guard against empty or unset `DATA_DIR`.
