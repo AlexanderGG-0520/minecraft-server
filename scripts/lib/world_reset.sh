@@ -275,7 +275,7 @@ validate_world_reset_paths() {
 reset_world() {
   log INFO "Requested world reset"
 
-  FLAG_FILE="${DATA_DIR:-}/reset-world.flag"  # flag file path
+  local FLAG_FILE="${DATA_DIR:-}/reset-world.flag"  # flag file path
 
   # ---- Safety check 1: explicit confirmation ----
   if [[ ! -f "${FLAG_FILE}" ]]; then
@@ -283,8 +283,8 @@ reset_world() {
     return  # return instead of die to avoid stopping the script
   fi
 
-  WORLD_DIR="${DATA_DIR:-}/world"
-  MODS_DIR="${DATA_DIR:-}/mods"
+  local WORLD_DIR="${DATA_DIR:-}/world"
+  local MODS_DIR="${DATA_DIR:-}/mods"
 
   # ---- Safety check 2: directory sanity ----
   if [[ ! -d "${WORLD_DIR}" ]]; then
@@ -297,9 +297,10 @@ reset_world() {
     return  # stop instead of die
   fi
 
-  BACKUP_DIR="${DATA_DIR:-}/backups"
-  BACKUP_ARCHIVE=""
+  local BACKUP_DIR="${DATA_DIR:-}/backups"
+  local BACKUP_ARCHIVE=""
   if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
+    local TS
     TS="$(date -u +'%Y%m%d-%H%M%S')"
     BACKUP_ARCHIVE="${BACKUP_DIR}/world-${TS}.tar.gz"
   fi
@@ -346,10 +347,12 @@ reset_world() {
 }
 
 handle_reset_world_flag() {
-  MAX_AGE=1800  # 30 minutes
-  FLAG="${DATA_DIR:-}/reset-world.flag"
+  local MAX_AGE=1800  # 30 minutes
+  local FLAG="${DATA_DIR:-}/reset-world.flag"
 
   if [[ -f "$FLAG" ]]; then
+    local NOW
+    local MTIME
     NOW=$(date +%s)
     MTIME=$(stat -c %Y "$FLAG")
 
