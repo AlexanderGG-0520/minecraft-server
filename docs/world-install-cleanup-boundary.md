@@ -9,7 +9,8 @@ archive handling.
 Implementation status: fixed temp archive cleanup, unzip error-message cleanup,
 deterministic extracted-world detection, `world_install.sh` DATA_DIR/WORLD_DIR
 path-safety hardening, and separate `world_reset.sh` path-safety hardening are
-completed. Other `world_reset.sh` cleanup remains separate.
+completed. Separate `world_reset.sh` obvious function-local variable
+localization is also completed. Other reset behavior cleanup remains separate.
 
 ## Current behavior to preserve
 
@@ -153,8 +154,9 @@ timing changes with world archive handling.
 Path-safety design boundary:
 [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
 
-Status: completed for `world_reset.sh` path-safety. Other reset cleanup, such
-as variable localization or reset behavior changes, remains separate.
+Status: completed for `world_reset.sh` path-safety and separate obvious
+function-local variable localization. Other reset behavior changes remain
+separate.
 
 ## Guardrails
 
