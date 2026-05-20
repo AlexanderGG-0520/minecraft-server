@@ -123,7 +123,8 @@ These are separate behavior decisions and should not be included in the marker
 temporary-file cleanup implementation:
 
 - Invalid or corrupt marker JSON handling in `assert_server_install_matches`
-  and `resolve_type_auto`.
+  and `resolve_type_auto`. Design boundary:
+  [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
 - Spigot marker support and `resolve_type_auto` support decisions.
 - Marker schema changes, if ever needed.
 

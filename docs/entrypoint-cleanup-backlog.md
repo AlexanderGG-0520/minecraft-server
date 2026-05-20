@@ -17,7 +17,8 @@ a behavior change.
   - Very little remains after the recent focused cleanup PRs. Treat any new
     low-risk item as a separate, explicit boundary before implementation.
 - Behavior-changing / needs design:
-  - `runtime.sh` corrupt marker JSON handling.
+  - `runtime.sh` corrupt marker JSON handling. Design boundary:
+    [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
   - Spigot marker support / `resolve_type_auto` behavior.
   - Velocity config ownership and double-call behavior.
   - Velocity install/config coupling.
@@ -131,6 +132,9 @@ a behavior change.
 
 - `runtime.sh` - reconcile `spigot` marker support and improve handling of
   corrupt marker JSON.
+  - Status: corrupt marker JSON handling is design-ready, not implemented. See
+    [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
+    Spigot marker support remains separate.
   - Risk: behavior-changing.
   - Suggested PR boundary: `scripts/lib/runtime.sh`.
   - Do not change marker path/JSON format casually.
@@ -260,12 +264,15 @@ a behavior change.
 - Marker temp-file cleanup design boundary:
   [`docs/runtime-marker-cleanup-boundary.md`](runtime-marker-cleanup-boundary.md).
 - Marker temp-file cleanup is completed for `write_server_install_marker`.
+- Corrupt marker JSON handling design boundary:
+  [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
+  Status: design-ready, not implemented.
 - Review the inconsistency where `is_supported_runtime_type` includes `spigot`,
   while the `resolve_type_auto` marker-supported type list did not include
   `spigot` in the original moved code.
 - Decide in a dedicated behavior PR whether Spigot marker resolution should be
   supported.
-- Improve handling of invalid or corrupt marker JSON in:
+- Improve handling of invalid or corrupt marker JSON in a future behavior PR:
   - `assert_server_install_matches`
   - `resolve_type_auto`
 - Preserve marker path and JSON format unless intentionally changed.
@@ -308,10 +315,9 @@ a behavior change.
 Prefer docs-only boundaries before implementation for any remaining
 behavior-sensitive item:
 
-1. `runtime.sh` corrupt marker JSON handling boundary.
-2. Spigot marker support / `resolve_type_auto` behavior boundary.
-3. `world_reset.sh` duplicated reset flag removal boundary.
-4. Stop cleanup and move to feature work only after an explicit maintainer
+1. Spigot marker support / `resolve_type_auto` behavior boundary.
+2. `world_reset.sh` duplicated reset flag removal boundary.
+3. Stop cleanup and move to feature work only after an explicit maintainer
    choice.
 
 ## Guardrails
