@@ -17,7 +17,8 @@ a behavior change.
   - Very little remains after the recent focused cleanup PRs. Treat any new
     low-risk item as a separate, explicit boundary before implementation.
 - Behavior-changing / needs design:
-  - Spigot marker support / `resolve_type_auto` behavior.
+  - Spigot marker support / `resolve_type_auto` behavior. Design boundary:
+    [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
   - Velocity config ownership and double-call behavior.
   - Velocity install/config coupling.
 - High-risk / destructive-path-adjacent:
@@ -133,6 +134,9 @@ a behavior change.
   - Status: corrupt and incomplete marker fail-fast handling completed. See
     [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
     Spigot marker support remains separate.
+  - Status: Spigot marker support / `resolve_type_auto` behavior is
+    design-ready, not implemented. See
+    [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
   - Risk: behavior-changing.
   - Suggested PR boundary: `scripts/lib/runtime.sh`.
   - Do not change marker path/JSON format casually.
@@ -265,6 +269,9 @@ a behavior change.
 - Corrupt marker JSON handling design boundary:
   [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
   Status: completed for corrupt and incomplete marker fail-fast handling.
+- Spigot marker auto-resolution design boundary:
+  [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
+  Status: design-ready, not implemented.
 - Review the inconsistency where `is_supported_runtime_type` includes `spigot`,
   while the `resolve_type_auto` marker-supported type list did not include
   `spigot` in the original moved code.

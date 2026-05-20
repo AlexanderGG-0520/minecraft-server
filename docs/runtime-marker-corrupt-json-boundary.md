@@ -63,7 +63,8 @@ installation and `TYPE=auto` resolution.
   - `velocity`
   - `youer`
 - `spigot` marker support is not part of this boundary and remains a separate
-  `resolve_type_auto` behavior decision.
+  `resolve_type_auto` behavior decision. See
+  [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
 - If the marker type is supported and the marker artifact exists under
   `${DATA_DIR}`, `TYPE` is set from the marker and auto resolution returns.
 - If the marker artifact is missing, marker type is empty, or marker type is
