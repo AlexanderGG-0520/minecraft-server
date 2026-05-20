@@ -128,6 +128,8 @@ temporary-file cleanup implementation:
   [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
   Status: completed for corrupt and incomplete marker fail-fast handling.
 - Spigot marker support and `resolve_type_auto` support decisions.
+  Design boundary:
+  [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
 - Marker schema changes, if ever needed.
 
 ## Staged plan
