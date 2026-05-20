@@ -11,6 +11,24 @@ not mix them into future mechanical moves.
 Preserve existing runtime behavior unless a PR explicitly chooses and documents
 a behavior change.
 
+## Current remaining cleanup categories
+
+- Low-risk / mechanical:
+  - Very little remains after the recent focused cleanup PRs. Treat any new
+    low-risk item as a separate, explicit boundary before implementation.
+- Behavior-changing / needs design:
+  - `runtime.sh` corrupt marker JSON handling.
+  - Spigot marker support / `resolve_type_auto` behavior.
+  - Velocity config ownership and double-call behavior.
+  - Velocity install/config coupling.
+- High-risk / destructive-path-adjacent:
+  - `world_reset.sh` duplicated reset flag removal.
+  - `world_reset.sh` backup/temp/atomic failure handling.
+- Feature work, not cleanup:
+  - Spigot BuildTools / self-build support.
+  - Optional MinIO `mc` client replacement.
+  - MinIO `mc` acquisition strategy changes.
+
 ## Prioritized backlog
 
 ### 1. Low-risk shell hygiene
@@ -99,8 +117,9 @@ a behavior change.
 
 - `world_reset.sh` - localize variables and harden path checks around
   destructive reset behavior.
-  - Status: path-safety completed; variable-localization cleanup remains
-    separate. See
+  - Status: path-safety completed; obvious function-local variable
+    localization completed separately. Remaining reset cleanup is
+    behavior-sensitive and destructive-path-adjacent. See
     [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
   - Risk: high.
   - Suggested PR boundary: `scripts/lib/world_reset.sh`.
@@ -154,6 +173,8 @@ a behavior change.
   - Do not remove MinIO support.
   - Do not change alias names or endpoint behavior casually.
   - Suggested checks: source smoke plus S3-free or mocked client smoke.
+  - Remaining optional acquisition strategy changes or client replacement are
+    feature/build-policy work, not mechanical cleanup.
 
 ### 6. Feature work, not cleanup
 
@@ -238,15 +259,12 @@ a behavior change.
 
 - Marker temp-file cleanup design boundary:
   [`docs/runtime-marker-cleanup-boundary.md`](runtime-marker-cleanup-boundary.md).
-- Future marker temp-file cleanup should stay behavior-preserving and scoped to
-  `write_server_install_marker`.
+- Marker temp-file cleanup is completed for `write_server_install_marker`.
 - Review the inconsistency where `is_supported_runtime_type` includes `spigot`,
   while the `resolve_type_auto` marker-supported type list did not include
   `spigot` in the original moved code.
 - Decide in a dedicated behavior PR whether Spigot marker resolution should be
   supported.
-- Consider safer marker temp-file handling in `write_server_install_marker`
-  instead of `tmp="${marker}.tmp.$$"`.
 - Improve handling of invalid or corrupt marker JSON in:
   - `assert_server_install_matches`
   - `resolve_type_auto`
@@ -277,25 +295,24 @@ a behavior change.
   - Status: completed for reset path-safety.
 - Add path sanity checks before `rm -rf`.
   - Status: completed for reset path-safety.
-- Consider safer temp/atomic handling where applicable.
+- Duplicated successful-path reset flag removal remains unresolved and should
+  stay in a dedicated behavior PR because it can affect fresh reset failure
+  behavior.
+- Backup/temp/atomic handling remains unresolved and should stay in a dedicated
+  destructive-path-adjacent PR.
 - Preserve existing reset behavior until a dedicated non-mechanical improvement
   PR.
 
-## Recommended execution order
+## Recommended next PR candidates
 
-1. Safety-only shell hygiene:
-   - localize variables
-   - safer temp files
-   - safer cleanup traps
-2. Destructive operation hardening:
-   - world reset path guards
-   - world install path guards
-3. Error-message improvements:
-   - unzip failure
-   - corrupt marker JSON
-4. Behavior-decision PRs:
-   - Spigot marker support
-   - improved extracted world detection. Done.
+Prefer docs-only boundaries before implementation for any remaining
+behavior-sensitive item:
+
+1. `runtime.sh` corrupt marker JSON handling boundary.
+2. Spigot marker support / `resolve_type_auto` behavior boundary.
+3. `world_reset.sh` duplicated reset flag removal boundary.
+4. Stop cleanup and move to feature work only after an explicit maintainer
+   choice.
 
 ## Guardrails
 

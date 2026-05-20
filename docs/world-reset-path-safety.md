@@ -173,8 +173,10 @@ The implementation does not:
 - Change `RESET_WORLD_BACKUP` or `RESET_WORLD_REMOVE_MODS` semantics.
 - Combine with extracted-world detection.
 - Combine with MinIO or `mc` remediation.
-- Combine with unrelated cleanup or variable-localization refactors.
-  Existing uppercase function temporaries remain a separate cleanup item.
+- Combine with unrelated cleanup or reset behavior changes.
+
+Separate obvious function-local variable localization is completed. Reset
+behavior changes remain separate.
 
 ## Smoke Coverage
 
