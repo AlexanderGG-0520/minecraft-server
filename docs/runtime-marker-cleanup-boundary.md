@@ -42,8 +42,9 @@ installation and `TYPE=auto` resolution.
 - If any of those values differ from the requested artifact, type, or version,
   it fails fast rather than replacing the existing server artifact
   automatically.
-- Invalid or corrupt marker JSON is not handled specially here; `jq` errors are
-  not suppressed in this path.
+- Invalid or corrupt marker JSON now fails fast with
+  `Corrupt server install marker`; incomplete markers now fail fast with
+  `Incomplete server install marker`.
 
 `resolve_type_auto` currently behaves as follows:
 
@@ -69,9 +70,9 @@ installation and `TYPE=auto` resolution.
 - With no usable marker, artifact detection checks `velocity.jar`,
   `fabric-server-launch.jar`, Forge/NeoForge `run.sh`, and `server.jar`, then
   falls back to `vanilla`.
-- Invalid or corrupt marker JSON currently flows through the suppressed `jq`
-  reads, produces empty marker values, logs the empty-type fallback warning, and
-  continues to artifact detection.
+- Invalid or corrupt marker JSON now fails fast with
+  `Corrupt server install marker`; incomplete markers now fail fast with
+  `Incomplete server install marker`.
 
 Current Spigot marker behavior is intentionally not decided by this note:
 
@@ -125,6 +126,7 @@ temporary-file cleanup implementation:
 - Invalid or corrupt marker JSON handling in `assert_server_install_matches`
   and `resolve_type_auto`. Design boundary:
   [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
+  Status: completed for corrupt and incomplete marker fail-fast handling.
 - Spigot marker support and `resolve_type_auto` support decisions.
 - Marker schema changes, if ever needed.
 
