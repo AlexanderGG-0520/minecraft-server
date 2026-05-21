@@ -3,10 +3,15 @@
 This note defines a docs-only boundary for whether and how `TYPE=auto` should
 resolve valid server install markers whose `type` is `spigot`.
 
-Implementation status: design-ready, not implemented. Runtime behavior,
-`resolve_type_auto` behavior, marker behavior, install dispatch, Spigot
+Implementation status: completed for the narrow `resolve_type_auto` Spigot
+marker support. `TYPE=auto` now resolves to `spigot` when a valid server
+install marker has `type=spigot` and the marker artifact exists under
+`${DATA_DIR}`. This is marker-only support for existing installed artifacts.
+Marker write format, marker temporary-file handling, corrupt and incomplete
+marker fail-fast behavior, missing marker fallback behavior, `install_server`
+dispatch, server artifact download behavior, explicit `TYPE=spigot`
 bring-your-own behavior, and Spigot BuildTools/self-build behavior are
-unchanged.
+unchanged. Spigot BuildTools/self-build remains separate feature work.
 
 ## Current Behavior
 
@@ -19,7 +24,7 @@ helpers, and `TYPE=auto` resolution.
   `read_server_install_marker_field`.
 - `resolve_type_auto` reads the marker `artifact`, `type`, `version`, and
   `build` fields before considering marker resolution.
-- `resolve_type_auto` marker-supported types currently are:
+- `resolve_type_auto` marker-supported types are:
   - `fabric`
   - `forge`
   - `mohist`
@@ -27,16 +32,15 @@ helpers, and `TYPE=auto` resolution.
   - `paper`
   - `purpur`
   - `quilt`
+  - `spigot`
   - `taiyitist`
   - `vanilla`
   - `velocity`
   - `youer`
-- `resolve_type_auto` does not include `spigot` in that marker-supported type
-  case today.
-- If `TYPE=auto` sees a valid marker with `type=spigot`, it treats the marker
-  type as unsupported, logs
-  `Install marker has unsupported type 'spigot', falling back to artifact detection`,
-  and continues to artifact detection.
+- `resolve_type_auto` includes `spigot` in the marker-supported type case.
+- If `TYPE=auto` sees a valid marker with `type=spigot` and the marker
+  artifact exists under `${DATA_DIR}`, it resolves `TYPE` to `spigot` and
+  logs `TYPE auto-resolved to 'spigot' from install marker`.
 - Artifact detection does not have a Spigot-specific branch. A present
   `${DATA_DIR}/server.jar` resolves to `vanilla` when no supported marker
   resolves first.
@@ -59,11 +63,12 @@ Existing smoke coverage includes:
 - Runtime smoke for explicit `TYPE=spigot` failing when no artifact exists.
 - Runtime smoke for explicit `TYPE=spigot` using an existing `server.jar`.
 - Runtime smoke for `TYPE=auto` resolving a valid `paper` marker.
+- Runtime smoke for `TYPE=auto` resolving a valid `spigot` marker.
 - Runtime marker smoke for corrupt and incomplete marker fail-fast behavior.
 
-The current mismatch is intentional until a dedicated behavior PR decides it:
-`spigot` is a supported runtime type, but `TYPE=auto` does not resolve
-`type=spigot` from a valid server install marker.
+The previous mismatch where `spigot` was a supported runtime type but
+`TYPE=auto` did not resolve `type=spigot` from a valid server install marker
+is resolved.
 
 ## Behavior Policy Candidates
 

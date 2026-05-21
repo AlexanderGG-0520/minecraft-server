@@ -59,6 +59,7 @@ installation and `TYPE=auto` resolution.
   - `paper`
   - `purpur`
   - `quilt`
+  - `spigot`
   - `taiyitist`
   - `vanilla`
   - `velocity`
@@ -74,7 +75,7 @@ installation and `TYPE=auto` resolution.
   `Corrupt server install marker`; incomplete markers now fail fast with
   `Incomplete server install marker`.
 
-Current Spigot marker behavior is intentionally not decided by this note:
+Current Spigot marker behavior:
 
 - `is_supported_runtime_type` includes `spigot`.
 - `uses_server_properties` includes `spigot`.
@@ -83,8 +84,10 @@ Current Spigot marker behavior is intentionally not decided by this note:
 - The Spigot install path validates an existing `server.jar` with
   `assert_server_install_matches "server.jar" "spigot" "${VERSION}"`.
 - The managed install path does not currently write a Spigot marker.
-- `resolve_type_auto` does not include `spigot` in its marker-supported type
-  list, and artifact fallback has no Spigot-specific detection branch.
+- `resolve_type_auto` includes `spigot` in its marker-supported type list, so
+  a valid existing marker with `type=spigot` and a present artifact resolves
+  `TYPE=auto` to `spigot`. Artifact fallback still has no Spigot-specific
+  detection branch.
 
 ## Implementation boundary
 
@@ -130,6 +133,8 @@ temporary-file cleanup implementation:
 - Spigot marker support and `resolve_type_auto` support decisions.
   Design boundary:
   [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
+  Status: completed for the narrow `resolve_type_auto` Spigot marker
+  auto-resolution. Spigot BuildTools/self-build remains separate feature work.
 - Marker schema changes, if ever needed.
 
 ## Staged plan
