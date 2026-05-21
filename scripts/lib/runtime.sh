@@ -119,7 +119,7 @@ resolve_type_auto() {
     read_server_install_marker_field "${marker}" build >/dev/null
 
     case "${installed_type}" in
-      fabric|forge|mohist|neoforge|paper|purpur|quilt|taiyitist|vanilla|velocity|youer)
+      fabric|forge|mohist|neoforge|paper|purpur|quilt|spigot|taiyitist|vanilla|velocity|youer)
         if [[ -n "${installed_artifact}" && -e "${DATA_DIR}/${installed_artifact}" ]]; then
           TYPE="${installed_type}"
           log INFO "TYPE auto-resolved to '${TYPE}' from install marker"

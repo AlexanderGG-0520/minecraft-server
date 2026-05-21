@@ -17,8 +17,6 @@ a behavior change.
   - Very little remains after the recent focused cleanup PRs. Treat any new
     low-risk item as a separate, explicit boundary before implementation.
 - Behavior-changing / needs design:
-  - Spigot marker support / `resolve_type_auto` behavior. Design boundary:
-    [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
   - Velocity config ownership and double-call behavior.
   - Velocity install/config coupling.
 - High-risk / destructive-path-adjacent:
@@ -133,10 +131,11 @@ a behavior change.
   corrupt marker JSON.
   - Status: corrupt and incomplete marker fail-fast handling completed. See
     [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
-    Spigot marker support remains separate.
-  - Status: Spigot marker support / `resolve_type_auto` behavior is
-    design-ready, not implemented. See
+  - Status: Spigot marker support / `resolve_type_auto` behavior is completed
+    for the narrow marker-only `TYPE=auto` Spigot resolution. See
     [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
+    Spigot BuildTools/self-build remains separate feature work, not cleanup.
+    Velocity config ownership remains a separate behavior decision.
   - Risk: behavior-changing.
   - Suggested PR boundary: `scripts/lib/runtime.sh`.
   - Do not change marker path/JSON format casually.
@@ -271,12 +270,11 @@ a behavior change.
   Status: completed for corrupt and incomplete marker fail-fast handling.
 - Spigot marker auto-resolution design boundary:
   [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
-  Status: design-ready, not implemented.
-- Review the inconsistency where `is_supported_runtime_type` includes `spigot`,
-  while the `resolve_type_auto` marker-supported type list did not include
-  `spigot` in the original moved code.
-- Decide in a dedicated behavior PR whether Spigot marker resolution should be
-  supported.
+  Status: completed for the narrow `resolve_type_auto` Spigot marker
+  auto-resolution. `TYPE=auto` now resolves to `spigot` from a valid existing
+  install marker with `type=spigot` and a present marker artifact.
+- Spigot BuildTools/self-build support remains separate feature work, not
+  cleanup.
 - Invalid or corrupt marker JSON handling is completed for:
   - `assert_server_install_matches`
   - `resolve_type_auto`
@@ -320,9 +318,8 @@ a behavior change.
 Prefer docs-only boundaries before implementation for any remaining
 behavior-sensitive item:
 
-1. Spigot marker support / `resolve_type_auto` behavior boundary.
-2. `world_reset.sh` duplicated reset flag removal boundary.
-3. Stop cleanup and move to feature work only after an explicit maintainer
+1. `world_reset.sh` duplicated reset flag removal boundary.
+2. Stop cleanup and move to feature work only after an explicit maintainer
    choice.
 
 ## Guardrails

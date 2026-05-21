@@ -61,6 +61,12 @@ TYPE=auto
 resolve_type_auto
 test "$TYPE" = "paper"
 
+write_server_install_marker "server.jar" "spigot" "1.21.8" ""
+touch "$tmp/server.jar"
+TYPE=auto
+resolve_type_auto
+test "$TYPE" = "spigot"
+
 printf '{\n' > "$tmp/.server-install.json"
 TYPE=auto
 expect_failure "Corrupt server install marker" resolve_type_auto
