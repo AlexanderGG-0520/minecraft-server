@@ -23,6 +23,22 @@ For deeper design notes, use the [GitHub Wiki](https://github.com/AlexanderGG-05
 
 ---
 
+## Project origin
+
+This project started from running Minecraft servers on Kubernetes.
+
+For Docker Compose and single-host setups, feature-rich Minecraft server images can be extremely
+convenient. In that environment, a server is often pulled once, configured once, and then left running.
+After moving Minecraft workloads to Kubernetes, the operational trade-offs became more visible: image
+pull rate limits, repeated pod recreation, GitOps-driven redeploys, lifecycle ordering, persistent
+volume safety, and the cost of large implicit entrypoint behavior.
+
+This image is not intended to replace general-purpose Minecraft server images for everyone. Instead, it
+provides a Kubernetes-first alternative that favors explicit configuration, predictable failure modes,
+clearer responsibility boundaries, and first-class support for S3/MinIO-backed asset workflows.
+
+---
+
 ## What this is
 
 This repository provides a **performance-first Minecraft server runtime** designed with the following assumptions:
