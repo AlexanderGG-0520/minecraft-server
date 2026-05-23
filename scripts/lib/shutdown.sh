@@ -62,7 +62,11 @@ read_rcon_stop_result() {
   owner_file="$(rcon_stop_owner_file)"
 
   if [[ ! -f "${owner_file}" ]]; then
-    log WARN "[shutdown] rcon_stop lock has no owner file; ignoring any result as stale: ${RCON_STOP_LOCK}"
+    if [[ -f "${result_file}" ]]; then
+      log WARN "[shutdown] rcon_stop lock has no owner file; ignoring any result as stale: ${RCON_STOP_LOCK}"
+    else
+      log INFO "[shutdown] rcon_stop lock has no owner file yet: ${RCON_STOP_LOCK}"
+    fi
     return 1
   fi
 
