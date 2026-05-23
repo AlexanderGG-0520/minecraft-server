@@ -92,9 +92,9 @@ rcon_stop_once() {
       return "${RCON_STOP_RESULT}"
     fi
 
-    log WARN "[shutdown] rcon_stop lock exists without result; assuming another shutdown path is handling stop"
-    RCON_STOP_RESULT=0
-    return 0
+    log WARN "[shutdown] rcon_stop lock exists but no shared result was written before timeout; treating as failure so shutdown can fall back to signaling the server process"
+    RCON_STOP_RESULT=1
+    return "${RCON_STOP_RESULT}"
   fi
 
   # Mark as in-progress ONLY after acquiring the lock
