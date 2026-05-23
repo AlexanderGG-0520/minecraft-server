@@ -47,9 +47,6 @@ rcon_exec() {
         return 0
       fi
     fi
-        return 0
-      fi
-    fi
 
     if (( attempt >= RCON_RETRIES )); then
       log ERROR "RCON command failed after ${attempt} attempts: ${command}"
