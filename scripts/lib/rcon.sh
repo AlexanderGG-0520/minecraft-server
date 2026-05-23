@@ -33,14 +33,17 @@ rcon_exec() {
   fi
 
   while true; do
+    log INFO "[shutdown] rcon exec attempt ${attempt}/${RCON_RETRIES}: ${command}"
     if [[ "${client}" == "rcon-cli" ]]; then
       if timeout "${RCON_TIMEOUT}" \
         rcon-cli --host "${RCON_HOST}" --port "${RCON_PORT}" --password "${RCON_PASSWORD}" "${command}"; then
+        log INFO "[shutdown] rcon exec succeeded: ${command}"
         return 0
       fi
     else
       if timeout "${RCON_TIMEOUT}" \
         mcrcon -H "${RCON_HOST}" -P "${RCON_PORT}" -p "${RCON_PASSWORD}" "${command}"; then
+        log INFO "[shutdown] rcon exec succeeded: ${command}"
         return 0
       fi
     fi
@@ -97,10 +100,11 @@ rcon_stop() {
   fi
 
   if (( delay > 0 )); then
+    log INFO "[shutdown] rcon: announce shutdown delay ${delay}s"
     rcon_tellraw_all "Server shutting down in ${delay} seconds." || true
     sleep "${delay}"
   else
-    rcon_tellraw_all "Server shutting down now." || true
+    log INFO "[shutdown] rcon: immediate shutdown announcement skipped to prioritize save/stop"
   fi
 
   log INFO "[shutdown] rcon: citizens save"
