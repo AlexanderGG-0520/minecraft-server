@@ -21,9 +21,31 @@ fi
 if [[ "$*" == *" stop" && "${RCON_FAIL_STOP:-0}" == "1" ]]; then
   exit 1
 fi
+if [[ "${RCON_FAIL_GENERIC:-0}" == "1" ]]; then
+  exit 1
+fi
 exit 0
 RCON
   chmod +x "${bin_dir}/rcon-cli"
+
+  cat > "${bin_dir}/mcrcon" <<'MCRCON'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${TMP_DIR}/commands.txt"
+if [[ "$*" == *" save-all flush" && "${RCON_FAIL_FLUSH:-0}" == "1" ]]; then
+  exit 1
+fi
+if [[ "$*" == *" save-all" && "$*" != *" save-all flush" && "${RCON_FAIL_SAVE_ALL:-0}" == "1" ]]; then
+  exit 1
+fi
+if [[ "$*" == *" stop" && "${RCON_FAIL_STOP:-0}" == "1" ]]; then
+  exit 1
+fi
+if [[ "${RCON_FAIL_GENERIC:-0}" == "1" ]]; then
+  exit 1
+fi
+exit 0
+MCRCON
+  chmod +x "${bin_dir}/mcrcon"
 }
 
 setup_rcon_env() {
@@ -132,6 +154,52 @@ run_rcon_stop_stop_failure_smoke() {
   [[ "${rc}" -ne 0 ]]
   assert_command 3 "--host 127.0.0.1 --port 25575 --password secret stop"
   unset RCON_FAIL_STOP
+}
+
+run_rcon_exec_rcon_cli_smoke() {
+  setup_rcon_env "rcon-cli-exec"
+  set +e
+  rcon_exec "list"
+  local rc=$?
+  set -e
+  [[ "${rc}" -eq 0 ]]
+  assert_command 1 "--host 127.0.0.1 --port 25575 --password secret list"
+
+  RCON_FAIL_GENERIC=1
+  export RCON_FAIL_GENERIC
+  : > "${TMP_DIR}/commands.txt"
+  set +e
+  rcon_exec "list"
+  rc=$?
+  set -e
+  [[ "${rc}" -ne 0 ]]
+  assert_command 1 "--host 127.0.0.1 --port 25575 --password secret list"
+  unset RCON_FAIL_GENERIC
+}
+
+run_rcon_exec_mcrcon_smoke() {
+  setup_rcon_env "mcrcon-exec"
+  rm -f "${TMP_DIR}/bin/rcon-cli"
+  PATH="${TMP_DIR}/bin:${ORIGINAL_PATH}"
+  export PATH
+
+  set +e
+  rcon_exec "list"
+  local rc=$?
+  set -e
+  [[ "${rc}" -eq 0 ]]
+  assert_command 1 "-H 127.0.0.1 -P 25575 -p secret list"
+
+  RCON_FAIL_GENERIC=1
+  export RCON_FAIL_GENERIC
+  : > "${TMP_DIR}/commands.txt"
+  set +e
+  rcon_exec "list"
+  rc=$?
+  set -e
+  [[ "${rc}" -ne 0 ]]
+  assert_command 1 "-H 127.0.0.1 -P 25575 -p secret list"
+  unset RCON_FAIL_GENERIC
 }
 
 run_invalid_save_wait_smoke() {
@@ -282,6 +350,8 @@ run_rcon_stop_success_smoke
 run_rcon_stop_fallback_smoke
 run_rcon_stop_save_failure_smoke
 run_rcon_stop_stop_failure_smoke
+run_rcon_exec_rcon_cli_smoke
+run_rcon_exec_mcrcon_smoke
 run_lock_owner_success_smoke
 run_rcon_stop_command_mode_smoke
 run_invalid_save_wait_smoke
