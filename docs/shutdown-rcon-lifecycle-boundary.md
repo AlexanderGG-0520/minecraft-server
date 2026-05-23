@@ -98,10 +98,14 @@ Current RCON behavior:
 - `rcon_stop`
   - Requires `ENABLE_RCON=true`.
   - Uses `STOP_SERVER_ANNOUNCE_DELAY`.
+  - Uses `SHUTDOWN_SAVE_WAIT_SECONDS`.
   - Checks the Citizens save file at
     `${DATA_DIR}/plugins/Citizens/saves.yml`.
   - Announces shutdown through RCON.
-  - Runs `citizens save`, `save-all`, and `stop` through `rcon_exec`.
+  - Runs `citizens save`, `save-all flush`, and `stop` through `rcon_exec`.
+  - Falls back to `save-all` if `save-all flush` fails.
+  - Sends `stop` even if explicit save commands fail.
+  - Returns failure when `stop` fails.
 
 Current RCON stop lock behavior:
 
@@ -110,8 +114,13 @@ Current RCON stop lock behavior:
 - `RCON_STOP_LOCK`
   - Defaults to `/tmp/.rcon-stop.lockdir`.
   - Is intentionally on ephemeral storage rather than `/data`.
+- `RCON_STOP_LOCK_WAIT_TIMEOUT`
+  - Bounds how long a second shutdown path waits for a shared RCON stop result.
 - `RCON_STOP_IN_PROGRESS`
   - Prevents re-entrance within the same process.
+- `${RCON_STOP_LOCK}/result`
+  - Shares the first `rcon_stop` exit status across the preStop and PID 1 trap
+    processes.
 - `cleanup_rcon_lock_on_boot`
   - Implemented in `scripts/lib/shutdown.sh`.
   - Removes a stale RCON stop lock best-effort.
@@ -129,6 +138,9 @@ Current shutdown behavior:
 - `wait_for_server_exit`
   - Implemented in `scripts/lib/shutdown.sh`.
   - Polls `SERVER_PID` until the process exits or a timeout is reached.
+- `signal_server_process`
+  - Implemented in `scripts/lib/shutdown.sh`.
+  - Sends the signal to `SERVER_PID` and best-effort to the process group.
 - `graceful_shutdown`
   - Logs shutdown start.
   - Skips `rcon_stop` when `TYPE=velocity`.
@@ -156,6 +168,29 @@ Current command-mode behavior:
 - `rcon` calls `rcon_exec "$@"` and exits with that status.
 - `rcon-say` calls `rcon_say "$@"` and exits with that status.
 - `rcon-stop` calls `rcon_stop_once` and exits `0`.
+  - Failures are logged, but the command mode exits `0` for Kubernetes preStop
+    compatibility; PID 1 still handles fallback through `graceful_shutdown`.
+
+## Kubernetes termination grace
+
+`terminationGracePeriodSeconds` must cover the whole Kubernetes shutdown window,
+including `preStop` execution and the later PID 1 signal handling. The shutdown
+budget is consumed by at least:
+
+- `STOP_SERVER_ANNOUNCE_DELAY`
+- RCON command retries from `RCON_RETRIES`, `RCON_TIMEOUT`, and
+  `RCON_RETRY_DELAY`
+- `SHUTDOWN_SAVE_WAIT_SECONDS` when an explicit save succeeds
+- `SHUTDOWN_WAIT_TIMEOUT`
+- `SHUTDOWN_TERM_WAIT`
+
+Recommended starting points:
+
+- Lightweight servers: `terminationGracePeriodSeconds: 120`
+- Modded servers or large worlds: `terminationGracePeriodSeconds: 180` or more
+
+If the grace period is exhausted, Kubernetes may send SIGKILL before Minecraft
+finishes its own shutdown save path.
 
 ## Entrypoint orchestration
 

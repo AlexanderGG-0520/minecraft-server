@@ -2026,6 +2026,8 @@ wait_for_worldgen() {
 : "${RCON_TIMEOUT:=5}"
 : "${SHUTDOWN_WAIT_TIMEOUT:=90}"
 : "${SHUTDOWN_TERM_WAIT:=10}"
+: "${SHUTDOWN_SAVE_WAIT_SECONDS:=3}"
+: "${RCON_STOP_LOCK_WAIT_TIMEOUT:=30}"
 
 json_escape() {
   local s="$*"
@@ -2063,7 +2065,9 @@ case "${1:-run}" in
     exit $?
     ;;
   rcon-stop)
-    rcon_stop_once
+    if ! rcon_stop_once; then
+      log WARN "[shutdown] rcon-stop command failed; exiting 0 for Kubernetes preStop compatibility"
+    fi
     exit 0
     ;;
 esac

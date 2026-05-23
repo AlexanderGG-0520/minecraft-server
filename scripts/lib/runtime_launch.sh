@@ -3,7 +3,12 @@
 run_server() {
   cleanup_rcon_lock_on_boot
 
-  "$@" &
+  if command -v setsid >/dev/null 2>&1; then
+    setsid "$@" &
+  else
+    log WARN "setsid not found; server signal propagation is limited to the launcher process"
+    "$@" &
+  fi
   SERVER_PID=$!
 
   local ready_delay="${READY_DELAY:-5}"
@@ -56,7 +61,7 @@ runtime() {
       [[ -x "./run.sh" ]] || die "./run.sh is not executable for ${TYPE} runtime"
 
       log INFO "Launching ${TYPE} server"
-      run_server ./run.sh nogui
+      run_server bash -c 'exec "$@"' "${TYPE}-run.sh" ./run.sh nogui
       ;;
 
     velocity)
