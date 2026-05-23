@@ -678,10 +678,9 @@ jobs:
           STOP_SERVER_ANNOUNCE_DELAY=0
 
           rcon_stop
-          test "$(sed -n '1p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret tellraw @a {"text":"Server shutting down now.","color":"yellow"}')"
-          test "$(sed -n '2p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret citizens save')"
-          test "$(sed -n '3p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret save-all flush')"
-          test "$(sed -n '4p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret stop')"
+          test "$(sed -n '1p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret citizens save')"
+          test "$(sed -n '2p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret save-all flush')"
+          test "$(sed -n '3p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret stop')"
 
       - name: RCON lock smoke
         run: |

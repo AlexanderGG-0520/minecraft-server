@@ -21,9 +21,31 @@ fi
 if [[ "$*" == *" stop" && "${RCON_FAIL_STOP:-0}" == "1" ]]; then
   exit 1
 fi
+if [[ "${RCON_FAIL_GENERIC:-0}" == "1" ]]; then
+  exit 1
+fi
 exit 0
 RCON
   chmod +x "${bin_dir}/rcon-cli"
+
+  cat > "${bin_dir}/mcrcon" <<'MCRCON'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${TMP_DIR}/commands.txt"
+if [[ "$*" == *" save-all flush" && "${RCON_FAIL_FLUSH:-0}" == "1" ]]; then
+  exit 1
+fi
+if [[ "$*" == *" save-all" && "$*" != *" save-all flush" && "${RCON_FAIL_SAVE_ALL:-0}" == "1" ]]; then
+  exit 1
+fi
+if [[ "$*" == *" stop" && "${RCON_FAIL_STOP:-0}" == "1" ]]; then
+  exit 1
+fi
+if [[ "${RCON_FAIL_GENERIC:-0}" == "1" ]]; then
+  exit 1
+fi
+exit 0
+MCRCON
+  chmod +x "${bin_dir}/mcrcon"
 }
 
 setup_rcon_env() {
@@ -66,11 +88,36 @@ assert_command() {
   }
 }
 
+assert_no_command() {
+  local line="$1"
+  local actual
+
+  actual="$(sed -n "${line}p" "${TMP_DIR}/commands.txt")"
+  [[ -z "${actual}" ]] || {
+    printf 'expected no command %s\nactual: %s\n' "${line}" "${actual}" >&2
+    return 1
+  }
+}
+
+assert_log_contains() {
+  local log_file="$1"
+  local expected="$2"
+
+  grep -F "${expected}" "${log_file}" >/dev/null || {
+    printf 'expected log to contain: %s\n' "${expected}" >&2
+    printf 'actual log:\n' >&2
+    sed 's/^/  /' "${log_file}" >&2
+    return 1
+  }
+}
+
 run_rcon_stop_success_smoke() {
   setup_rcon_env "success"
   rcon_stop
-  assert_command 3 "--host 127.0.0.1 --port 25575 --password secret save-all flush"
-  assert_command 4 "--host 127.0.0.1 --port 25575 --password secret stop"
+  assert_command 1 "--host 127.0.0.1 --port 25575 --password secret citizens save"
+  assert_command 2 "--host 127.0.0.1 --port 25575 --password secret save-all flush"
+  assert_command 3 "--host 127.0.0.1 --port 25575 --password secret stop"
+  assert_no_command 4
 }
 
 run_rcon_stop_fallback_smoke() {
@@ -78,9 +125,9 @@ run_rcon_stop_fallback_smoke() {
   RCON_FAIL_FLUSH=1
   export RCON_FAIL_FLUSH
   rcon_stop
-  assert_command 3 "--host 127.0.0.1 --port 25575 --password secret save-all flush"
-  assert_command 4 "--host 127.0.0.1 --port 25575 --password secret save-all"
-  assert_command 5 "--host 127.0.0.1 --port 25575 --password secret stop"
+  assert_command 2 "--host 127.0.0.1 --port 25575 --password secret save-all flush"
+  assert_command 3 "--host 127.0.0.1 --port 25575 --password secret save-all"
+  assert_command 4 "--host 127.0.0.1 --port 25575 --password secret stop"
   unset RCON_FAIL_FLUSH
 }
 
@@ -90,9 +137,9 @@ run_rcon_stop_save_failure_smoke() {
   RCON_FAIL_SAVE_ALL=1
   export RCON_FAIL_FLUSH RCON_FAIL_SAVE_ALL
   rcon_stop
-  assert_command 3 "--host 127.0.0.1 --port 25575 --password secret save-all flush"
-  assert_command 4 "--host 127.0.0.1 --port 25575 --password secret save-all"
-  assert_command 5 "--host 127.0.0.1 --port 25575 --password secret stop"
+  assert_command 2 "--host 127.0.0.1 --port 25575 --password secret save-all flush"
+  assert_command 3 "--host 127.0.0.1 --port 25575 --password secret save-all"
+  assert_command 4 "--host 127.0.0.1 --port 25575 --password secret stop"
   unset RCON_FAIL_FLUSH RCON_FAIL_SAVE_ALL
 }
 
@@ -105,8 +152,54 @@ run_rcon_stop_stop_failure_smoke() {
   local rc=$?
   set -e
   [[ "${rc}" -ne 0 ]]
-  assert_command 4 "--host 127.0.0.1 --port 25575 --password secret stop"
+  assert_command 3 "--host 127.0.0.1 --port 25575 --password secret stop"
   unset RCON_FAIL_STOP
+}
+
+run_rcon_exec_rcon_cli_smoke() {
+  setup_rcon_env "rcon-cli-exec"
+  set +e
+  rcon_exec "list"
+  local rc=$?
+  set -e
+  [[ "${rc}" -eq 0 ]]
+  assert_command 1 "--host 127.0.0.1 --port 25575 --password secret list"
+
+  RCON_FAIL_GENERIC=1
+  export RCON_FAIL_GENERIC
+  : > "${TMP_DIR}/commands.txt"
+  set +e
+  rcon_exec "list"
+  rc=$?
+  set -e
+  [[ "${rc}" -ne 0 ]]
+  assert_command 1 "--host 127.0.0.1 --port 25575 --password secret list"
+  unset RCON_FAIL_GENERIC
+}
+
+run_rcon_exec_mcrcon_smoke() {
+  setup_rcon_env "mcrcon-exec"
+  rm -f "${TMP_DIR}/bin/rcon-cli"
+  PATH="${TMP_DIR}/bin:${ORIGINAL_PATH}"
+  export PATH
+
+  set +e
+  rcon_exec "list"
+  local rc=$?
+  set -e
+  [[ "${rc}" -eq 0 ]]
+  assert_command 1 "-H 127.0.0.1 -P 25575 -p secret list"
+
+  RCON_FAIL_GENERIC=1
+  export RCON_FAIL_GENERIC
+  : > "${TMP_DIR}/commands.txt"
+  set +e
+  rcon_exec "list"
+  rc=$?
+  set -e
+  [[ "${rc}" -ne 0 ]]
+  assert_command 1 "-H 127.0.0.1 -P 25575 -p secret list"
+  unset RCON_FAIL_GENERIC
 }
 
 run_invalid_save_wait_smoke() {
@@ -118,6 +211,25 @@ run_invalid_save_wait_smoke() {
   local rc=$?
   set -e
   [[ "${rc}" -ne 0 ]]
+}
+
+run_lock_owner_success_smoke() {
+  setup_rcon_env "lock-owner-success"
+  local log_file="${TMP_DIR}/lock-owner.log"
+
+  RCON_STOP_LOCK="${TMP_DIR}/lock"
+  RCON_STOP_LOCK_WAIT_TIMEOUT=1
+  RCON_STOP_IN_PROGRESS=0
+  RCON_STOP_RESULT=1
+
+  rcon_stop_once > "${log_file}" 2>&1
+  [[ "${RCON_STOP_RESULT}" -eq 0 ]]
+  [[ "$(cat "${RCON_STOP_LOCK}/result")" == "0" ]]
+  assert_command 2 "--host 127.0.0.1 --port 25575 --password secret save-all flush"
+  assert_command 3 "--host 127.0.0.1 --port 25575 --password secret stop"
+  assert_log_contains "${log_file}" "[shutdown] acquired rcon_stop lock as owner"
+  assert_log_contains "${log_file}" "[shutdown] rcon_stop owner executing rcon_stop"
+  assert_log_contains "${log_file}" "[shutdown] wrote shared rcon_stop result=0"
 }
 
 run_rcon_stop_command_mode_smoke() {
@@ -137,8 +249,10 @@ run_rcon_stop_command_mode_smoke() {
 
 run_lock_result_coordination_smoke() {
   local lock_tmp="${tmp}/lock-result"
+  local log_file="${lock_tmp}/waiter.log"
 
   mkdir -p "${lock_tmp}/lock"
+  printf 'pid=test started=1\n' > "${lock_tmp}/lock/owner"
   (
     sleep 1
     printf '0\n' > "${lock_tmp}/lock/result"
@@ -154,9 +268,57 @@ run_lock_result_coordination_smoke() {
     return 9
   }
 
-  rcon_stop_once
+  rcon_stop_once > "${log_file}" 2>&1
   [[ "${RCON_STOP_RESULT}" -eq 0 ]]
   wait "${writer_pid}"
+  assert_log_contains "${log_file}" "[shutdown] rcon_stop lock exists; another process is running or completed rcon_stop"
+  assert_log_contains "${log_file}" "[shutdown] waiting for shared rcon_stop result started"
+  assert_log_contains "${log_file}" "[shutdown] using waited shared rcon_stop result=0"
+}
+
+run_lock_missing_result_smoke() {
+  local lock_tmp="${tmp}/lock-missing-result"
+  local log_file="${lock_tmp}/missing.log"
+
+  mkdir -p "${lock_tmp}/lock"
+  printf 'pid=test started=1\n' > "${lock_tmp}/lock/owner"
+
+  RCON_STOP_LOCK="${lock_tmp}/lock"
+  RCON_STOP_LOCK_WAIT_TIMEOUT=0
+  RCON_STOP_IN_PROGRESS=0
+  RCON_STOP_RESULT=1
+
+  set +e
+  rcon_stop_once > "${log_file}" 2>&1
+  local rc=$?
+  set -e
+
+  [[ "${rc}" -ne 0 ]]
+  [[ "${RCON_STOP_RESULT}" -eq 1 ]]
+  assert_log_contains "${log_file}" "[shutdown] timed out waiting for shared rcon_stop result after 0s"
+  assert_log_contains "${log_file}" "[shutdown] rcon_stop lock exists but no shared result was readable"
+}
+
+run_stale_result_smoke() {
+  local lock_tmp="${tmp}/stale-result"
+  local log_file="${lock_tmp}/stale.log"
+
+  mkdir -p "${lock_tmp}/lock"
+  printf '0\n' > "${lock_tmp}/lock/result"
+
+  RCON_STOP_LOCK="${lock_tmp}/lock"
+  RCON_STOP_LOCK_WAIT_TIMEOUT=0
+  RCON_STOP_IN_PROGRESS=0
+  RCON_STOP_RESULT=1
+
+  set +e
+  rcon_stop_once > "${log_file}" 2>&1
+  local rc=$?
+  set -e
+
+  [[ "${rc}" -ne 0 ]]
+  [[ "${RCON_STOP_RESULT}" -eq 1 ]]
+  assert_log_contains "${log_file}" "[shutdown] rcon_stop lock has no owner file; ignoring any result as stale"
 }
 
 run_signal_group_smoke() {
@@ -188,7 +350,12 @@ run_rcon_stop_success_smoke
 run_rcon_stop_fallback_smoke
 run_rcon_stop_save_failure_smoke
 run_rcon_stop_stop_failure_smoke
+run_rcon_exec_rcon_cli_smoke
+run_rcon_exec_mcrcon_smoke
+run_lock_owner_success_smoke
 run_rcon_stop_command_mode_smoke
 run_invalid_save_wait_smoke
 run_lock_result_coordination_smoke
+run_lock_missing_result_smoke
+run_stale_result_smoke
 run_signal_group_smoke
