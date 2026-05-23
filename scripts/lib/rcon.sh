@@ -81,7 +81,14 @@ rcon_stop() {
   fi
 
   local delay="${STOP_SERVER_ANNOUNCE_DELAY:-0}"
+  local save_wait="${SHUTDOWN_SAVE_WAIT_SECONDS:-3}"
+  local save_succeeded=0
   local citizens_file="${DATA_DIR}/plugins/Citizens/saves.yml"
+
+  if [[ ! "${save_wait}" =~ ^[0-9]+$ ]]; then
+    log ERROR "[shutdown] invalid SHUTDOWN_SAVE_WAIT_SECONDS: ${save_wait}"
+    return 1
+  fi
 
   if [[ -f "${citizens_file}" ]]; then
     log INFO "Citizens data detected: ${citizens_file}"
@@ -103,11 +110,26 @@ rcon_stop() {
     log WARN "[shutdown] rcon: citizens save failed"
   fi
 
-  log INFO "[shutdown] rcon: save-all"
-  if rcon_exec "save-all"; then
-    log INFO "[shutdown] rcon: save-all succeeded"
+  log INFO "[shutdown] rcon: save-all flush"
+  if rcon_exec "save-all flush"; then
+    log INFO "[shutdown] rcon: save-all flush succeeded"
+    save_succeeded=1
   else
-    log WARN "[shutdown] rcon: save-all failed"
+    log WARN "[shutdown] rcon: save-all flush failed; falling back to save-all"
+    log INFO "[shutdown] rcon: save-all fallback"
+    if rcon_exec "save-all"; then
+      log WARN "[shutdown] rcon: save-all fallback succeeded after save-all flush failure"
+      save_succeeded=1
+    else
+      log ERROR "[shutdown] rcon: save-all fallback failed; continuing to stop without explicit save confirmation"
+    fi
+  fi
+
+  if (( save_succeeded == 1 && save_wait > 0 )); then
+    log INFO "[shutdown] waiting ${save_wait}s after save before stop"
+    sleep "${save_wait}"
+  elif (( save_succeeded == 0 )); then
+    log WARN "[shutdown] explicit save commands failed; skipping save wait and sending stop"
   fi
 
   log INFO "[shutdown] rcon: stop"

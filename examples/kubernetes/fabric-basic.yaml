@@ -15,6 +15,8 @@ spec:
       labels:
         app: mc-fabric
     spec:
+      # terminationGracePeriodSeconds includes preStop runtime.
+      # Use at least 120s for lightweight servers and 180s+ for modded or large worlds.
       terminationGracePeriodSeconds: 120
       containers:
         - name: minecraft

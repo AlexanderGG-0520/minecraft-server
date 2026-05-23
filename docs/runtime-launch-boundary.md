@@ -55,6 +55,7 @@ Current launch-related functions and variables:
 - `run_server`
   - Implemented in `scripts/lib/runtime_launch.sh`.
   - Starts the provided command in the background.
+  - Uses `setsid` when available so shutdown can signal the process group.
   - Stores the process id in `SERVER_PID`.
   - Calls `cleanup_rcon_lock_on_boot` before launching.
   - Waits for `READY_DELAY` seconds, failing early if the process exits.

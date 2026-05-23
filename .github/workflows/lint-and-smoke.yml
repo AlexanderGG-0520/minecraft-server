@@ -670,6 +670,7 @@ jobs:
           RCON_TIMEOUT=1
           RCON_RETRIES=1
           RCON_RETRY_DELAY=0
+          SHUTDOWN_SAVE_WAIT_SECONDS=0
           PATH="$tmp/bin:$PATH"
           DATA_DIR="$tmp/data"
           mkdir -p "$DATA_DIR/plugins/Citizens"
@@ -679,7 +680,7 @@ jobs:
           rcon_stop
           test "$(sed -n '1p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret tellraw @a {"text":"Server shutting down now.","color":"yellow"}')"
           test "$(sed -n '2p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret citizens save')"
-          test "$(sed -n '3p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret save-all')"
+          test "$(sed -n '3p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret save-all flush')"
           test "$(sed -n '4p' "$TMP_DIR/commands.txt")" = "$(printf '%s' '--host 127.0.0.1 --port 25575 --password secret stop')"
 
       - name: RCON lock smoke
@@ -722,6 +723,10 @@ jobs:
           test "$first_rc" -eq 7
           test "$second_rc" -eq 7
           test "$RCON_STOP_RESULT" -eq 7
+
+      - name: Shutdown RCON focused smoke
+        run: |
+          bash test/shutdown-rcon-smoke.sh
 
       - name: Wait helper smoke
         run: |
