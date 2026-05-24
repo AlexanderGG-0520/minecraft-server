@@ -1,4 +1,4 @@
-# Minecraft Server (Performance-first)
+# Minecraft Server
 
 ![Docker Build](https://img.shields.io/github/actions/workflow/status/AlexanderGG-0520/minecraft-server/publish.yml?branch=main)
 [![Docker Pulls](https://img.shields.io/docker/pulls/alecjp02/minecraft-server.svg?logo=docker)](https://hub.docker.com/r/alecjp02/minecraft-server/)
@@ -9,56 +9,74 @@
 ![Java](https://img.shields.io/badge/java-8%20%7C%2011%20%7C%2017%20%7C%2021%20%7C%2025%20%7C%2025--gpu-orange)
 ![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue)
 
-A **minimal, explicit, and predictable** Minecraft server Docker image.
+Predictable Minecraft server Docker image for Kubernetes, GitOps, and S3/MinIO-backed asset workflows.
 
-This project is for people who already know *why* feature-rich images sometimes feel slow.
+This image is built for operators who want Minecraft server containers to behave predictably when pods
+are recreated, volumes are reused, and assets are supplied from object storage. It favors explicit
+configuration, a clear install/runtime lifecycle, safe persistent volume handling, RCON-based graceful
+shutdown, and fail-fast errors instead of silent auto-repair.
 
----
-
-## Documentation map
-
-Start with the safety notes below when running on Kubernetes or reusing existing volumes.
-For runnable manifests and Compose files, see [examples/README.md](examples/README.md).
-For deeper design notes, use the [GitHub Wiki](https://github.com/AlexanderGG-0520/minecraft-server/wiki).
-
----
-
-## Project origin
-
-This project started from running Minecraft servers on Kubernetes.
-
-For Docker Compose and single-host setups, feature-rich Minecraft server images can be extremely
-convenient. In that environment, a server is often pulled once, configured once, and then left running.
-After moving Minecraft workloads to Kubernetes, the operational trade-offs became more visible: image
-pull rate limits, repeated pod recreation, GitOps-driven redeploys, lifecycle ordering, persistent
-volume safety, and the cost of large implicit entrypoint behavior.
-
-This image is not intended to replace general-purpose Minecraft server images for everyone. Instead, it
-provides a Kubernetes-first alternative that favors explicit configuration, predictable failure modes,
-clearer responsibility boundaries, and first-class support for S3/MinIO-backed asset workflows.
+It can sync mods, plugins, configs, datapacks, resourcepacks, and world archives from S3-compatible
+storage such as MinIO. The goal is not to be the most feature-heavy Minecraft image; the goal is to make
+operational state, lifecycle boundaries, and unsafe conditions visible enough for Kubernetes and GitOps
+workflows.
 
 ---
 
-## What this is
+## Quick links
 
-This repository provides a **performance-first Minecraft server runtime** designed with the following assumptions:
+* [Examples](examples/README.md)
+* [Wiki](https://github.com/AlexanderGG-0520/minecraft-server/wiki)
+* [Environment Variables](https://github.com/AlexanderGG-0520/minecraft-server/wiki/Environment-Variables)
+* [S3/MinIO safety notes](#s3-sync-safety-notes)
+* [Kubernetes shutdown recommendations](#kubernetes-shutdown-recommendations)
+* [Install-only mode](#install-only-mode-new)
+
+---
+
+## Why this exists
+
+General-purpose Minecraft Docker images are convenient, especially for local Docker Compose or
+single-host servers where the container is configured once and then left running. Kubernetes makes
+different trade-offs more visible: repeated pod recreation, GitOps-driven redeploys, persistent volume
+safety, lifecycle hook ordering, graceful shutdown timing, and object-storage-backed asset delivery.
+
+This image optimizes for explicit lifecycle, reproducibility, and safe failure modes. Install-time work
+is separated from runtime launch, persistent world data is treated cautiously, destructive actions are
+made explicit, and mismatched or unsafe state should fail loudly before the server mutates important
+data.
+
+This is an alternative for advanced/containerized operations, not a universal replacement for every
+Minecraft server image. If another image matches your workflow better, that is a valid choice; this
+project exists for teams and operators who prefer explicit configuration and predictable failures over
+large amounts of hidden automation.
+
+---
+
+## Who should use this
+
+This project is a good fit when you:
+
+* Run Minecraft servers on Kubernetes or through GitOps workflows.
+* Reuse persistent volumes and need conservative world-data handling.
+* Sync mods, plugins, configs, datapacks, resourcepacks, or world archives from S3/MinIO.
+* Operate advanced modded servers and want lifecycle behavior to be explicit.
+* Prefer predictable errors over silent repair when configuration or storage state is unsafe.
+
+This project is probably not the best fit when you:
+
+* Are new to Minecraft server hosting and want the shortest path to a working server.
+* Want every feature automatically detected, installed, or repaired for you.
+* Prefer silent auto-repair over fail-fast errors that require manual review.
+
+## CI and smoke coverage
 
 CI is split by responsibility:
 
 * **Lint and Static Smoke** runs `bash -n entrypoint.sh` and `shellcheck -x -s bash entrypoint.sh`.
-* **Runtime Smoke CI** builds `runtime-jre21`, checks `/entrypoint.sh` inside the image, and runs runtime behavior regressions for install-only, RCON safety, `TYPE=auto`, Spigot bring-your-own artifacts, and install marker mismatch handling.
-
-* You understand Docker and Minecraft server internals
-* You prefer **explicit configuration over abstraction**
-* You value **predictability and speed** over convenience
-* You are fine with the server **failing fast** instead of auto-fixing silently
-
-It is especially well-suited for:
-
-* Kubernetes / GitOps environments
-* Long-running or frequently recreated servers
-* Performance-sensitive world generation
-* Advanced modded setups
+* **Runtime Smoke CI** builds `runtime-jre21`, checks `/entrypoint.sh` inside the image, and runs
+  runtime behavior regressions for install-only, RCON safety, `TYPE=auto`, Spigot bring-your-own
+  artifacts, and install marker mismatch handling.
 
 ---
 
@@ -208,24 +226,11 @@ or verify the new prefix contains the expected files. `*_SYNC_ONCE=true` skips a
 target already has content and remove-extra is not enabled; enabling remove-extra always performs the
 sync safety check and mirror operation.
 
----
-
-## What this is NOT
-
-This project is intentionally **not**:
-
-* Beginner-friendly
-* Feature-heavy
-* Auto-healing or self-repairing
-* A drop-in replacement for general-purpose Minecraft images
-
-If you want a server that "just works" with minimal understanding, this is probably not for you.
-
-## Documentation (Wiki)
+## Documentation
 
 This project has **extensive documentation** in the GitHub Wiki.
 
-The Wiki explains not only *how* to run the server, but *why* it is designed this way —  
+The Wiki explains not only *how* to run the server, but *why* it is designed this way:
 including lifecycle separation, persistent storage strategy, and world safety guarantees.
 
 ### Start here
@@ -252,8 +257,8 @@ including lifecycle separation, persistent storage strategy, and world safety gu
 6. **FAQ**  
    Differences vs itzg/minecraft-server and common pitfalls
 
-> ⚠️ If you skip the lifecycle documentation,  
-> you may misunderstand why some environment variables are intentionally ignored.
+The lifecycle documentation is recommended reading before changing install or runtime environment
+variables, because some variables are intentionally scoped to only one phase.
 
 ### Install-only mode
 
