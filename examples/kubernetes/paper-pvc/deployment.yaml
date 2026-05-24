@@ -19,7 +19,7 @@ spec:
       containers:
         - name: minecraft
           image: ghcr.io/alexandergg-0520/minecraft-server:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: minecraft
               containerPort: 25565
