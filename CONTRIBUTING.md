@@ -21,11 +21,18 @@ Run the relevant checks before opening a PR:
 
 ```bash
 bash -n entrypoint.sh
-for script in scripts/lib/*.sh; do
+shopt -s nullglob
+lib_scripts=(scripts/lib/*.sh)
+if [ "${#lib_scripts[@]}" -eq 0 ]; then
+  echo "No scripts found under scripts/lib/" >&2
+  exit 1
+fi
+
+for script in "${lib_scripts[@]}"; do
   bash -n "$script"
 done
 
-shellcheck -x -s bash entrypoint.sh scripts/lib/*.sh
+shellcheck -x -s bash entrypoint.sh "${lib_scripts[@]}"
 ```
 
 For behavior changes, also run the relevant smoke tests under `test/`. Prefer small temp-directory smoke
