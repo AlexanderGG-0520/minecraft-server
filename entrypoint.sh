@@ -290,27 +290,34 @@ activate_dir() {
   local base
   base="$(basename "$dst")"
 
-  local staging="${parent}/.${base}.staging"
-  local backup="${parent}/.${base}.old"
+  local staging backup
+  staging="$(mktemp -d "${parent}/.${base}.staging.XXXXXX")"
+  backup="$(mktemp -d "${parent}/.${base}.old.XXXXXX")"
+  safe_rm_rf "$backup"
 
   log INFO "Activating ${name} (atomic) (${src} -> ${dst})"
 
-  # 1. prepare staging
-  safe_rm_rf "$staging"
-  mkdir -p "$staging"
-
-  # 2. sync into staging (delete OK here)
-  rsync -a --delete "$src"/ "$staging"/
-
-  # 3. atomic switch
-  if [[ -d "$dst" ]]; then
-    safe_rm_rf "$backup"
-    safe_mv "$dst" "$backup"
+  # 1. sync into staging (delete OK here)
+  if ! rsync -a --delete "$src"/ "$staging"/; then
+    safe_rm_rf "$staging"
+    return 1
   fi
 
-  safe_mv "$staging" "$dst"
+  # 2. atomic switch
+  if [[ -d "$dst" ]]; then
+    if ! safe_mv "$dst" "$backup"; then
+      safe_rm_rf "$staging"
+      return 1
+    fi
+  fi
 
-  # 4. cleanup backup
+  if ! safe_mv "$staging" "$dst"; then
+    [[ ! -d "$backup" ]] || safe_mv "$backup" "$dst" || true
+    safe_rm_rf "$staging"
+    return 1
+  fi
+
+  # 3. cleanup backup
   safe_rm_rf "$backup"
 }
 
@@ -1002,17 +1009,19 @@ activate_plugins() {
 
     if [[ "${rel}" == *.jar ]]; then
       # jar: always overwrite (atomic per-file)
-      local tmp="${t}.tmp.$$"
-      cp -a "${s}" "${tmp}" || { errors=$((errors+1)); log WARN "Failed to copy jar: ${s}"; continue; }
-      safe_mv_f "${tmp}" "${t}" || { errors=$((errors+1)); log WARN "Failed to move jar into place: ${t}"; continue; }
+      local tmp
+      tmp="$(mktemp "${td}/.$(basename "${t}").tmp.XXXXXX")" || { errors=$((errors+1)); log WARN "Failed to create temp jar: ${t}"; continue; }
+      cp -a "${s}" "${tmp}" || { safe_rm_f "${tmp}"; errors=$((errors+1)); log WARN "Failed to copy jar: ${s}"; continue; }
+      safe_mv_f "${tmp}" "${t}" || { safe_rm_f "${tmp}"; errors=$((errors+1)); log WARN "Failed to move jar into place: ${t}"; continue; }
     else
       # non-jar: seed only (never overwrite)
       if [[ -e "${t}" ]]; then
         continue
       fi
-      local tmp="${t}.tmp.$$"
-      cp -a "${s}" "${tmp}" || { errors=$((errors+1)); log WARN "Failed to seed non-jar: ${s}"; continue; }
-      safe_mv_f "${tmp}" "${t}" || { errors=$((errors+1)); log WARN "Failed to move non-jar into place: ${t}"; continue; }
+      local tmp
+      tmp="$(mktemp "${td}/.$(basename "${t}").tmp.XXXXXX")" || { errors=$((errors+1)); log WARN "Failed to create temp non-jar: ${t}"; continue; }
+      cp -a "${s}" "${tmp}" || { safe_rm_f "${tmp}"; errors=$((errors+1)); log WARN "Failed to seed non-jar: ${s}"; continue; }
+      safe_mv_f "${tmp}" "${t}" || { safe_rm_f "${tmp}"; errors=$((errors+1)); log WARN "Failed to move non-jar into place: ${t}"; continue; }
     fi
   done < <(cd "${src}" && find . -type f -print0)
 
@@ -1374,6 +1383,7 @@ init_uuid_cache() {
 uuid_for_player() {
   local name="$1"
   local cached
+  local tmp
   local uuid
 
   init_uuid_cache
@@ -1392,10 +1402,18 @@ uuid_for_player() {
   [[ -z "$uuid" ]] && return 1
   [[ "$uuid" =~ ^[0-9a-fA-F]{32}$ ]] || die "Invalid UUID returned for player '${name}'"
 
-  jq --arg n "$name" --arg u "$uuid" \
+  tmp="$(mktemp "${UUID_CACHE_FILE}.tmp.XXXXXX")" || return 1
+  if ! jq --arg n "$name" --arg u "$uuid" \
     '. + {($n): $u}' \
-    "$UUID_CACHE_FILE" > "${UUID_CACHE_FILE}.tmp" \
-    && safe_mv "${UUID_CACHE_FILE}.tmp" "$UUID_CACHE_FILE"
+    "$UUID_CACHE_FILE" > "$tmp"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
+  if ! safe_mv_f "$tmp" "$UUID_CACHE_FILE"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
+  set_readable_file_permissions "$UUID_CACHE_FILE"
 
   echo "$uuid"
 }
@@ -1437,7 +1455,7 @@ install_ops() {
   init_uuid_cache
   tmp="$(mktemp "${FILE}.tmp.XXXXXX")"
 
-  {
+  if ! {
     while IFS= read -r name; do
       uuid=$(uuid_for_player "$name") || continue
 
@@ -1448,9 +1466,16 @@ install_ops() {
         --argjson bypassesPlayerLimit false \
         '{uuid:$uuid,name:$name,level:$level,bypassesPlayerLimit:$bypassesPlayerLimit}'
     done < <(parse_csv "${OPS_USERS}")
-  } | jq -s '.' > "$tmp"
+  } | jq -s '.' > "$tmp"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
 
-  safe_mv_f "$tmp" "$FILE"
+  if ! safe_mv_f "$tmp" "$FILE"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
+  set_readable_file_permissions "$FILE"
 }
 
 # function to generate whitelist.json
@@ -1467,7 +1492,7 @@ install_whitelist() {
   init_uuid_cache
   tmp="$(mktemp "${FILE}.tmp.XXXXXX")"
 
-  {
+  if ! {
     while IFS= read -r name; do
       uuid=$(uuid_for_player "$name") || continue
 
@@ -1476,9 +1501,16 @@ install_whitelist() {
         --arg name "$name" \
         '{uuid:$uuid,name:$name}'
     done < <(parse_csv "${WHITELIST_USERS}")
-  } | jq -s '.' > "$tmp"
+  } | jq -s '.' > "$tmp"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
 
-  safe_mv_f "$tmp" "$FILE"
+  if ! safe_mv_f "$tmp" "$FILE"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
+  set_readable_file_permissions "$FILE"
 }
 
 # shellcheck disable=SC2034  # Reserved managed-path anchor for optimize-mods handling.
@@ -1823,13 +1855,16 @@ install_modpack_file() {
   fi
 
   mkdir -p "$parent"
-  tmp="${target}.tmp.$$"
-  safe_rm_f "$tmp"
+  tmp="$(mktemp "${parent}/.$(basename "$target").tmp.XXXXXX")"
   cp "$src" "$tmp" || {
     safe_rm_f "$tmp"
     die "Failed to stage modpack file: ${relpath}"
   }
-  safe_mv_f "$tmp" "$target"
+  if ! safe_mv_f "$tmp" "$target"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
+  set_readable_file_permissions "$target"
 }
 
 write_modpack_marker() {
@@ -1840,8 +1875,8 @@ write_modpack_marker() {
   local index_sha512="$5"
   local tmp
 
-  tmp="${marker}.tmp.$$"
-  jq -n \
+  tmp="$(mktemp "${marker}.tmp.XXXXXX")"
+  if ! jq -n \
     --arg sourceUrl "$source_url" \
     --arg versionId "$version_id" \
     --arg indexSha512 "$index_sha512" \
@@ -1857,8 +1892,15 @@ write_modpack_marker() {
       files: $files[0],
       overrides: [],
       installedAt: $installedAt
-    }' > "$tmp"
-  safe_mv_f "$tmp" "$marker"
+    }' > "$tmp"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
+  if ! safe_mv_f "$tmp" "$marker"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
+  set_readable_file_permissions "$marker"
 }
 
 modpack_marker_matches() {
@@ -1923,7 +1965,7 @@ install_modrinth_mrpack() {
     url="$(jq -er '.downloads[0]' <<< "$file")"
     sha1="$(jq -er '.hashes.sha1' <<< "$file")"
     sha512="$(jq -er '.hashes.sha512' <<< "$file")"
-    downloaded="${tmpdir}/downloaded-$(basename "$relpath").$$"
+    downloaded="$(mktemp "${tmpdir}/downloaded-$(basename "$relpath").XXXXXX")"
 
     download_modpack_file "$url" "$downloaded" "$relpath"
     verify_modpack_file "$downloaded" "$sha1" "$sha512" "$relpath"
@@ -1932,12 +1974,21 @@ install_modrinth_mrpack() {
         '{path:$path,sha1:$sha1,sha512:$sha512}' >> "$tmp_files"
     else
       local status=$?
-      [[ "$status" -eq 2 ]] || return "$status"
+      if [[ "$status" -ne 2 ]]; then
+        safe_rm_rf "$tmpdir"
+        return "$status"
+      fi
     fi
   done < "$selected"
 
-  jq -s '.' "$tmp_files" > "${tmp_files}.array"
-  write_modpack_marker "$marker" "${tmp_files}.array" "$source_url" "$version_id" "$index_sha512"
+  if ! jq -s '.' "$tmp_files" > "${tmp_files}.array"; then
+    safe_rm_rf "$tmpdir"
+    return 1
+  fi
+  if ! write_modpack_marker "$marker" "${tmp_files}.array" "$source_url" "$version_id" "$index_sha512"; then
+    safe_rm_rf "$tmpdir"
+    return 1
+  fi
   safe_rm_rf "$tmpdir"
   log INFO "Modpack install completed: ${version_id}"
 }
@@ -1968,7 +2019,10 @@ install_modpack() {
 
   log INFO "Installing Modrinth mrpack (experimental local mode)"
   download_modpack_file "$source" "$archive" "mrpack archive"
-  install_modrinth_mrpack "$archive" "$source"
+  if ! install_modrinth_mrpack "$archive" "$source"; then
+    safe_rm_rf "$tmpdir"
+    return 1
+  fi
   safe_rm_rf "$tmpdir"
 }
 

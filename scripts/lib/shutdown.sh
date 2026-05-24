@@ -41,14 +41,34 @@ initialize_rcon_stop_result() {
 write_rcon_stop_result() {
   local result="$1"
   local result_file
+  local result_dir
   local tmp
 
   result_file="$(rcon_stop_result_file)"
-  tmp="${result_file}.$$"
+  result_dir="$(dirname "${result_file}")"
 
-  printf '%s\n' "${result}" > "${tmp}" 2>/dev/null || return 1
-  safe_mv_f "${tmp}" "${result_file}" 2>/dev/null || {
+  if [[ ! -d "${result_dir}" ]]; then
+    log WARN "[shutdown] rcon_stop result directory does not exist: ${result_dir}"
+    return 1
+  fi
+
+  tmp="$(mktemp "${result_dir}/.result.XXXXXX")" || {
+    log WARN "[shutdown] failed to create rcon_stop result temp file in ${result_dir}"
+    return 1
+  }
+
+  printf '%s\n' "${result}" > "${tmp}" 2>/dev/null || {
+    log WARN "[shutdown] failed to write rcon_stop result temp file: ${tmp}"
     safe_rm_f "${tmp}" 2>/dev/null || true
+    return 1
+  }
+  safe_mv_f "${tmp}" "${result_file}" 2>/dev/null || {
+    log WARN "[shutdown] failed to move rcon_stop result temp file into place: ${tmp} -> ${result_file}"
+    safe_rm_f "${tmp}" 2>/dev/null || true
+    return 1
+  }
+  chmod 0644 -- "${result_file}" 2>/dev/null || {
+    log WARN "[shutdown] failed to set readable permissions on rcon_stop result file: ${result_file}"
     return 1
   }
 }

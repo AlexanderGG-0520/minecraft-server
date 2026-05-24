@@ -157,6 +157,8 @@ jobs:
           test -f "$data/mods/server-mod.jar"
           test -f "$data/.modpack-install.json"
           jq -e '.format == "mrpack" and .versionId == "valid" and (.files | length == 1)' "$data/.modpack-install.json"
+          test "$(stat -c '%a' "$data/.modpack-install.json")" != "600"
+          sudo -u nobody jq -e '.format == "mrpack" and .versionId == "valid" and (.files | length == 1)' "$data/.modpack-install.json"
 
           output="$(docker run --rm \
             -v "$data:/data" \

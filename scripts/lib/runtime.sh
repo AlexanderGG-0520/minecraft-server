@@ -102,6 +102,7 @@ write_server_install_marker() {
     safe_rm_f "$tmp"
     return 1
   fi
+  set_readable_file_permissions "$marker"
 
   safe_rm_f "$tmp"
 }
