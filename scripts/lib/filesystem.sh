@@ -3,10 +3,22 @@
 refuse_unsafe_filesystem_path() {
   local path="${1:-}"
   local action="${2:-operate on}"
+  local resolved_path
 
   if [[ -z "${path}" || "${path}" == "/" ]]; then
     log ERROR "Refusing to ${action} unsafe path"
     return 1
+  fi
+
+  if command -v realpath >/dev/null 2>&1; then
+    resolved_path="$(realpath -m -- "${path}")" || {
+      log ERROR "Refusing to ${action} unsafe path"
+      return 1
+    }
+    if [[ "${resolved_path}" == "/" ]]; then
+      log ERROR "Refusing to ${action} unsafe path"
+      return 1
+    fi
   fi
 
   return 0

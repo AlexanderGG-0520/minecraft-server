@@ -10,35 +10,41 @@ trap 'rm -rf "$tmp"' EXIT
 source ./scripts/lib/logging.sh
 source ./scripts/lib/filesystem.sh
 
-expect_refusal() {
-  local expected="$1"
+expect_failure() {
+  local name="$1"
   shift
 
-  local output status
-  set +e
-  output="$("$@" 2>&1)"
-  status=$?
-  set -e
+  if ( "$@" ); then
+    echo "FAIL: ${name}: command unexpectedly succeeded" >&2
+    exit 1
+  fi
+}
 
-  test "$status" -eq 1
+expect_refusal() {
+  local name="$1"
+  local expected="$2"
+  shift 2
+
+  local output
+  output="$({ expect_failure "${name}" "$@"; } 2>&1)"
   printf '%s\n' "$output" | grep -E "^\[[^]]+\] \[ERROR\] ${expected}$" >/dev/null
 }
 
-expect_refusal "Refusing to remove unsafe path" safe_rm_f ""
-expect_refusal "Refusing to remove unsafe path" safe_rm_rf /
-expect_refusal "Refusing to remove unsafe path" safe_rm_rf ///
-expect_refusal "Refusing to remove unsafe path" safe_rm_rf /.
-expect_refusal "Refusing to remove unsafe path" safe_rm_rf /..
-expect_refusal "Refusing to move from unsafe path" safe_mv "" "$tmp/dst"
-expect_refusal "Refusing to move from unsafe path" safe_mv /.. "$tmp/dst"
-expect_refusal "Refusing to move to unsafe path" safe_mv "$tmp/src" /
-expect_refusal "Refusing to move to unsafe path" safe_mv "$tmp/src" ///
-expect_refusal "Refusing to move to unsafe path" safe_mv "$tmp/src" /.
-expect_refusal "Refusing to move to unsafe path" safe_mv "$tmp/src" /..
-expect_refusal "Refusing to move to unsafe path" safe_mv_f "$tmp/src" ""
-expect_refusal "Refusing to move to unsafe path" safe_mv_f "$tmp/src" ///
-expect_refusal "Refusing to move to unsafe path" safe_mv_f "$tmp/src" /.
-expect_refusal "Refusing to move to unsafe path" safe_mv_f "$tmp/src" /..
+expect_refusal "empty rm -f" "Refusing to remove unsafe path" safe_rm_f ""
+expect_refusal "root rm -rf" "Refusing to remove unsafe path" safe_rm_rf /
+expect_refusal "triple-slash rm -rf" "Refusing to remove unsafe path" safe_rm_rf ///
+expect_refusal "dot-root rm -rf" "Refusing to remove unsafe path" safe_rm_rf /.
+expect_refusal "dot-dot-root rm -rf" "Refusing to remove unsafe path" safe_rm_rf /..
+expect_refusal "empty mv source" "Refusing to move from unsafe path" safe_mv "" "$tmp/dst"
+expect_refusal "dot-dot-root mv source" "Refusing to move from unsafe path" safe_mv /.. "$tmp/dst"
+expect_refusal "root mv destination" "Refusing to move to unsafe path" safe_mv "$tmp/src" /
+expect_refusal "triple-slash mv destination" "Refusing to move to unsafe path" safe_mv "$tmp/src" ///
+expect_refusal "dot-root mv destination" "Refusing to move to unsafe path" safe_mv "$tmp/src" /.
+expect_refusal "dot-dot-root mv destination" "Refusing to move to unsafe path" safe_mv "$tmp/src" /..
+expect_refusal "empty mv -f destination" "Refusing to move to unsafe path" safe_mv_f "$tmp/src" ""
+expect_refusal "triple-slash mv -f destination" "Refusing to move to unsafe path" safe_mv_f "$tmp/src" ///
+expect_refusal "dot-root mv -f destination" "Refusing to move to unsafe path" safe_mv_f "$tmp/src" /.
+expect_refusal "dot-dot-root mv -f destination" "Refusing to move to unsafe path" safe_mv_f "$tmp/src" /..
 
 printf '%s\n' file > "$tmp/file"
 safe_rm_f "$tmp/file"
