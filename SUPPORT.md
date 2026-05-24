@@ -26,6 +26,6 @@ Do not report security-sensitive issues in a public issue. Follow the guidance i
 
 ## Third-party mods and plugins
 
-This project does not provide general support for arbitrary third-party mod, plugin, or modpack bugs.
+This project does not provide general support for arbitrary third-party mods, plugins, or modpacks.
 Reports are in scope when they involve this image's lifecycle, install, sync, filesystem, shutdown, or
 runtime behavior.
