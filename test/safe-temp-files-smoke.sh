@@ -25,6 +25,7 @@ test_no_server_marker_temps() {
 
 write_server_install_marker "server.jar" "paper" "1.21.8" "123"
 jq -e '.artifact == "server.jar" and .type == "paper" and .version == "1.21.8" and .build == "123"' "$DATA_DIR/.server-install.json" >/dev/null
+test "$(stat -c '%a' "$DATA_DIR/.server-install.json")" != "600"
 test_no_server_marker_temps
 
 curl() {

@@ -56,6 +56,7 @@ write_rcon_stop_result() {
     safe_rm_f "${tmp}" 2>/dev/null || true
     return 1
   }
+  set_readable_file_permissions "${result_file}"
 }
 
 read_rcon_stop_result() {

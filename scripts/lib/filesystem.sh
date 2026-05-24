@@ -55,3 +55,10 @@ safe_mv_f() {
   refuse_unsafe_filesystem_path "${dst}" "move to" || return 1
   mv -f -- "${src}" "${dst}"
 }
+
+set_readable_file_permissions() {
+  local path="${1:-}"
+
+  refuse_unsafe_filesystem_path "${path}" "chmod" || return 1
+  chmod 0644 -- "${path}" || die "Failed to set readable file permissions: ${path}"
+}

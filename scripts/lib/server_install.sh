@@ -23,6 +23,7 @@ download_file_atomic() {
     safe_rm_f "$tmp"
     return 1
   fi
+  set_readable_file_permissions "$dest"
 }
 
 download_vanilla_server_atomic() {
@@ -53,6 +54,7 @@ download_vanilla_server_atomic() {
     safe_rm_f "$tmp"
     return 1
   fi
+  set_readable_file_permissions "$dest"
 }
 
 install_vanilla_server_artifact() {
@@ -546,6 +548,7 @@ install_velocity_server_artifact() {
     safe_rm_f "${VELOCITY_TMP}"
     return 1
   fi
+  set_readable_file_permissions "${DATA_DIR}/velocity.jar"
 
   log INFO "Velocity jar ready"
   write_server_install_marker "velocity.jar" "velocity" "${VERSION}" "${BUILD_ID}"

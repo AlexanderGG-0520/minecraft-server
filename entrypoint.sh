@@ -1413,6 +1413,7 @@ uuid_for_player() {
     safe_rm_f "$tmp"
     return 1
   fi
+  set_readable_file_permissions "$UUID_CACHE_FILE"
 
   echo "$uuid"
 }
@@ -1474,6 +1475,7 @@ install_ops() {
     safe_rm_f "$tmp"
     return 1
   fi
+  set_readable_file_permissions "$FILE"
 }
 
 # function to generate whitelist.json
@@ -1508,6 +1510,7 @@ install_whitelist() {
     safe_rm_f "$tmp"
     return 1
   fi
+  set_readable_file_permissions "$FILE"
 }
 
 # shellcheck disable=SC2034  # Reserved managed-path anchor for optimize-mods handling.
@@ -1861,6 +1864,7 @@ install_modpack_file() {
     safe_rm_f "$tmp"
     return 1
   fi
+  set_readable_file_permissions "$target"
 }
 
 write_modpack_marker() {
@@ -1896,6 +1900,7 @@ write_modpack_marker() {
     safe_rm_f "$tmp"
     return 1
   fi
+  set_readable_file_permissions "$marker"
 }
 
 modpack_marker_matches() {
