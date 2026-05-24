@@ -20,7 +20,11 @@ the PR clearly explains why they need to change.
 Run the relevant checks before opening a PR:
 
 ```bash
-bash -n entrypoint.sh scripts/lib/*.sh
+bash -n entrypoint.sh
+for script in scripts/lib/*.sh; do
+  bash -n "$script"
+done
+
 shellcheck -x -s bash entrypoint.sh scripts/lib/*.sh
 ```
 
