@@ -19,7 +19,7 @@ run_server() {
     if ! kill -0 "${SERVER_PID}" 2>/dev/null; then
       local early_status=0
       wait "$SERVER_PID" || early_status=$?
-      rm -f "${DATA_DIR}/.ready" 2>/dev/null || true
+      safe_rm_f "${DATA_DIR}/.ready" 2>/dev/null || true
       return "$early_status"
     fi
     sleep 1
@@ -33,7 +33,7 @@ run_server() {
 
   local status=0
   wait "$SERVER_PID" || status=$?
-  rm -f "${DATA_DIR}/.ready" 2>/dev/null || true
+  safe_rm_f "${DATA_DIR}/.ready" 2>/dev/null || true
   return "$status"
 }
 

@@ -6,18 +6,18 @@ download_file_atomic() {
   local label="$3"
   local tmp="${dest}.tmp.$$"
 
-  rm -f -- "$tmp"
+  safe_rm_f "$tmp"
   if ! curl -fL "$url" -o "$tmp"; then
-    rm -f -- "$tmp"
+    safe_rm_f "$tmp"
     die "Failed to download ${label}"
   fi
 
   [[ -s "$tmp" ]] || {
-    rm -f -- "$tmp"
+    safe_rm_f "$tmp"
     die "Downloaded ${label} is empty"
   }
 
-  mv -f "$tmp" "$dest"
+  safe_mv_f "$tmp" "$dest"
 }
 
 download_vanilla_server_atomic() {
@@ -26,23 +26,23 @@ download_vanilla_server_atomic() {
   local dest="$3"
   local tmp="${dest}.tmp.$$"
 
-  rm -f -- "$tmp"
+  safe_rm_f "$tmp"
   if ! curl -fL "$url" -o "$tmp"; then
-    rm -f -- "$tmp"
+    safe_rm_f "$tmp"
     die "Failed to download vanilla server.jar"
   fi
 
   [[ -s "$tmp" ]] || {
-    rm -f -- "$tmp"
+    safe_rm_f "$tmp"
     die "Downloaded vanilla server.jar is empty"
   }
 
   echo "${sha1}  ${tmp}" | sha1sum -c - >/dev/null || {
-    rm -f -- "$tmp"
+    safe_rm_f "$tmp"
     die "Downloaded vanilla server.jar checksum mismatch"
   }
 
-  mv -f "$tmp" "$dest"
+  safe_mv_f "$tmp" "$dest"
 }
 
 install_vanilla_server_artifact() {
@@ -514,17 +514,17 @@ install_velocity_server_artifact() {
   log INFO "Download URL: ${DL_URL}"
 
   VELOCITY_TMP="${DATA_DIR}/velocity.jar.tmp.$$"
-  rm -f -- "${VELOCITY_TMP}"
+  safe_rm_f "${VELOCITY_TMP}"
   if ! curl -fL -H "User-Agent: ${VELOCITY_UA}" "${DL_URL}" -o "${VELOCITY_TMP}"; then
-    rm -f -- "${VELOCITY_TMP}"
+    safe_rm_f "${VELOCITY_TMP}"
     die "Failed to download Velocity jar"
   fi
 
   [[ "$(wc -c < "${VELOCITY_TMP}")" -gt 1000000 ]] || {
-    rm -f -- "${VELOCITY_TMP}"
+    safe_rm_f "${VELOCITY_TMP}"
     die "Downloaded Velocity jar is too small"
   }
-  mv -f "${VELOCITY_TMP}" "${DATA_DIR}/velocity.jar"
+  safe_mv_f "${VELOCITY_TMP}" "${DATA_DIR}/velocity.jar"
 
   log INFO "Velocity jar ready"
   write_server_install_marker "velocity.jar" "velocity" "${VERSION}" "${BUILD_ID}"

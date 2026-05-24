@@ -5,7 +5,7 @@ generate_velocity_toml() {
 
   local CONFIG_FILE="${DATA_DIR}/velocity.toml"
 
-  rm -f "${CONFIG_FILE}"
+  safe_rm_f "${CONFIG_FILE}"
 
   [[ -n "${VELOCITY_SERVERS:-}" ]] || die "VELOCITY_SERVERS is required"
   [[ -n "${VELOCITY_SECRET:-}"  ]] || die "VELOCITY_SECRET is required"

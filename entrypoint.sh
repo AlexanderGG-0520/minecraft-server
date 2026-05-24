@@ -4,6 +4,8 @@ set -Eeuo pipefail
 ENTRYPOINT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=scripts/lib/logging.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/logging.sh"
+# shellcheck source=scripts/lib/filesystem.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/filesystem.sh"
 # shellcheck source=scripts/lib/runtime.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/runtime.sh"
 # shellcheck source=scripts/lib/lifecycle.sh
@@ -154,7 +156,7 @@ preflight() {
 
   [[ -d "${DATA_DIR}" ]] || die "${DATA_DIR} does not exist"
   touch "${DATA_DIR}/.write_test" 2>/dev/null || die "${DATA_DIR} is not writable"
-  rm -f "${DATA_DIR}/.write_test"
+  safe_rm_f "${DATA_DIR}/.write_test"
 
   [[ -n "${EULA:-}" ]] || die "EULA is not set"
 
@@ -171,7 +173,7 @@ preflight() {
     [[ "${RCON_PASSWORD}" != "changeme" ]] || die "RCON_PASSWORD=changeme is not allowed"
   fi
 
-  rm -f "${DATA_DIR}/.ready"
+  safe_rm_f "${DATA_DIR}/.ready"
   log INFO "Preflight OK"
 }
 
@@ -263,7 +265,7 @@ install_dirs() {
 
   # Permissions check
   touch "${DATA_DIR}/logs/.perm_test" 2>/dev/null || die "${DATA_DIR}/logs is not writable"
-  rm -f "${DATA_DIR}/logs/.perm_test"
+  safe_rm_f "${DATA_DIR}/logs/.perm_test"
 
   log INFO "Directory structure ready"
 }
@@ -294,7 +296,7 @@ activate_dir() {
   log INFO "Activating ${name} (atomic) (${src} -> ${dst})"
 
   # 1. prepare staging
-  rm -rf "$staging"
+  safe_rm_rf "$staging"
   mkdir -p "$staging"
 
   # 2. sync into staging (delete OK here)
@@ -302,14 +304,14 @@ activate_dir() {
 
   # 3. atomic switch
   if [[ -d "$dst" ]]; then
-    rm -rf "$backup"
-    mv "$dst" "$backup"
+    safe_rm_rf "$backup"
+    safe_mv "$dst" "$backup"
   fi
 
-  mv "$staging" "$dst"
+  safe_mv "$staging" "$dst"
 
   # 4. cleanup backup
-  rm -rf "$backup"
+  safe_rm_rf "$backup"
 }
 
 install_eula() {
@@ -336,9 +338,9 @@ clear_fabric_cache() {
 case "${TYPE}" in
   fabric|taiyitist|quilt)
     log INFO "Cleaning Fabric mapping/cache directories (TYPE=${TYPE})"
-    rm -rf "${DATA_DIR}/.fabric" \
-           "${DATA_DIR}/.cache" \
-           "${DATA_DIR}/.mappings"
+    safe_rm_rf "${DATA_DIR}/.fabric"
+    safe_rm_rf "${DATA_DIR}/.cache"
+    safe_rm_rf "${DATA_DIR}/.mappings"
     log INFO "Fabric mapping/cache directories cleaned"
     ;;
 esac
@@ -361,7 +363,7 @@ setup_server_icon() {
 
   if ! curl -fsSL "${SERVER_ICON_URL}" -o "${icon_path}"; then
     log ERROR "Failed to download server icon"
-    rm -f "${icon_path}"
+    safe_rm_f "${icon_path}"
     return 1
   fi
 
@@ -782,7 +784,8 @@ install_plugins() {
 
   # shellcheck disable=SC2317,SC2329  # Called indirectly via RETURN trap in plugin sync flow.
   cleanup_plugins_tmp() {
-    rm -f -- "${tmp_remote:-}" "${tmp_remote_jars:-}" 2>/dev/null || true
+    [[ -z "${tmp_remote:-}" ]] || safe_rm_f "${tmp_remote}" 2>/dev/null || true
+    [[ -z "${tmp_remote_jars:-}" ]] || safe_rm_f "${tmp_remote_jars}" 2>/dev/null || true
   }
   trap cleanup_plugins_tmp RETURN
 
@@ -833,7 +836,8 @@ install_plugins() {
 
   # shellcheck disable=SC2317,SC2329  # Called indirectly via RETURN trap in plugin sync flow.
   cleanup_plugins_tmp() {
-    rm -f -- "${tmp_remote:-}" "${tmp_remote_topjars:-}" 2>/dev/null || true
+    [[ -z "${tmp_remote:-}" ]] || safe_rm_f "${tmp_remote}" 2>/dev/null || true
+    [[ -z "${tmp_remote_topjars:-}" ]] || safe_rm_f "${tmp_remote_topjars}" 2>/dev/null || true
   }
   trap cleanup_plugins_tmp RETURN
 
@@ -882,7 +886,7 @@ install_plugins() {
     fi
 
     dest="${plugins_dir}/${rel}"
-    rm -f -- "${dest}" || true
+    safe_rm_f "${dest}" || true
     if ! mc_retry mc cp "${obj}" "${dest}"; then
       errors=$((errors+1))
       log WARN "Failed to download jar: ${obj}"
@@ -915,7 +919,7 @@ install_plugins() {
 
         if ! grep -Fxq "${base}" "${tmp_remote_topjars}"; then
           log INFO "Removing extra local jar: ${local_jar}"
-          rm -f -- "${local_jar}" || {
+          safe_rm_f "${local_jar}" || {
             [[ "${strict}" == "true" ]] && die "Failed to remove extra jar: ${local_jar}"
             log WARN "Failed to remove extra jar (non-strict): ${local_jar}"
           }
@@ -1000,7 +1004,7 @@ activate_plugins() {
       # jar: always overwrite (atomic per-file)
       local tmp="${t}.tmp.$$"
       cp -a "${s}" "${tmp}" || { errors=$((errors+1)); log WARN "Failed to copy jar: ${s}"; continue; }
-      mv -f "${tmp}" "${t}" || { errors=$((errors+1)); log WARN "Failed to move jar into place: ${t}"; continue; }
+      safe_mv_f "${tmp}" "${t}" || { errors=$((errors+1)); log WARN "Failed to move jar into place: ${t}"; continue; }
     else
       # non-jar: seed only (never overwrite)
       if [[ -e "${t}" ]]; then
@@ -1008,7 +1012,7 @@ activate_plugins() {
       fi
       local tmp="${t}.tmp.$$"
       cp -a "${s}" "${tmp}" || { errors=$((errors+1)); log WARN "Failed to seed non-jar: ${s}"; continue; }
-      mv -f "${tmp}" "${t}" || { errors=$((errors+1)); log WARN "Failed to move non-jar into place: ${t}"; continue; }
+      safe_mv_f "${tmp}" "${t}" || { errors=$((errors+1)); log WARN "Failed to move non-jar into place: ${t}"; continue; }
     fi
   done < <(cd "${src}" && find . -type f -print0)
 
@@ -1029,11 +1033,11 @@ activate_plugins() {
         fi
         if ! grep -Fxq "${rel}" "${tmp_src_jars}"; then
           log INFO "Removing extra jar from ${dst}: ${rel}"
-          rm -f -- "${local_jar}" || log WARN "Failed to remove extra jar: ${local_jar}"
+          safe_rm_f "${local_jar}" || log WARN "Failed to remove extra jar: ${local_jar}"
         fi
       done < <(find "${dst}" -maxdepth 1 -type f -name "*.jar" -print0)
 
-      rm -f -- "${tmp_src_jars}"
+      safe_rm_f "${tmp_src_jars}"
     fi
 
     log INFO "activate_plugins completed (non-jar protected)"
@@ -1391,7 +1395,7 @@ uuid_for_player() {
   jq --arg n "$name" --arg u "$uuid" \
     '. + {($n): $u}' \
     "$UUID_CACHE_FILE" > "${UUID_CACHE_FILE}.tmp" \
-    && mv "${UUID_CACHE_FILE}.tmp" "$UUID_CACHE_FILE"
+    && safe_mv "${UUID_CACHE_FILE}.tmp" "$UUID_CACHE_FILE"
 
   echo "$uuid"
 }
@@ -1446,7 +1450,7 @@ install_ops() {
     done < <(parse_csv "${OPS_USERS}")
   } | jq -s '.' > "$tmp"
 
-  mv -f "$tmp" "$FILE"
+  safe_mv_f "$tmp" "$FILE"
 }
 
 # function to generate whitelist.json
@@ -1474,7 +1478,7 @@ install_whitelist() {
     done < <(parse_csv "${WHITELIST_USERS}")
   } | jq -s '.' > "$tmp"
 
-  mv -f "$tmp" "$FILE"
+  safe_mv_f "$tmp" "$FILE"
 }
 
 # shellcheck disable=SC2034  # Reserved managed-path anchor for optimize-mods handling.
@@ -1538,7 +1542,7 @@ opt_install_links() {
         local target
         target="$(readlink "$link" || true)"
         if [[ -z "$target" || ! -e "$mods_dir/$target" && ! -e "$target" ]]; then
-          rm -f "$link"
+          safe_rm_f "$link"
         fi
       done
 
@@ -1820,12 +1824,12 @@ install_modpack_file() {
 
   mkdir -p "$parent"
   tmp="${target}.tmp.$$"
-  rm -f -- "$tmp"
+  safe_rm_f "$tmp"
   cp "$src" "$tmp" || {
-    rm -f -- "$tmp"
+    safe_rm_f "$tmp"
     die "Failed to stage modpack file: ${relpath}"
   }
-  mv -f "$tmp" "$target"
+  safe_mv_f "$tmp" "$target"
 }
 
 write_modpack_marker() {
@@ -1854,7 +1858,7 @@ write_modpack_marker() {
       overrides: [],
       installedAt: $installedAt
     }' > "$tmp"
-  mv -f "$tmp" "$marker"
+  safe_mv_f "$tmp" "$marker"
 }
 
 modpack_marker_matches() {
@@ -1906,7 +1910,7 @@ install_modrinth_mrpack() {
   if ! is_true "${MODPACK_FORCE_REINSTALL:-false}" \
     && modpack_marker_matches "$marker" "$source_url" "$version_id" "$index_sha512"; then
     log INFO "Modpack marker matches; skipping modpack install"
-    rm -rf "$tmpdir"
+    safe_rm_rf "$tmpdir"
     return 0
   fi
 
@@ -1934,7 +1938,7 @@ install_modrinth_mrpack() {
 
   jq -s '.' "$tmp_files" > "${tmp_files}.array"
   write_modpack_marker "$marker" "${tmp_files}.array" "$source_url" "$version_id" "$index_sha512"
-  rm -rf "$tmpdir"
+  safe_rm_rf "$tmpdir"
   log INFO "Modpack install completed: ${version_id}"
 }
 
@@ -1965,7 +1969,7 @@ install_modpack() {
   log INFO "Installing Modrinth mrpack (experimental local mode)"
   download_modpack_file "$source" "$archive" "mrpack archive"
   install_modrinth_mrpack "$archive" "$source"
-  rm -rf "$tmpdir"
+  safe_rm_rf "$tmpdir"
 }
 
 install() {

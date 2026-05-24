@@ -47,8 +47,8 @@ write_rcon_stop_result() {
   tmp="${result_file}.$$"
 
   printf '%s\n' "${result}" > "${tmp}" 2>/dev/null || return 1
-  mv -f "${tmp}" "${result_file}" 2>/dev/null || {
-    rm -f "${tmp}" 2>/dev/null || true
+  safe_mv_f "${tmp}" "${result_file}" 2>/dev/null || {
+    safe_rm_f "${tmp}" 2>/dev/null || true
     return 1
   }
 }

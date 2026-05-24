@@ -31,6 +31,6 @@ ensure_s3_source_nonempty_for_remove() {
     error_message="${feature} remove_extra requested but S3 source is empty: ${src}"
   fi
 
-  rm -f -- "$tmp"
+  safe_rm_f "$tmp"
   [[ -z "$error_message" ]] || die "$error_message"
 }

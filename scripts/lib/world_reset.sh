@@ -318,7 +318,7 @@ reset_world() {
   log INFO "Resetting world at ${WORLD_DIR}"
 
   # ---- Step 1: mark NotReady ----
-  rm -f "${DATA_DIR}/.ready"
+  safe_rm_f "${DATA_DIR}/.ready"
 
   # ---- Step 2: optional backup ----
   if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
@@ -331,17 +331,17 @@ reset_world() {
 
   # ---- Step 3: delete world directory completely ----
   log INFO "Deleting world directory"
-  rm -rf "${WORLD_DIR}"
+  safe_rm_rf "${WORLD_DIR}" || return 1
   mkdir -p "${WORLD_DIR}"
   if [[ "${RESET_WORLD_REMOVE_MODS:-false}" == "true" ]]; then
     log WARN "RESET_WORLD_REMOVE_MODS=true, deleting mods directory"
-    rm -rf "${MODS_DIR}"
+    safe_rm_rf "${MODS_DIR}" || return 1
     mkdir -p "${MODS_DIR}"
   fi
   log INFO "World directory reset complete"
 
   # ---- Step 4: delete the FLAG file to prevent repeated resets ----
-  rm -f "${FLAG_FILE}"
+  safe_rm_f "${FLAG_FILE}"
 
   log INFO "World reset completed successfully"
 }
@@ -359,13 +359,13 @@ handle_reset_world_flag() {
     if (( NOW - MTIME > MAX_AGE )); then
       log ERROR "reset-world.flag expired (older than ${MAX_AGE}s), resetting aborted"
       validate_world_reset_flag_path "${DATA_DIR:-}" "${FLAG}" || return 1
-      rm -f "$FLAG"
+      safe_rm_f "$FLAG"
       return
     fi
 
     log WARN "reset-world.flag valid, proceeding to reset world"
     reset_world || return 1
-    rm -f "$FLAG"
+    safe_rm_f "$FLAG"
     log INFO "reset-world.flag consumed"
   else
     log INFO "No reset-world.flag detected, skipping world reset"

@@ -8,6 +8,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 source ./scripts/lib/logging.sh
+source ./scripts/lib/filesystem.sh
 source ./scripts/lib/runtime.sh
 DATA_DIR="$tmp"
 
