@@ -23,6 +23,22 @@ workflows.
 
 ---
 
+## Why this image?
+
+| Operational need | How this image handles it |
+|---|---|
+| Kubernetes pod recreation | Separates install-time work from runtime launch so recreated pods behave predictably. |
+| Persistent world volumes | Treats existing world data cautiously and fails fast on unsafe or mismatched state. |
+| S3/MinIO asset management | Syncs mods, plugins, configs, datapacks, resourcepacks, and world archives from S3-compatible storage. |
+| Graceful shutdown | Supports RCON-based shutdown flows for safer saves before container termination. |
+| GitOps workflows | Uses explicit environment-driven behavior instead of hidden auto-repair. |
+| Advanced server types | Supports managed or bring-your-own workflows for common Java server types. |
+
+This image is intended for operators who care more about predictable lifecycle behavior than maximum
+automatic convenience.
+
+---
+
 ## Quick links
 
 * [Examples](examples/README.md)
