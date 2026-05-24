@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minecraft-paper
+  namespace: minecraft-paper
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: minecraft-paper
+  template:
+    metadata:
+      labels:
+        app: minecraft-paper
+    spec:
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: minecraft
+          image: ghcr.io/alexandergg-0520/minecraft-server:latest
+          imagePullPolicy: Always
+          ports:
+            - name: minecraft
+              containerPort: 25565
+              protocol: TCP
+          env:
+            - name: EULA
+              value: "true"
+            - name: TYPE
+              value: paper
+            - name: VERSION
+              value: "26.1.2"
+            - name: ENABLE_RCON
+              value: "true"
+            - name: RCON_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minecraft-rcon
+                  key: password
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/entrypoint.sh", "rcon-stop"]
+          readinessProbe:
+            exec:
+              command: ["test", "-f", "/data/.ready"]
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minecraft-data
