@@ -1,0 +1,143 @@
+name: Bug report
+description: Report a reproducible problem with this image's install, sync, lifecycle, shutdown, or runtime behavior.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+
+        Do not paste secrets such as RCON passwords, S3 access keys, secret keys, tokens, or private URLs.
+        Redact sensitive values before submitting logs, manifests, or environment variables.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem.
+    validations:
+      required: true
+
+  - type: input
+    id: image
+    attributes:
+      label: Image tag or commit
+      placeholder: ghcr.io/alexandergg-0520/minecraft-server:latest or commit SHA
+    validations:
+      required: true
+
+  - type: input
+    id: type
+    attributes:
+      label: Runtime type (TYPE)
+      placeholder: paper, fabric, forge, vanilla, velocity, auto, ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Minecraft version (VERSION)
+      placeholder: 1.21.10
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment_method
+    attributes:
+      label: Deployment method
+      options:
+        - Kubernetes
+        - Docker Compose
+        - Docker
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: kubernetes
+    attributes:
+      label: Kubernetes details, if applicable
+      description: Include namespace, workload type, storage class, PVC/access mode, and relevant volume details.
+      placeholder: |
+        Namespace:
+        Workload type:
+        PVC/storage details:
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Relevant environment variables
+      description: Include relevant variables with secrets redacted.
+      render: shell
+      placeholder: |
+        EULA=TRUE
+        TYPE=paper
+        VERSION=1.21.10
+        ENABLE_RCON=true
+        RCON_PASSWORD=<redacted>
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Include logs around install, sync, shutdown, or runtime launch.
+      render: text
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest steps, manifests, or commands needed to reproduce the issue.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: s3_minio
+    attributes:
+      label: Is S3/MinIO sync used?
+      options:
+        - "No"
+        - "Yes"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: rcon_shutdown
+    attributes:
+      label: Is RCON shutdown enabled?
+      options:
+        - "No"
+        - "Yes"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add anything else that may help triage the issue.
