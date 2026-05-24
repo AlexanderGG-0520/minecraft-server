@@ -2,7 +2,7 @@
 
 cleanup_rcon_lock_on_boot() {
   # Remove stale lock from previous container runs (best-effort)
-  rm -rf "${RCON_STOP_LOCK}" 2>/dev/null || true
+  safe_rm_rf "${RCON_STOP_LOCK}" 2>/dev/null || true
 }
 
 rcon_stop_result_file() {
@@ -22,8 +22,8 @@ write_rcon_stop_result() {
   tmp="${result_file}.$$"
 
   printf '%s\n' "${result}" > "${tmp}" 2>/dev/null || return 1
-  mv -f "${tmp}" "${result_file}" 2>/dev/null || {
-    rm -f "${tmp}" 2>/dev/null || true
+  safe_mv_f "${tmp}" "${result_file}" 2>/dev/null || {
+    safe_rm_f "${tmp}" 2>/dev/null || true
     return 1
   }
 }

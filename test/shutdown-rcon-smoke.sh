@@ -174,6 +174,7 @@ run_signal_group_smoke() {
 ORIGINAL_PATH="${PATH}"
 cd "${repo}"
 source ./scripts/lib/logging.sh
+source ./scripts/lib/filesystem.sh
 source ./scripts/lib/rcon.sh
 source ./scripts/lib/shutdown.sh
 json_escape() {

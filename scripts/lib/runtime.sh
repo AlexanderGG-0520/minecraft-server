@@ -94,16 +94,16 @@ write_server_install_marker() {
     --arg version "$installed_version" \
     --arg build "$build" \
     '{artifact:$artifact,type:$type,version:$version,build:$build}' > "$tmp"; then
-    rm -f -- "$tmp"
+    safe_rm_f "$tmp"
     return 1
   fi
 
-  if ! mv -f "$tmp" "$marker"; then
-    rm -f -- "$tmp"
+  if ! safe_mv_f "$tmp" "$marker"; then
+    safe_rm_f "$tmp"
     return 1
   fi
 
-  rm -f -- "$tmp"
+  safe_rm_f "$tmp"
 }
 
 resolve_type_auto() {
