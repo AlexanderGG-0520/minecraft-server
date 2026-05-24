@@ -107,6 +107,9 @@ jobs:
       - name: Filesystem safety smoke
         run: test/filesystem-safety-smoke.sh
 
+      - name: Safe temp files smoke
+        run: test/safe-temp-files-smoke.sh
+
       - name: Server properties TYPE smoke
         run: |
           set -euo pipefail

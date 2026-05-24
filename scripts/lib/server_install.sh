@@ -4,9 +4,11 @@ download_file_atomic() {
   local url="$1"
   local dest="$2"
   local label="$3"
-  local tmp="${dest}.tmp.$$"
+  local dest_dir dest_base tmp
+  dest_dir="$(dirname "$dest")"
+  dest_base="$(basename "$dest")"
+  tmp="$(mktemp "${dest_dir}/.${dest_base}.tmp.XXXXXX")"
 
-  safe_rm_f "$tmp"
   if ! curl -fL "$url" -o "$tmp"; then
     safe_rm_f "$tmp"
     die "Failed to download ${label}"
@@ -17,16 +19,21 @@ download_file_atomic() {
     die "Downloaded ${label} is empty"
   }
 
-  safe_mv_f "$tmp" "$dest"
+  if ! safe_mv_f "$tmp" "$dest"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
 }
 
 download_vanilla_server_atomic() {
   local url="$1"
   local sha1="$2"
   local dest="$3"
-  local tmp="${dest}.tmp.$$"
+  local dest_dir dest_base tmp
+  dest_dir="$(dirname "$dest")"
+  dest_base="$(basename "$dest")"
+  tmp="$(mktemp "${dest_dir}/.${dest_base}.tmp.XXXXXX")"
 
-  safe_rm_f "$tmp"
   if ! curl -fL "$url" -o "$tmp"; then
     safe_rm_f "$tmp"
     die "Failed to download vanilla server.jar"
@@ -42,7 +49,10 @@ download_vanilla_server_atomic() {
     die "Downloaded vanilla server.jar checksum mismatch"
   }
 
-  safe_mv_f "$tmp" "$dest"
+  if ! safe_mv_f "$tmp" "$dest"; then
+    safe_rm_f "$tmp"
+    return 1
+  fi
 }
 
 install_vanilla_server_artifact() {
@@ -107,18 +117,21 @@ install_fabric_server_artifact() {
 
   log INFO "Installing Fabric server (MC=${VERSION}, loader=${LOADER_VERSION}, installer=${INSTALLER_VERSION})"
 
+  local INSTALLER_TMP
+  INSTALLER_TMP="$(mktemp /tmp/fabric-installer.XXXXXX.jar)"
   curl -fL \
     "https://maven.fabricmc.net/net/fabricmc/fabric-installer/${INSTALLER_VERSION}/fabric-installer-${INSTALLER_VERSION}.jar" \
-    -o /tmp/fabric-installer.jar \
-    || die "Failed to download Fabric installer"
+    -o "${INSTALLER_TMP}" \
+    || { safe_rm_f "${INSTALLER_TMP}"; die "Failed to download Fabric installer"; }
 
-  java -jar /tmp/fabric-installer.jar \
+  java -jar "${INSTALLER_TMP}" \
     server \
     -mcversion "${VERSION}" \
     -loader "${LOADER_VERSION}" \
     -downloadMinecraft \
     -dir "${DATA_DIR}" \
-    || die "Fabric installer failed"
+    || { safe_rm_f "${INSTALLER_TMP}"; die "Fabric installer failed"; }
+  safe_rm_f "${INSTALLER_TMP}"
 
   log INFO "Fabric server.jar ready"
   write_server_install_marker "fabric-server-launch.jar" "fabric" "${VERSION}" "${LOADER_VERSION}"
@@ -186,13 +199,16 @@ install_forge_server_artifact() {
     log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
 
     INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
+    local INSTALLER_TMP
+    INSTALLER_TMP="$(mktemp "/tmp/${INSTALLER}.XXXXXX")"
     curl -fL \
       "https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}" \
-      -o "/tmp/${INSTALLER}" \
-      || die "Failed to download Forge installer"
+      -o "${INSTALLER_TMP}" \
+      || { safe_rm_f "${INSTALLER_TMP}"; die "Failed to download Forge installer"; }
 
-    java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
-      || die "Forge installer failed"
+    java -jar "${INSTALLER_TMP}" --installServer "${DATA_DIR}" \
+      || { safe_rm_f "${INSTALLER_TMP}"; die "Forge installer failed"; }
+    safe_rm_f "${INSTALLER_TMP}"
 
     [[ -x "${DATA_DIR}/run.sh" ]] || die "Forge install finished but run.sh not found"
 
@@ -236,13 +252,16 @@ install_neoforge_server_artifact() {
     log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
 
     INSTALLER="neoforge-${NEO_VER}-installer.jar"
+    local INSTALLER_TMP
+    INSTALLER_TMP="$(mktemp "/tmp/${INSTALLER}.XXXXXX")"
     curl -fL \
       "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/${INSTALLER}" \
-      -o "/tmp/${INSTALLER}" \
-      || die "Failed to download NeoForge installer"
+      -o "${INSTALLER_TMP}" \
+      || { safe_rm_f "${INSTALLER_TMP}"; die "Failed to download NeoForge installer"; }
 
-    java -jar "/tmp/${INSTALLER}" --installServer "${DATA_DIR}" \
-      || die "NeoForge installer failed"
+    java -jar "${INSTALLER_TMP}" --installServer "${DATA_DIR}" \
+      || { safe_rm_f "${INSTALLER_TMP}"; die "NeoForge installer failed"; }
+    safe_rm_f "${INSTALLER_TMP}"
 
     [[ -x "${DATA_DIR}/run.sh" ]] || die "NeoForge install finished but run.sh not found"
 
@@ -513,8 +532,7 @@ install_velocity_server_artifact() {
   log INFO "Installing Velocity ${VERSION} build ${BUILD_ID} (channel=${VELOCITY_CHANNEL})"
   log INFO "Download URL: ${DL_URL}"
 
-  VELOCITY_TMP="${DATA_DIR}/velocity.jar.tmp.$$"
-  safe_rm_f "${VELOCITY_TMP}"
+  VELOCITY_TMP="$(mktemp "${DATA_DIR}/.velocity.jar.tmp.XXXXXX")"
   if ! curl -fL -H "User-Agent: ${VELOCITY_UA}" "${DL_URL}" -o "${VELOCITY_TMP}"; then
     safe_rm_f "${VELOCITY_TMP}"
     die "Failed to download Velocity jar"
@@ -524,7 +542,10 @@ install_velocity_server_artifact() {
     safe_rm_f "${VELOCITY_TMP}"
     die "Downloaded Velocity jar is too small"
   }
-  safe_mv_f "${VELOCITY_TMP}" "${DATA_DIR}/velocity.jar"
+  if ! safe_mv_f "${VELOCITY_TMP}" "${DATA_DIR}/velocity.jar"; then
+    safe_rm_f "${VELOCITY_TMP}"
+    return 1
+  fi
 
   log INFO "Velocity jar ready"
   write_server_install_marker "velocity.jar" "velocity" "${VERSION}" "${BUILD_ID}"

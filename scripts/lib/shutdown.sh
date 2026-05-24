@@ -41,12 +41,17 @@ initialize_rcon_stop_result() {
 write_rcon_stop_result() {
   local result="$1"
   local result_file
+  local result_dir
   local tmp
 
   result_file="$(rcon_stop_result_file)"
-  tmp="${result_file}.$$"
+  result_dir="$(dirname "${result_file}")"
+  tmp="$(mktemp "${result_dir}/result.XXXXXX")" || return 1
 
-  printf '%s\n' "${result}" > "${tmp}" 2>/dev/null || return 1
+  printf '%s\n' "${result}" > "${tmp}" 2>/dev/null || {
+    safe_rm_f "${tmp}" 2>/dev/null || true
+    return 1
+  }
   safe_mv_f "${tmp}" "${result_file}" 2>/dev/null || {
     safe_rm_f "${tmp}" 2>/dev/null || true
     return 1
