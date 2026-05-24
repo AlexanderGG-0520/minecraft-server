@@ -41,7 +41,7 @@ kubectl apply -f examples/kubernetes/paper-pvc/
 
 ## Minecraft version
 
-The example uses `VERSION=26.1.2` as a current Paper-compatible example version at the time this file
+The example uses `VERSION=1.21.11` as a current Paper-compatible example version at the time this file
 was written. Change the `VERSION` environment variable in `deployment.yaml` before creating or updating
 the server.
 
