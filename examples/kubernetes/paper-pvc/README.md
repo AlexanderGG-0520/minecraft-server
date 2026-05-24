@@ -72,8 +72,9 @@ secret value before use.
 ## Why `/data/.ready`
 
 The readiness probe checks for `/data/.ready`. The image creates this file only after the runtime has
-survived its readiness delay, and removes it during shutdown. This lets Kubernetes stop routing traffic
-to the pod during controlled termination.
+survived its readiness delay. In this minimal example, the `preStop` hook only calls
+`/entrypoint.sh rcon-stop`, so you should not rely on `/data/.ready` being removed immediately during
+controlled termination; treat it primarily as a startup-readiness signal in this configuration.
 
 ## Volume safety
 
