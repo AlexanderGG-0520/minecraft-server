@@ -30,7 +30,7 @@ workflows.
 * [Environment Variables](https://github.com/AlexanderGG-0520/minecraft-server/wiki/Environment-Variables)
 * [S3/MinIO safety notes](#s3-sync-safety-notes)
 * [Kubernetes shutdown recommendations](#kubernetes-shutdown-recommendations)
-* [Install-only mode](#install-only-mode)
+* [Install-only mode](#install-only-mode-new)
 
 ---
 
