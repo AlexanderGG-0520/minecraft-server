@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minecraft-paper
+  namespace: minecraft-paper-minio
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: minecraft-paper
+  template:
+    metadata:
+      labels:
+        app: minecraft-paper
+    spec:
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: minecraft
+          image: ghcr.io/alexandergg-0520/minecraft-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: minecraft
+              containerPort: 25565
+              protocol: TCP
+          env:
+            - name: EULA
+              value: "TRUE"
+            - name: TYPE
+              value: paper
+            - name: VERSION
+              value: "1.21.10"
+            - name: ENABLE_RCON
+              value: "true"
+            - name: RCON_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minecraft-rcon
+                  key: password
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: minecraft-s3
+                  key: endpoint
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minecraft-s3
+                  key: access-key
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minecraft-s3
+                  key: secret-key
+            - name: PLUGINS_ENABLED
+              value: "true"
+            - name: PLUGINS_S3_BUCKET
+              value: minecraft-assets
+            - name: PLUGINS_S3_PREFIX
+              value: paper/plugins
+            - name: PLUGINS_SYNC_ONCE
+              value: "true"
+            - name: PLUGINS_REMOVE_EXTRA
+              value: "false"
+            - name: CONFIGS_ENABLED
+              value: "true"
+            - name: CONFIGS_S3_BUCKET
+              value: minecraft-assets
+            - name: CONFIGS_S3_PREFIX
+              value: paper/configs
+            - name: CONFIGS_SYNC_ONCE
+              value: "true"
+            - name: CONFIGS_REMOVE_EXTRA
+              value: "false"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/entrypoint.sh", "rcon-stop"]
+          readinessProbe:
+            exec:
+              command: ["test", "-f", "/data/.ready"]
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minecraft-data

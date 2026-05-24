@@ -83,31 +83,31 @@ log INFO "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${MODS_ENABLED:=true}"
 : "${MODS_S3_PREFIX:=mods/latest}"
 : "${MODS_SYNC_ONCE:=true}"
-: "${MODS_REMOVE_EXTRA:=true}"
+: "${MODS_REMOVE_EXTRA:=false}"
 
 # Plugins
 : "${PLUGINS_ENABLED:=true}"
 : "${PLUGINS_S3_PREFIX:=plugins/latest}"
 : "${PLUGINS_SYNC_ONCE:=true}"
-: "${PLUGINS_REMOVE_EXTRA:=true}"
+: "${PLUGINS_REMOVE_EXTRA:=false}"
 
 # Configs
 : "${CONFIGS_ENABLED:=true}"
 : "${CONFIGS_S3_PREFIX:=configs/latest}"
 : "${CONFIGS_SYNC_ONCE:=true}"
-: "${CONFIGS_REMOVE_EXTRA:=true}"
+: "${CONFIGS_REMOVE_EXTRA:=false}"
 
 # Datapacks
 : "${DATAPACKS_ENABLED:=true}"
 : "${DATAPACKS_S3_PREFIX:=datapacks/latest}"
 : "${DATAPACKS_SYNC_ONCE:=true}"
-: "${DATAPACKS_REMOVE_EXTRA:=true}"
+: "${DATAPACKS_REMOVE_EXTRA:=false}"
 
 # Resourcepacks
 : "${RESOURCEPACKS_ENABLED:=true}"
 : "${RESOURCEPACKS_S3_PREFIX:=resourcepacks/latest}"
 : "${RESOURCEPACKS_SYNC_ONCE:=true}"
-: "${RESOURCEPACKS_REMOVE_EXTRA:=true}"
+: "${RESOURCEPACKS_REMOVE_EXTRA:=false}"
 : "${RESOURCEPACKS_AUTO_APPLY:=true}"
 : "${RESOURCEPACK_REQUIRED:=false}"
 
