@@ -26,9 +26,19 @@ expect_refusal() {
 
 expect_refusal "Refusing to remove unsafe path" safe_rm_f ""
 expect_refusal "Refusing to remove unsafe path" safe_rm_rf /
+expect_refusal "Refusing to remove unsafe path" safe_rm_rf ///
+expect_refusal "Refusing to remove unsafe path" safe_rm_rf /.
+expect_refusal "Refusing to remove unsafe path" safe_rm_rf /..
 expect_refusal "Refusing to move from unsafe path" safe_mv "" "$tmp/dst"
+expect_refusal "Refusing to move from unsafe path" safe_mv /.. "$tmp/dst"
 expect_refusal "Refusing to move to unsafe path" safe_mv "$tmp/src" /
+expect_refusal "Refusing to move to unsafe path" safe_mv "$tmp/src" ///
+expect_refusal "Refusing to move to unsafe path" safe_mv "$tmp/src" /.
+expect_refusal "Refusing to move to unsafe path" safe_mv "$tmp/src" /..
 expect_refusal "Refusing to move to unsafe path" safe_mv_f "$tmp/src" ""
+expect_refusal "Refusing to move to unsafe path" safe_mv_f "$tmp/src" ///
+expect_refusal "Refusing to move to unsafe path" safe_mv_f "$tmp/src" /.
+expect_refusal "Refusing to move to unsafe path" safe_mv_f "$tmp/src" /..
 
 printf '%s\n' file > "$tmp/file"
 safe_rm_f "$tmp/file"
