@@ -30,7 +30,7 @@ spec:
             - name: TYPE
               value: paper
             - name: VERSION
-              value: "26.1.2"
+              value: "1.21.11"
             - name: ENABLE_RCON
               value: "true"
             - name: RCON_PASSWORD
