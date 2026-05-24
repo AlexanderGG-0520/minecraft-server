@@ -56,7 +56,6 @@ jobs:
           declare -F safe_rm_rf >/dev/null
           declare -F safe_mv >/dev/null
           declare -F safe_mv_f >/dev/null
-          declare -F set_readable_file_permissions >/dev/null
           declare -F is_auto_type >/dev/null
           declare -F is_supported_runtime_type >/dev/null
           declare -F uses_server_properties >/dev/null
@@ -107,9 +106,6 @@ jobs:
 
       - name: Filesystem safety smoke
         run: test/filesystem-safety-smoke.sh
-
-      - name: Safe temp files smoke
-        run: test/safe-temp-files-smoke.sh
 
       - name: Server properties TYPE smoke
         run: |

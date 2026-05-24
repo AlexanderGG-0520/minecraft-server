@@ -9,6 +9,7 @@ download_file_atomic() {
   dest_base="$(basename "$dest")"
   tmp="$(mktemp "${dest_dir}/.${dest_base}.tmp.XXXXXX")"
 
+  safe_rm_f "$tmp"
   if ! curl -fL "$url" -o "$tmp"; then
     safe_rm_f "$tmp"
     die "Failed to download ${label}"
@@ -19,11 +20,7 @@ download_file_atomic() {
     die "Downloaded ${label} is empty"
   }
 
-  if ! safe_mv_f "$tmp" "$dest"; then
-    safe_rm_f "$tmp"
-    return 1
-  fi
-  set_readable_file_permissions "$dest"
+  safe_mv_f "$tmp" "$dest"
 }
 
 download_vanilla_server_atomic() {
@@ -35,6 +32,7 @@ download_vanilla_server_atomic() {
   dest_base="$(basename "$dest")"
   tmp="$(mktemp "${dest_dir}/.${dest_base}.tmp.XXXXXX")"
 
+  safe_rm_f "$tmp"
   if ! curl -fL "$url" -o "$tmp"; then
     safe_rm_f "$tmp"
     die "Failed to download vanilla server.jar"
@@ -50,11 +48,7 @@ download_vanilla_server_atomic() {
     die "Downloaded vanilla server.jar checksum mismatch"
   }
 
-  if ! safe_mv_f "$tmp" "$dest"; then
-    safe_rm_f "$tmp"
-    return 1
-  fi
-  set_readable_file_permissions "$dest"
+  safe_mv_f "$tmp" "$dest"
 }
 
 install_vanilla_server_artifact() {
@@ -534,7 +528,8 @@ install_velocity_server_artifact() {
   log INFO "Installing Velocity ${VERSION} build ${BUILD_ID} (channel=${VELOCITY_CHANNEL})"
   log INFO "Download URL: ${DL_URL}"
 
-  VELOCITY_TMP="$(mktemp "${DATA_DIR}/.velocity.jar.tmp.XXXXXX")"
+  VELOCITY_TMP="${DATA_DIR}/velocity.jar.tmp.$$"
+  safe_rm_f "${VELOCITY_TMP}"
   if ! curl -fL -H "User-Agent: ${VELOCITY_UA}" "${DL_URL}" -o "${VELOCITY_TMP}"; then
     safe_rm_f "${VELOCITY_TMP}"
     die "Failed to download Velocity jar"
@@ -544,11 +539,7 @@ install_velocity_server_artifact() {
     safe_rm_f "${VELOCITY_TMP}"
     die "Downloaded Velocity jar is too small"
   }
-  if ! safe_mv_f "${VELOCITY_TMP}" "${DATA_DIR}/velocity.jar"; then
-    safe_rm_f "${VELOCITY_TMP}"
-    return 1
-  fi
-  set_readable_file_permissions "${DATA_DIR}/velocity.jar"
+  safe_mv_f "${VELOCITY_TMP}" "${DATA_DIR}/velocity.jar"
 
   log INFO "Velocity jar ready"
   write_server_install_marker "velocity.jar" "velocity" "${VERSION}" "${BUILD_ID}"
