@@ -342,9 +342,10 @@ The recent safety refactor series closed the following backlog items:
   - Status: completed for reset path-safety.
 - Add path sanity checks before `rm -rf`.
   - Status: completed for reset path-safety.
-- Duplicated successful-path reset flag removal remains unresolved and should
-  stay in a dedicated behavior PR because it can affect fresh reset failure
-  behavior.
+- Duplicated successful-path reset flag removal is completed. Reset flag
+  deletion now goes through the shared validated removal helper, and
+  `handle_reset_world_flag` only consumes a fresh flag after `reset_world`
+  returns successfully when the flag still exists.
 - Backup/temp/atomic handling remains unresolved and should stay in a dedicated
   destructive-path-adjacent PR.
 - Preserve existing reset behavior until a dedicated non-mechanical improvement

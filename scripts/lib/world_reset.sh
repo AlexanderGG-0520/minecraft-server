@@ -80,6 +80,14 @@ validate_world_reset_flag_path() {
   return 0
 }
 
+remove_reset_world_flag() {
+  local data_dir="${1:-}"
+  local flag_path="${2:-}"
+
+  validate_world_reset_flag_path "${data_dir}" "${flag_path}" || return 1
+  safe_rm_f "${flag_path}"
+}
+
 validate_world_reset_paths() {
   local data_dir="${1:-}"
   local world_dir="${2:-}"
@@ -341,7 +349,7 @@ reset_world() {
   log INFO "World directory reset complete"
 
   # ---- Step 4: delete the FLAG file to prevent repeated resets ----
-  safe_rm_f "${FLAG_FILE}"
+  remove_reset_world_flag "${DATA_DIR:-}" "${FLAG_FILE}" || return 1
 
   log INFO "World reset completed successfully"
 }
@@ -358,14 +366,15 @@ handle_reset_world_flag() {
 
     if (( NOW - MTIME > MAX_AGE )); then
       log ERROR "reset-world.flag expired (older than ${MAX_AGE}s), resetting aborted"
-      validate_world_reset_flag_path "${DATA_DIR:-}" "${FLAG}" || return 1
-      safe_rm_f "$FLAG"
+      remove_reset_world_flag "${DATA_DIR:-}" "${FLAG}" || return 1
       return
     fi
 
     log WARN "reset-world.flag valid, proceeding to reset world"
     reset_world || return 1
-    safe_rm_f "$FLAG"
+    if [[ -f "${FLAG}" ]]; then
+      remove_reset_world_flag "${DATA_DIR:-}" "${FLAG}" || return 1
+    fi
     log INFO "reset-world.flag consumed"
   else
     log INFO "No reset-world.flag detected, skipping world reset"
