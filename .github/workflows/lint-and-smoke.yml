@@ -867,10 +867,10 @@ jobs:
           ! find "$fail_tmp" -maxdepth 1 -name '.server-install.json.tmp.*' -print -quit | grep -q .
 
           write_server_install_marker "server.jar" "paper" "1.21.8" "123"
-          assert_server_install_matches "server.jar" "paper" "1.21.8"
+          assert_server_install_matches "server.jar" "paper" "1.21.8" "123"
 
           set +e
-          ( assert_server_install_matches "server.jar" "vanilla" "1.21.8" ) >/dev/null 2>&1
+          ( assert_server_install_matches "server.jar" "vanilla" "1.21.8" "" ) >/dev/null 2>&1
           mismatch_status=$?
           set -e
           test "$mismatch_status" -ne 0

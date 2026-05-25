@@ -310,6 +310,7 @@ jobs:
             -e EULA=true \
             -e TYPE=auto \
             -e VERSION=1.21.8 \
+            -e PAPER_BUILD=123 \
             -e ENABLE_RCON=false \
             minecraft-server:test-jre21 \
             install-only 2>&1)"
