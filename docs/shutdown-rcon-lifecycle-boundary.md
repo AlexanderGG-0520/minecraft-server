@@ -156,7 +156,7 @@ Current shutdown behavior:
 
 Current command-mode behavior:
 
-- The top-level command-mode `case` supports:
+- `scripts/lib/command_mode.sh` supports:
   - `run`
   - `install-only`
   - `rcon`

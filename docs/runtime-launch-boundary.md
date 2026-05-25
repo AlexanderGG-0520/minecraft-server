@@ -13,8 +13,8 @@ Recommended file: `scripts/lib/runtime_launch.sh`
 
 Status: started. `run_server` and `runtime` have moved mechanically to
 `scripts/lib/runtime_launch.sh`. Shutdown/RCON/signal handling, lifecycle hook
-implementation, command-line mode selection, and install-only orchestration have
-not moved.
+implementation, and install-only orchestration have not moved. Command-mode
+selection now lives in `scripts/lib/command_mode.sh`.
 
 Use `scripts/lib/runtime_launch.sh` because the boundary is about launching the
 selected runtime after install/bootstrap has completed. Avoid
@@ -37,8 +37,6 @@ The future library should answer:
 - When preflight, type resolution, install/bootstrap, install-only exit, and
   runtime launch happen.
 - When lifecycle phases run relative to install and runtime launch.
-- How command-line modes such as `run`, `install-only`, `rcon`, `rcon-say`, and
-  `rcon-stop` are selected.
 - How signal handling and shutdown orchestration are wired unless a later
   dedicated boundary moves them intentionally.
 
@@ -112,7 +110,8 @@ Current adjacent behavior:
   `RCON_STOP_RESULT` to avoid duplicate RCON stop behavior.
 - `rcon_exec`, `rcon_say`, `rcon_stop`, and `rcon_tellraw_all` are adjacent to
   launch because shutdown can invoke them.
-- Command modes `rcon`, `rcon-say`, and `rcon-stop` are selected before `main`.
+- Command modes `rcon`, `rcon-say`, and `rcon-stop` are selected by
+  `scripts/lib/command_mode.sh` before `main`.
 - A Velocity foreground launch footer exists after the sourced guard. It checks
   `TYPE=velocity`, requires `${DATA_DIR}/velocity.jar`, changes to
   `${DATA_DIR}`, and `exec`s `java -jar "${DATA_DIR}/velocity.jar"` if reached.
@@ -192,8 +191,8 @@ Recommended implementation PRs:
 4. Keep process orchestration, signal handling, lifecycle hooks, and RCON
    behavior in `entrypoint.sh` unless they are inseparable from `run_server`.
    - Status: completed for the `runtime` launch dispatch move only. Shutdown,
-     RCON, signal handling, lifecycle hook implementation, command-line mode
-     selection, and install-only orchestration remain in `entrypoint.sh`.
+     RCON, signal handling, lifecycle hook implementation, and install-only
+     orchestration remain in `entrypoint.sh`.
 5. After `runtime_launch.sh` stabilizes, consider dedicated behavior-neutral
    boundaries for lifecycle hooks, RCON, and shutdown/signal handling.
 6. Do not combine runtime launch moves with cleanup backlog items.
