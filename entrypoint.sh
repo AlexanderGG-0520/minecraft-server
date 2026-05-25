@@ -30,6 +30,8 @@ source "${ENTRYPOINT_DIR%/}/scripts/lib/world_reset.sh"
 source "${ENTRYPOINT_DIR%/}/scripts/lib/server_properties.sh"
 # shellcheck source=scripts/lib/install_phase.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/install_phase.sh"
+# shellcheck source=scripts/lib/command_mode.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/command_mode.sh"
 
 # shellcheck disable=SC2034  # Reserved global for PID-oriented lifecycle handling.
 MC_PID=""
@@ -2065,31 +2067,10 @@ SERVER_PID=""
 # Single source of truth for signals (make sure there is only ONE trap)
 trap 'graceful_shutdown' TERM INT QUIT
 
-case "${1:-run}" in
-  run)
-    shift || true
-    ;;
-  install-only)
-    INSTALL_ONLY=true
-    shift || true
-    ;;
-  rcon)
-    shift
-    rcon_exec "$@"
-    exit $?
-    ;;
-  rcon-say)
-    shift
-    rcon_say "$@"
-    exit $?
-    ;;
-  rcon-stop)
-    if ! rcon_stop_once; then
-      log WARN "[shutdown] rcon-stop command failed; exiting 0 for Kubernetes preStop compatibility"
-    fi
-    exit 0
-    ;;
-esac
+handle_command_mode "$@"
+if (( COMMAND_MODE_SHIFT > 0 )); then
+  shift "${COMMAND_MODE_SHIFT}" || true
+fi
 
 main() {
   log INFO "Minecraft Runtime Booting..."

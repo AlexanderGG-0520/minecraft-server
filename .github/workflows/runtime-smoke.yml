@@ -44,6 +44,7 @@ jobs:
             source /scripts/lib/world_reset.sh
             source /scripts/lib/server_properties.sh
             source /scripts/lib/install_phase.sh
+            source /scripts/lib/command_mode.sh
             declare -F log >/dev/null
             declare -F safe_rm_f >/dev/null
             declare -F safe_rm_rf >/dev/null
@@ -94,6 +95,7 @@ jobs:
             declare -F ensure_server_properties >/dev/null
             declare -F bootstrap_server_properties >/dev/null
             declare -F install >/dev/null
+            declare -F handle_command_mode >/dev/null
           '
 
       - name: Smoke Modrinth mrpack local install

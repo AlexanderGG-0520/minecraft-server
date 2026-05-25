@@ -92,10 +92,35 @@ Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
 existing-artifact validation helper have also moved there. Velocity artifact
 installation and `install_server` dispatch have moved there too. `run_server`
 and runtime launch dispatch have moved to `scripts/lib/runtime_launch.sh`.
-Shutdown/RCON/signal handling, lifecycle hook implementation, command-line mode
-selection, and install-only orchestration remain in `entrypoint.sh`.
+Shutdown/RCON/signal handling, lifecycle hook implementation, and install-only
+orchestration remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
+
+### Command mode selection
+
+Suggested file: `scripts/lib/command_mode.sh`
+
+Status: completed for command-mode dispatch. `handle_command_mode` owns the
+selection of `run`, `install-only`, `rcon`, `rcon-say`, and `rcon-stop`, while
+`entrypoint.sh` still owns applying the argument shift requested by command-mode dispatch, install-only exit
+timing, `main()`, and signal trap registration.
+
+Owns:
+
+- Selecting supported command modes.
+- Setting `INSTALL_ONLY=true` for `install-only`.
+- Delegating `rcon`, `rcon-say`, and `rcon-stop` command modes to the existing
+  RCON helpers.
+- Preserving the Kubernetes preStop-compatible `rcon-stop` zero exit behavior.
+
+Does not own:
+
+- `main()` execution.
+- Install-only early exit after the install phase.
+- Runtime launch.
+- Signal trap registration.
+- Shutdown/RCON implementation details.
 
 ### Install phase orchestration
 
@@ -205,7 +230,6 @@ control:
 
 - source libraries in dependency order.
 - initialize process-global defaults and state that other helpers read.
-- select command mode (`run`, `install-only`, `rcon`, `rcon-say`, `rcon-stop`).
 - call install and runtime in the correct order.
 - exit early for `install-only` before runtime launch.
 - register the shutdown signal trap.
@@ -218,7 +242,6 @@ clear reason to move them.
 Do not casually move:
 
 - signal trap registration
-- command-mode selection
 - install-only orchestration
 - source order
 - process-global initialization for `SERVER_PID`, `RCON_STOP_RESULT`,
@@ -227,7 +250,6 @@ Do not casually move:
 
 Possible future dedicated boundaries, if needed:
 
-- CLI / command-mode boundary
 - process-state/global initialization boundary
 - signal-trap boundary
 
@@ -267,6 +289,7 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
 - `server_install.sh`: server artifact download/install helpers and
   `install_server`.
 - `install_phase.sh`: high-level install phase ordering.
+- `command_mode.sh`: command-mode dispatch.
 - `velocity_config.sh`: Velocity config generation.
 - `runtime_launch.sh`: `run_server` and runtime dispatch.
 - `world_install.sh`: world install helpers.
@@ -280,7 +303,6 @@ What intentionally remains in `entrypoint.sh`:
 
 - source order.
 - process-global initialization and defaults.
-- command-mode selection.
 - install-only and runtime orchestration.
 - install-only early exit behavior.
 - signal trap registration.
@@ -289,7 +311,6 @@ What intentionally remains in `entrypoint.sh`:
 What should not be moved casually:
 
 - source order.
-- command-mode selection.
 - install-only orchestration.
 - process-global initialization for `SERVER_PID`, `RCON_STOP_RESULT`,
   `RCON_STOP_LOCK`, and `RCON_STOP_IN_PROGRESS`.
