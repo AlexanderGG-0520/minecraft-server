@@ -7,6 +7,7 @@ Start with:
 - `docker/fabric/compose.yml` for a small local Fabric server.
 - `kubernetes/fabric-basic.yaml` for a minimal Kubernetes deployment.
 - `kubernetes/paper-pvc/` for a minimal Kubernetes Paper server with a PVC and RCON shutdown.
+- `kubernetes/paper-minio-assets/` for a Paper server with PVC storage and MinIO-backed plugin/config sync.
 - `kubernetes/install-only-job.example.yaml` for pre-warming a volume without launching runtime.
 - `kubernetes/rcon-secret.example.yaml` for non-default RCON shutdown credentials.
 
