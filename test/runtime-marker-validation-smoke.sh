@@ -29,7 +29,7 @@ expect_failure() {
 marker="$tmp/.server-install.json"
 
 write_server_install_marker "server.jar" "paper" "1.21.8" "123"
-assert_server_install_matches "server.jar" "paper" "1.21.8"
+assert_server_install_matches "server.jar" "paper" "1.21.8" "123"
 
 printf '{\n' > "$marker"
 expect_failure "Invalid server install marker JSON: $marker" \
@@ -53,6 +53,10 @@ expect_failure "Incomplete server install marker: $marker missing build" \
 
 printf '{"artifact":"server.jar","type":"unknown","version":"1.21.8","build":"123"}\n' > "$marker"
 expect_failure "Invalid server install marker: $marker unsupported type unknown" \
+  assert_server_install_matches "server.jar" "paper" "1.21.8"
+
+printf '{"artifact":"other.jar","type":"paper","version":"1.21.8","build":"123"}\n' > "$marker"
+expect_failure "Invalid server install marker: $marker unsupported artifact other.jar" \
   assert_server_install_matches "server.jar" "paper" "1.21.8"
 
 printf '{\n' > "$marker"

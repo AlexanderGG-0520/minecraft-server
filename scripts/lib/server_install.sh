@@ -58,9 +58,10 @@ install_vanilla_server_artifact() {
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for vanilla"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
-    assert_server_install_matches "server.jar" "vanilla" "${VERSION}"
-    log INFO "server.jar already exists, skipping"
-    return
+    if assert_server_install_matches "server.jar" "vanilla" "${VERSION}" ""; then
+      log INFO "server.jar already exists, skipping"
+      return
+    fi
   fi
 
   log INFO "Downloading vanilla server ${VERSION}"
@@ -83,12 +84,6 @@ install_fabric_server_artifact() {
 
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for fabric"
 
-  if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
-    assert_server_install_matches "fabric-server-launch.jar" "fabric" "${VERSION}"
-    log INFO "fabric-server-launch.jar already exists, skipping"
-    return
-  fi
-
   json="$(curl -fsSL "https://meta.fabricmc.net/v2/versions/loader/${VERSION}" || true)"
 
   LOADER_VERSION="$(printf '%s' "$json" | jq -er '
@@ -100,6 +95,12 @@ install_fabric_server_artifact() {
 
   [[ -n "${LOADER_VERSION}" ]] || die "Failed to resolve Fabric loader version"
 
+  if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
+    if assert_server_install_matches "fabric-server-launch.jar" "fabric" "${VERSION}" "${LOADER_VERSION}"; then
+      log INFO "fabric-server-launch.jar already exists, skipping"
+      return
+    fi
+  fi
 
   # ---- resolve installer (from Maven) ----
   INSTALLER_VERSION="${FABRIC_INSTALLER_VERSION:-latest}"
@@ -137,9 +138,10 @@ install_quilt_server_artifact() {
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for quilt"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
-    assert_server_install_matches "server.jar" "quilt" "${VERSION}"
-    log INFO "server.jar already exists, skipping"
-    return
+    if assert_server_install_matches "server.jar" "quilt" "${VERSION}" ""; then
+      log INFO "server.jar already exists, skipping"
+      return
+    fi
   fi
 
   log INFO "Installing Quilt server ${VERSION}"
@@ -188,30 +190,34 @@ install_forge_server_artifact() {
 
   MARKER="${DATA_DIR}/.installed-forge-${VERSION}-${FORGE_VER}"
 
-  if [[ -f "${MARKER}" ]]; then
-    assert_server_install_matches "run.sh" "forge" "${VERSION}"
-    log INFO "Forge already installed (MC=${VERSION}, forge=${FORGE_VER}), skipping"
-  else
-    log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
-
-    INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
-    local INSTALLER_TMP
-    INSTALLER_TMP="$(mktemp "/tmp/${INSTALLER}.XXXXXX")"
-    curl -fL \
-      "https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}" \
-      -o "${INSTALLER_TMP}" \
-      || { safe_rm_f "${INSTALLER_TMP}"; die "Failed to download Forge installer"; }
-
-    java -jar "${INSTALLER_TMP}" --installServer "${DATA_DIR}" \
-      || { safe_rm_f "${INSTALLER_TMP}"; die "Forge installer failed"; }
-    safe_rm_f "${INSTALLER_TMP}"
-
-    [[ -x "${DATA_DIR}/run.sh" ]] || die "Forge install finished but run.sh not found"
-
-    touch "${MARKER}"
-    write_server_install_marker "run.sh" "forge" "${VERSION}" "${FORGE_VER}"
-    log INFO "Forge installed marker created: ${MARKER}"
+  if [[ -f "${DATA_DIR}/run.sh" ]]; then
+    if assert_server_install_matches "run.sh" "forge" "${VERSION}" "${FORGE_VER}"; then
+      log INFO "Forge already installed (MC=${VERSION}, forge=${FORGE_VER}), skipping"
+      return
+    fi
+  elif [[ -f "${MARKER}" ]]; then
+    log WARN "Forge install marker exists without run.sh; reinstalling server artifact"
   fi
+
+  log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
+
+  INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
+  local INSTALLER_TMP
+  INSTALLER_TMP="$(mktemp "/tmp/${INSTALLER}.XXXXXX")"
+  curl -fL \
+    "https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}" \
+    -o "${INSTALLER_TMP}" \
+    || { safe_rm_f "${INSTALLER_TMP}"; die "Failed to download Forge installer"; }
+
+  java -jar "${INSTALLER_TMP}" --installServer "${DATA_DIR}" \
+    || { safe_rm_f "${INSTALLER_TMP}"; die "Forge installer failed"; }
+  safe_rm_f "${INSTALLER_TMP}"
+
+  [[ -x "${DATA_DIR}/run.sh" ]] || die "Forge install finished but run.sh not found"
+
+  touch "${MARKER}"
+  write_server_install_marker "run.sh" "forge" "${VERSION}" "${FORGE_VER}"
+  log INFO "Forge installed marker created: ${MARKER}"
 }
 
 install_neoforge_server_artifact() {
@@ -241,30 +247,34 @@ install_neoforge_server_artifact() {
 
   MARKER="${DATA_DIR}/.installed-neoforge-${VERSION}-${NEO_VER}"
 
-  if [[ -f "${MARKER}" ]]; then
-    assert_server_install_matches "run.sh" "neoforge" "${VERSION}"
-    log INFO "NeoForge already installed (MC=${VERSION}, neoforge=${NEO_VER}), skipping"
-  else
-    log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
-
-    INSTALLER="neoforge-${NEO_VER}-installer.jar"
-    local INSTALLER_TMP
-    INSTALLER_TMP="$(mktemp "/tmp/${INSTALLER}.XXXXXX")"
-    curl -fL \
-      "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/${INSTALLER}" \
-      -o "${INSTALLER_TMP}" \
-      || { safe_rm_f "${INSTALLER_TMP}"; die "Failed to download NeoForge installer"; }
-
-    java -jar "${INSTALLER_TMP}" --installServer "${DATA_DIR}" \
-      || { safe_rm_f "${INSTALLER_TMP}"; die "NeoForge installer failed"; }
-    safe_rm_f "${INSTALLER_TMP}"
-
-    [[ -x "${DATA_DIR}/run.sh" ]] || die "NeoForge install finished but run.sh not found"
-
-    touch "${MARKER}"
-    write_server_install_marker "run.sh" "neoforge" "${VERSION}" "${NEO_VER}"
-    log INFO "NeoForge installed marker created: ${MARKER}"
+  if [[ -f "${DATA_DIR}/run.sh" ]]; then
+    if assert_server_install_matches "run.sh" "neoforge" "${VERSION}" "${NEO_VER}"; then
+      log INFO "NeoForge already installed (MC=${VERSION}, neoforge=${NEO_VER}), skipping"
+      return
+    fi
+  elif [[ -f "${MARKER}" ]]; then
+    log WARN "NeoForge install marker exists without run.sh; reinstalling server artifact"
   fi
+
+  log INFO "Installing NeoForge server (MC=${VERSION}, neoforge=${NEO_VER})"
+
+  INSTALLER="neoforge-${NEO_VER}-installer.jar"
+  local INSTALLER_TMP
+  INSTALLER_TMP="$(mktemp "/tmp/${INSTALLER}.XXXXXX")"
+  curl -fL \
+    "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/${INSTALLER}" \
+    -o "${INSTALLER_TMP}" \
+    || { safe_rm_f "${INSTALLER_TMP}"; die "Failed to download NeoForge installer"; }
+
+  java -jar "${INSTALLER_TMP}" --installServer "${DATA_DIR}" \
+    || { safe_rm_f "${INSTALLER_TMP}"; die "NeoForge installer failed"; }
+  safe_rm_f "${INSTALLER_TMP}"
+
+  [[ -x "${DATA_DIR}/run.sh" ]] || die "NeoForge install finished but run.sh not found"
+
+  touch "${MARKER}"
+  write_server_install_marker "run.sh" "neoforge" "${VERSION}" "${NEO_VER}"
+  log INFO "NeoForge installed marker created: ${MARKER}"
 }
 
 install_paper_server_artifact() {
@@ -274,15 +284,7 @@ install_paper_server_artifact() {
 
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for paper"
 
-  if [[ -f "${DATA_DIR}/server.jar" ]]; then
-    assert_server_install_matches "server.jar" "paper" "${VERSION}"
-    log INFO "server.jar already exists, skipping"
-    return
-  fi
-
   BUILD="${PAPER_BUILD:-latest}"
-
-  log INFO "Installing Paper server (MC=${VERSION}, build=${BUILD})"
 
   if [[ "${BUILD}" == "latest" ]]; then
     log INFO "Resolving latest Paper build for MC ${VERSION}"
@@ -306,6 +308,15 @@ install_paper_server_artifact() {
     }
   fi
 
+  if [[ -f "${DATA_DIR}/server.jar" ]]; then
+    if assert_server_install_matches "server.jar" "paper" "${VERSION}" "${BUILD}"; then
+      log INFO "server.jar already exists, skipping"
+      return
+    fi
+  fi
+
+  log INFO "Installing Paper server (MC=${VERSION}, build=${BUILD})"
+
   JAR_NAME="paper-${VERSION}-${BUILD}.jar"
 
   download_file_atomic \
@@ -323,12 +334,6 @@ install_purpur_server_artifact() {
   local json
 
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for purpur"
-
-  if [[ -f "${DATA_DIR}/server.jar" ]]; then
-    assert_server_install_matches "server.jar" "purpur" "${VERSION}"
-    log INFO "server.jar already exists, skipping"
-    return
-  fi
 
   BUILD="${PURPUR_BUILD:-latest}"
 
@@ -353,6 +358,13 @@ install_purpur_server_artifact() {
     }
   fi
 
+  if [[ -f "${DATA_DIR}/server.jar" ]]; then
+    if assert_server_install_matches "server.jar" "purpur" "${VERSION}" "${BUILD}"; then
+      log INFO "server.jar already exists, skipping"
+      return
+    fi
+  fi
+
   JAR_NAME="purpur-${VERSION}-${BUILD}.jar"
 
   download_file_atomic \
@@ -368,9 +380,10 @@ install_mohist_server_artifact() {
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for mohist"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
-    assert_server_install_matches "server.jar" "mohist" "${VERSION}"
-    log INFO "server.jar already exists, skipping"
-    return
+    if assert_server_install_matches "server.jar" "mohist" "${VERSION}" ""; then
+      log INFO "server.jar already exists, skipping"
+      return
+    fi
   fi
 
   log INFO "Installing Mohist server ${VERSION}"
@@ -391,9 +404,10 @@ install_taiyitist_server_artifact() {
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for taiyitist"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
-    assert_server_install_matches "server.jar" "taiyitist" "${VERSION}"
-    log INFO "server.jar already exists, skipping"
-    return
+    if assert_server_install_matches "server.jar" "taiyitist" "${VERSION}" ""; then
+      log INFO "server.jar already exists, skipping"
+      return
+    fi
   fi
 
   log INFO "Resolving Taiyitist ${VERSION} release asset"
@@ -421,9 +435,10 @@ install_youer_server_artifact() {
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for youer"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
-    assert_server_install_matches "server.jar" "youer" "${VERSION}"
-    log INFO "server.jar already exists, skipping"
-    return
+    if assert_server_install_matches "server.jar" "youer" "${VERSION}" ""; then
+      log INFO "server.jar already exists, skipping"
+      return
+    fi
   fi
 
   log INFO "Installing Youer server ${VERSION}"
@@ -441,9 +456,10 @@ install_spigot_server_artifact() {
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for spigot"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
-    assert_server_install_matches "server.jar" "spigot" "${VERSION}"
-    log INFO "server.jar already exists, using existing Spigot artifact"
-    return
+    if assert_server_install_matches "server.jar" "spigot" "${VERSION}" ""; then
+      log INFO "server.jar already exists, using existing Spigot artifact"
+      return
+    fi
   fi
 
   die "TYPE=spigot requires an existing /data/server.jar; managed Spigot installer is not provided"
@@ -477,12 +493,6 @@ install_velocity_server_artifact() {
   # - FORCE_REDOWNLOAD=1 (optional): redownload even if velocity.jar exists
   # ============================================================
 
-  if [[ -f "${DATA_DIR}/velocity.jar" && "${FORCE_REDOWNLOAD:-0}" != "1" ]]; then
-    assert_server_install_matches "velocity.jar" "velocity" "${VERSION}"
-    log INFO "velocity.jar already exists, skipping (set FORCE_REDOWNLOAD=1 to override)"
-    return
-  fi
-
   VELOCITY_CHANNEL="${VELOCITY_CHANNEL:-STABLE}"
   # Common alias -> Fill v3 channel name (Velocity commonly treats "recommended" as beta)
   case "${VELOCITY_CHANNEL}" in
@@ -515,6 +525,13 @@ install_velocity_server_artifact() {
 
   BUILD_ID="$(printf '%s' "${BUILD_OBJ}" | jq -r '.id // empty')"
   [[ -n "${BUILD_ID}" ]] || die "Velocity build id missing in Fill v3 response"
+
+  if [[ -f "${DATA_DIR}/velocity.jar" && "${FORCE_REDOWNLOAD:-0}" != "1" ]]; then
+    if assert_server_install_matches "velocity.jar" "velocity" "${VERSION}" "${BUILD_ID}"; then
+      log INFO "velocity.jar already exists, skipping (set FORCE_REDOWNLOAD=1 to override)"
+      return
+    fi
+  fi
 
   # Download URL (prefer server:default)
   DL_URL="$(printf '%s' "${BUILD_OBJ}" | jq -r '

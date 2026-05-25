@@ -41,7 +41,7 @@ test "$(read_server_install_marker_field "$tmp/.server-install.json" type)" = "p
 test "$(read_server_install_marker_field "$tmp/.server-install.json" version)" = "1.21.8"
 test "$(read_server_install_marker_field "$tmp/.server-install.json" build)" = "123"
 assert_no_marker_temp_files
-assert_server_install_matches "server.jar" "paper" "1.21.8"
+assert_server_install_matches "server.jar" "paper" "1.21.8" "123"
 
 write_server_install_marker "server.jar" "vanilla" "1.21.8"
 test "$(read_server_install_marker_field "$tmp/.server-install.json" build)" = ""
@@ -49,11 +49,11 @@ assert_no_marker_temp_files
 
 write_server_install_marker "server.jar" "paper" "1.21.8" "123"
 expect_failure \
-  "server.jar was installed as TYPE=paper VERSION=1.21.8; requested TYPE=vanilla VERSION=1.21.8" \
-  assert_server_install_matches "server.jar" "vanilla" "1.21.8"
+  "Server install marker mismatch at $tmp/.server-install.json: type current=paper requested=vanilla; build current=123 requested=<empty>" \
+  assert_server_install_matches "server.jar" "vanilla" "1.21.8" ""
 
 rm -f "$tmp/.server-install.json"
-assert_server_install_matches "server.jar" "paper" "1.21.8"
+assert_server_install_matches "server.jar" "paper" "1.21.8" "123"
 
 printf '{\n' > "$tmp/.server-install.json"
 expect_failure "Invalid server install marker JSON: $tmp/.server-install.json" \

@@ -47,6 +47,7 @@ automatic convenience.
 * [S3/MinIO safety notes](#s3-sync-safety-notes)
 * [Kubernetes shutdown recommendations](#kubernetes-shutdown-recommendations)
 * [Install-only mode](#install-only-mode-new)
+* [Server reinstall policy](docs/server-install-reinstall-policy.md)
 
 ---
 
@@ -217,7 +218,8 @@ managed Spigot installer. It fails fast if `TYPE=spigot` is selected without an 
 The installer writes `/data/.server-install.json` for managed artifacts. If an existing artifact has a
 marker for a different `TYPE`, `VERSION`, or artifact name, the entrypoint refuses to replace it
 automatically. Existing artifacts without a marker are left in place with a warning, so verify legacy
-volumes before changing `TYPE` or `VERSION`.
+volumes before changing `TYPE` or `VERSION`. See the
+[server reinstall policy](docs/server-install-reinstall-policy.md) for `FORCE_REINSTALL=true` behavior.
 
 ## UUID cache safety notes
 
