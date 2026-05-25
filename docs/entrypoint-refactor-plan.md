@@ -97,6 +97,29 @@ selection, and install-only orchestration remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
 
+### Install phase orchestration
+
+Suggested file: `scripts/lib/install_phase.sh`
+
+Status: completed for the high-level install phase order. The `install`
+function now lives in `scripts/lib/install_phase.sh` and preserves the existing
+sequence of pre-install hooks, server artifact handling, config/bootstrap steps,
+world reset handling, content sync/activation, modpack handling, player list
+generation, C2ME setup, and post-install hooks.
+
+Owns:
+
+- The top-level install phase call order.
+- The Velocity-specific resourcepack skip in that order.
+
+Does not own:
+
+- Lower-level server artifact installation.
+- World install or reset implementation.
+- S3/MinIO sync behavior.
+- Server property mutation helpers.
+- Install-only mode selection or exit timing.
+
 ### Server properties bootstrap
 
 Suggested file: `scripts/lib/server_properties.sh`
@@ -243,6 +266,7 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
 - `s3_client.sh`: S3/MinIO client mechanics.
 - `server_install.sh`: server artifact download/install helpers and
   `install_server`.
+- `install_phase.sh`: high-level install phase ordering.
 - `velocity_config.sh`: Velocity config generation.
 - `runtime_launch.sh`: `run_server` and runtime dispatch.
 - `world_install.sh`: world install helpers.
@@ -257,7 +281,7 @@ What intentionally remains in `entrypoint.sh`:
 - source order.
 - process-global initialization and defaults.
 - command-mode selection.
-- install/runtime orchestration.
+- install-only and runtime orchestration.
 - install-only early exit behavior.
 - signal trap registration.
 - `main()` execution and sourced-guard behavior.
