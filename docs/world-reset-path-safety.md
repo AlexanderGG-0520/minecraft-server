@@ -24,10 +24,10 @@ Current reset behavior relevant to destructive paths:
   flag mtime from `stat -c %Y`.
 - If the flag is older than `MAX_AGE=1800`, reset handling logs an expiration
   error, validates the reset flag path with `validate_world_reset_flag_path`,
-  removes the flag with `rm -f "$FLAG"`, and returns.
+  removes the flag with the shared reset flag removal helper, and returns.
 - If the flag is fresh, reset handling logs that reset will proceed, calls
-  `reset_world`, then removes the flag with `rm -f "$FLAG"` and logs that the
-  flag was consumed.
+  `reset_world`, removes the flag with the shared reset flag removal helper if
+  it still exists, and logs that the flag was consumed.
 - `reset_world` derives `FLAG_FILE` as `${DATA_DIR}/reset-world.flag`.
 - `reset_world` returns without resetting when `FLAG_FILE` is missing.
 - `WORLD_DIR` is derived as `${DATA_DIR}/world`.
@@ -37,8 +37,7 @@ Current reset behavior relevant to destructive paths:
 - The original path sanity checks still reject `WORLD_DIR` when it is exactly
   `/` or exactly `${DATA_DIR}`.
 - `validate_world_reset_paths` also validates reset paths before `.ready`
-  cleanup, backup creation, world deletion, optional mods deletion, and
-  successful reset flag cleanup.
+  cleanup, backup creation, world deletion, and optional mods deletion.
 - Reset removes `${DATA_DIR}/.ready` with `rm -f`.
 - When `RESET_WORLD_BACKUP` is unset or `true`, reset creates
   `BACKUP_DIR="${DATA_DIR}/backups"` and writes
@@ -50,8 +49,8 @@ Current reset behavior relevant to destructive paths:
   `mkdir -p "${WORLD_DIR}"`.
 - If `RESET_WORLD_REMOVE_MODS=true`, reset deletes `MODS_DIR` with
   `rm -rf "${MODS_DIR}"`, then recreates it with `mkdir -p "${MODS_DIR}"`.
-- On successful reset, `reset_world` removes `FLAG_FILE` with
-  `rm -f "${FLAG_FILE}"` and logs completion.
+- On successful reset, `reset_world` removes `FLAG_FILE` with the shared reset
+  flag removal helper and logs completion.
 
 Current failure and cleanup behavior:
 
@@ -60,8 +59,9 @@ Current failure and cleanup behavior:
   caller when reset was entered through `handle_reset_world_flag`.
 - Expired reset flags are removed by `handle_reset_world_flag`.
 - Backup failure stops before world deletion.
-- `reset_world` and `handle_reset_world_flag` both remove the reset flag on the
-  successful reset path.
+- Fresh reset flags are removed once. `reset_world` removes the flag after a
+  successful reset; `handle_reset_world_flag` only removes it after
+  `reset_world` returns successfully if the flag still exists.
 - There is no dedicated cleanup for partially recreated world or mods
   directories after a failure during `mkdir -p`.
 
