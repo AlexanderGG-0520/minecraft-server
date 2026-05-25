@@ -33,21 +33,49 @@ server_install_marker() {
   printf '%s/.server-install.json' "${DATA_DIR}"
 }
 
+validate_server_install_marker() {
+  local marker="$1"
+  local field
+
+  if ! jq -e 'type == "object"' "$marker" >/dev/null 2>&1; then
+    die "Invalid server install marker JSON: ${marker}"
+  fi
+
+  for field in artifact type version build; do
+    if ! jq -e --arg field "$field" 'has($field) and .[$field] != null' "$marker" >/dev/null 2>&1; then
+      die "Incomplete server install marker: ${marker} missing ${field}"
+    fi
+
+    if ! jq -e --arg field "$field" '.[$field] | type == "string"' "$marker" >/dev/null 2>&1; then
+      die "Invalid server install marker: ${marker} field ${field} must be a string"
+    fi
+  done
+
+  for field in artifact type version; do
+    if ! jq -e --arg field "$field" '.[$field] | length > 0' "$marker" >/dev/null 2>&1; then
+      die "Invalid server install marker: ${marker} field ${field} must not be empty"
+    fi
+  done
+
+  local installed_type
+  installed_type="$(jq -r '.type' "$marker")" || die "Invalid server install marker JSON: ${marker}"
+  if ! is_supported_runtime_type "$installed_type"; then
+    die "Invalid server install marker: ${marker} unsupported type ${installed_type}"
+  fi
+}
+
 read_server_install_marker_field() {
   local marker="$1"
   local field="$2"
   local value
 
-  if ! jq -e 'type == "object"' "$marker" >/dev/null 2>&1; then
-    die "Corrupt server install marker"
-  fi
-
+  validate_server_install_marker "$marker"
   if ! jq -e --arg field "$field" 'has($field) and .[$field] != null' "$marker" >/dev/null 2>&1; then
-    die "Incomplete server install marker"
+    die "Incomplete server install marker: ${marker} missing ${field}"
   fi
 
   if ! value="$(jq -r --arg field "$field" '.[$field]' "$marker" 2>/dev/null)"; then
-    die "Corrupt server install marker"
+    die "Invalid server install marker JSON: ${marker}"
   fi
 
   printf '%s' "$value"
@@ -119,22 +147,12 @@ resolve_type_auto() {
     read_server_install_marker_field "${marker}" version >/dev/null
     read_server_install_marker_field "${marker}" build >/dev/null
 
-    case "${installed_type}" in
-      fabric|forge|mohist|neoforge|paper|purpur|quilt|spigot|taiyitist|vanilla|velocity|youer)
-        if [[ -n "${installed_artifact}" && -e "${DATA_DIR}/${installed_artifact}" ]]; then
-          TYPE="${installed_type}"
-          log INFO "TYPE auto-resolved to '${TYPE}' from install marker"
-          return 0
-        fi
-        log WARN "Install marker exists but artifact is missing, falling back to artifact detection: ${installed_artifact:-unknown}"
-        ;;
-      "")
-        log WARN "Install marker exists but type is empty, falling back to artifact detection"
-        ;;
-      *)
-        log WARN "Install marker has unsupported type '${installed_type}', falling back to artifact detection"
-        ;;
-    esac
+    if [[ -e "${DATA_DIR}/${installed_artifact}" ]]; then
+      TYPE="${installed_type}"
+      log INFO "TYPE auto-resolved to '${TYPE}' from install marker"
+      return 0
+    fi
+    log WARN "Install marker exists but artifact is missing, falling back to artifact detection: ${installed_artifact}"
   fi
 
   if [[ -f "${DATA_DIR}/velocity.jar" ]]; then
