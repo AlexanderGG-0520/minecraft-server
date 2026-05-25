@@ -39,6 +39,20 @@ automatic convenience.
 
 ---
 
+## Common use cases
+
+These examples are intentionally small starting points, not production-ready manifests for every
+cluster.
+
+| Use case | Start here |
+|---|---|
+| Minimal Kubernetes Paper server with a PVC | [`examples/kubernetes/paper-pvc/`](examples/kubernetes/paper-pvc/) |
+| Kubernetes Paper server with S3/MinIO-backed plugins and configs | [`examples/kubernetes/paper-minio-assets/`](examples/kubernetes/paper-minio-assets/) |
+| Pre-warm a volume without launching runtime | [`examples/kubernetes/install-only-job.example.yaml`](examples/kubernetes/install-only-job.example.yaml) |
+| Minimal local Fabric server with Docker Compose | [`examples/docker/fabric/compose.yml`](examples/docker/fabric/compose.yml) |
+
+---
+
 ## Quick links
 
 * [Examples](examples/README.md)
