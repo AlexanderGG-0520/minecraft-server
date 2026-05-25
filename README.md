@@ -39,6 +39,20 @@ automatic convenience.
 
 ---
 
+## Common use cases
+
+These examples are intentionally small starting points, not production-ready manifests for every
+cluster.
+
+| Use case | Start here |
+|---|---|
+| Minimal Kubernetes Paper server with a PVC | [`examples/kubernetes/paper-pvc/`](examples/kubernetes/paper-pvc/) |
+| Kubernetes Paper server with S3/MinIO-backed plugins and configs | [`examples/kubernetes/paper-minio-assets/`](examples/kubernetes/paper-minio-assets/) |
+| Pre-warm a volume without launching runtime | [`examples/kubernetes/install-only-job.example.yaml`](examples/kubernetes/install-only-job.example.yaml) |
+| Minimal local Fabric server with Docker Compose | [`examples/docker/fabric/compose.yml`](examples/docker/fabric/compose.yml) |
+
+---
+
 ## Quick links
 
 * [Examples](examples/README.md)
@@ -232,15 +246,15 @@ The image uses the MinIO `mc` client for S3-backed mods, plugins, configs, datap
 and world archives. `MC_CONFIG_DIR` defaults to `/tmp/mc-config`, so `mc` credentials are not written
 under `/data/.mc` on persistent world volumes.
 
-For asset syncs, `*_REMOVE_EXTRA=true` maps to `mc mirror --remove`: local files that are not present
-under the selected S3 prefix may be removed. Before running a remove sync, the entrypoint lists the
-remote source and fails fast if it is empty, which helps catch bucket or prefix mistakes before local
-content is pruned.
+For asset syncs, `*_REMOVE_EXTRA=false` is the safer default. Enabling `*_REMOVE_EXTRA=true` treats the
+selected remote S3/MinIO prefix as authoritative: local files that are not present under that prefix may
+be removed. Before running a remove sync, the entrypoint lists the remote source and fails fast if it is
+empty, which helps catch bucket or prefix mistakes before local content is pruned.
 
-Keep S3 prefixes stable for a given world. When changing a prefix, first run with `*_REMOVE_EXTRA=false`
-or verify the new prefix contains the expected files. `*_SYNC_ONCE=true` skips a sync when the local
-target already has content and remove-extra is not enabled; enabling remove-extra always performs the
-sync safety check and mirror operation.
+Keep S3 prefixes stable for a given world. Before enabling remove-extra, verify the bucket and prefix
+contain the expected files and do not commit S3 credentials or other secrets. `*_SYNC_ONCE=true` skips a
+sync when the local target already has content and remove-extra is not enabled; enabling remove-extra
+always performs the sync safety check and mirror operation.
 
 ## Documentation
 
