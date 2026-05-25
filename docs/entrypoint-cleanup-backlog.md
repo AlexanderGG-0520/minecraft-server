@@ -18,7 +18,7 @@ The recent safety refactor series closed the following backlog items:
 - Covered destructive `rm`, `rm -rf`, and `mv` operations now go through safe
   filesystem helpers, and unsafe empty, root, or root-equivalent paths are
   rejected before mutation.
-- Focused fixed temp paths and `$$` temp names were replaced with `mktemp` where
+- Fixed temp paths and `$$` temp names were replaced with `mktemp` where
   appropriate, including server install markers, world install archives and
   extraction directories, S3 source checks, and shutdown result files.
 - Moved `mktemp`-created persistent files now get readable permissions where
