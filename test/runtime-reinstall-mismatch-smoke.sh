@@ -13,6 +13,11 @@ source ./scripts/lib/runtime.sh
 source ./scripts/lib/server_install.sh
 DATA_DIR="$tmp"
 
+download_file_atomic() {
+  echo "FAIL: download_file_atomic unexpectedly called during reinstall mismatch smoke" >&2
+  return 1
+}
+
 expect_failure() {
   local expected="$1"
   shift
