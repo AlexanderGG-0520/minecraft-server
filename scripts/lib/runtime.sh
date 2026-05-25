@@ -29,8 +29,24 @@ uses_server_properties() {
   esac
 }
 
+is_managed_server_artifact() {
+  local artifact="$1"
+  case "$artifact" in
+    fabric-server-launch.jar|run.sh|server.jar|velocity.jar)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 server_install_marker() {
   printf '%s/.server-install.json' "${DATA_DIR}"
+}
+
+is_force_reinstall_enabled() {
+  [[ "${FORCE_REINSTALL:-false}" == "true" ]]
 }
 
 validate_server_install_marker() {
@@ -62,6 +78,12 @@ validate_server_install_marker() {
   if ! is_supported_runtime_type "$installed_type"; then
     die "Invalid server install marker: ${marker} unsupported type ${installed_type}"
   fi
+
+  local installed_artifact
+  installed_artifact="$(jq -r '.artifact' "$marker")" || die "Invalid server install marker JSON: ${marker}"
+  if ! is_managed_server_artifact "$installed_artifact"; then
+    die "Invalid server install marker: ${marker} unsupported artifact ${installed_artifact}"
+  fi
 }
 
 read_server_install_marker_field() {
@@ -81,10 +103,72 @@ read_server_install_marker_field() {
   printf '%s' "$value"
 }
 
+server_install_mismatch_summary() {
+  local installed_artifact="$1"
+  local requested_artifact="$2"
+  local installed_type="$3"
+  local requested_type="$4"
+  local installed_version="$5"
+  local requested_version="$6"
+  local installed_build="$7"
+  local requested_build="$8"
+  local mismatches=()
+  local mismatch summary=""
+
+  if [[ "$installed_artifact" != "$requested_artifact" ]]; then
+    mismatches+=("artifact current=${installed_artifact:-<empty>} requested=${requested_artifact:-<empty>}")
+  fi
+  if [[ "$installed_type" != "$requested_type" ]]; then
+    mismatches+=("type current=${installed_type:-<empty>} requested=${requested_type:-<empty>}")
+  fi
+  if [[ "$installed_version" != "$requested_version" ]]; then
+    mismatches+=("version current=${installed_version:-<empty>} requested=${requested_version:-<empty>}")
+  fi
+  if [[ "$installed_build" != "$requested_build" ]]; then
+    mismatches+=("build current=${installed_build:-<empty>} requested=${requested_build:-<empty>}")
+  fi
+
+  for mismatch in "${mismatches[@]}"; do
+    if [[ -n "$summary" ]]; then
+      summary="${summary}; ${mismatch}"
+    else
+      summary="$mismatch"
+    fi
+  done
+
+  printf '%s' "$summary"
+}
+
+remove_server_install_state() {
+  local artifact="$1"
+  local requested_type="$2"
+  local marker="$3"
+  local extra_marker
+
+  safe_rm_f "${DATA_DIR}/${artifact}"
+  safe_rm_f "$marker"
+
+  case "$requested_type" in
+    forge)
+      for extra_marker in "${DATA_DIR}"/.installed-forge-*; do
+        [[ -e "$extra_marker" ]] || continue
+        safe_rm_f "$extra_marker"
+      done
+      ;;
+    neoforge)
+      for extra_marker in "${DATA_DIR}"/.installed-neoforge-*; do
+        [[ -e "$extra_marker" ]] || continue
+        safe_rm_f "$extra_marker"
+      done
+      ;;
+  esac
+}
+
 assert_server_install_matches() {
   local artifact="$1"
   local requested_type="$2"
   local requested_version="$3"
+  local requested_build="${4:-}"
   local marker
   marker="$(server_install_marker)"
 
@@ -93,16 +177,34 @@ assert_server_install_matches() {
     return 0
   fi
 
-  local installed_type installed_version installed_artifact
+  local installed_type installed_version installed_artifact installed_build mismatches
   installed_artifact="$(read_server_install_marker_field "$marker" artifact)"
   installed_type="$(read_server_install_marker_field "$marker" type)"
   installed_version="$(read_server_install_marker_field "$marker" version)"
-  read_server_install_marker_field "$marker" build >/dev/null
+  installed_build="$(read_server_install_marker_field "$marker" build)"
 
   if [[ "$installed_type" != "$requested_type" \
      || "$installed_version" != "$requested_version" \
-     || "$installed_artifact" != "$artifact" ]]; then
-    die "${artifact} was installed as TYPE=${installed_type:-unknown} VERSION=${installed_version:-unknown}; requested TYPE=${requested_type} VERSION=${requested_version}. Refusing to replace existing server artifact automatically"
+     || "$installed_artifact" != "$artifact" \
+     || "$installed_build" != "$requested_build" ]]; then
+    mismatches="$(
+      server_install_mismatch_summary \
+        "$installed_artifact" "$artifact" \
+        "$installed_type" "$requested_type" \
+        "$installed_version" "$requested_version" \
+        "$installed_build" "$requested_build"
+    )"
+
+    if is_force_reinstall_enabled; then
+      log WARN "Server install marker mismatch at ${marker}: ${mismatches}; FORCE_REINSTALL=true, removing managed server artifact and marker before reinstall"
+      remove_server_install_state "$installed_artifact" "$installed_type" "$marker"
+      if [[ "$installed_artifact" != "$artifact" ]]; then
+        safe_rm_f "${DATA_DIR}/${artifact}"
+      fi
+      return 1
+    fi
+
+    die "Server install marker mismatch at ${marker}: ${mismatches}. Refusing to replace existing server artifact automatically. Set FORCE_REINSTALL=true only if you intentionally want to reinstall the server artifact"
   fi
 }
 
