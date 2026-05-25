@@ -10,6 +10,7 @@ trap 'rm -rf "$tmp"' EXIT
 source ./scripts/lib/logging.sh
 source ./scripts/lib/filesystem.sh
 source ./scripts/lib/runtime.sh
+source ./scripts/lib/server_install.sh
 DATA_DIR="$tmp"
 
 expect_failure() {
@@ -46,6 +47,12 @@ write_server_install_marker "server.jar" "paper" "1.21.8" "123"
 assert_server_install_matches "server.jar" "paper" "1.21.8" "123"
 test -f "$tmp/server.jar"
 
+VERSION=1.21.8
+PAPER_BUILD=123
+install_paper_server_artifact
+unset PAPER_BUILD
+test -f "$tmp/server.jar"
+
 expect_failure "type current=paper requested=vanilla" \
   assert_server_install_matches "server.jar" "vanilla" "1.21.8" ""
 test -f "$tmp/server.jar"
@@ -58,6 +65,12 @@ test -f "$tmp/.server-install.json"
 
 expect_failure "build current=123 requested=124" \
   assert_server_install_matches "server.jar" "paper" "1.21.8" "124"
+test -f "$tmp/server.jar"
+test -f "$tmp/.server-install.json"
+
+PAPER_BUILD=124
+expect_failure "build current=123 requested=124" install_paper_server_artifact
+unset PAPER_BUILD
 test -f "$tmp/server.jar"
 test -f "$tmp/.server-install.json"
 
@@ -85,6 +98,20 @@ write_server_install_marker "server.jar" "spigot" "1.21.8" ""
 TYPE=auto
 resolve_type_auto
 test "$TYPE" = "spigot"
+
+reset_data_dir
+printf '%s\n' jar > "$tmp/server.jar"
+write_server_install_marker "server.jar" "purpur" "1.21.8" "123"
+PURPUR_BUILD=123
+install_purpur_server_artifact
+unset PURPUR_BUILD
+test -f "$tmp/server.jar"
+
+reset_data_dir
+printf '%s\n' jar > "$tmp/server.jar"
+write_server_install_marker "server.jar" "vanilla" "1.21.8"
+assert_server_install_matches "server.jar" "vanilla" "1.21.8" ""
+test -f "$tmp/server.jar"
 
 printf '{\n' > "$tmp/.server-install.json"
 TYPE=auto
