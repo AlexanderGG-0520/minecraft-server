@@ -1,0 +1,61 @@
+name: Question or design discussion
+description: Ask a focused question about this image's behavior, configuration, or design.
+title: "question: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for questions about this image's lifecycle, install, sync, filesystem, shutdown, or runtime behavior.
+
+        General third-party mod, plugin, or modpack support is out of scope unless the question involves how this image handles lifecycle, install, sync, filesystem, shutdown, or runtime behavior.
+
+  - type: input
+    id: topic
+    attributes:
+      label: Topic
+      placeholder: Kubernetes shutdown, S3 sync, TYPE=auto, PVC handling, ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      description: Describe the outcome you want.
+    validations:
+      required: true
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: Current setup
+      description: Include deployment method, TYPE, VERSION, storage, and any relevant lifecycle or sync settings.
+      placeholder: |
+        Deployment method:
+        TYPE:
+        VERSION:
+        Storage/PVC:
+        S3/MinIO:
+        RCON shutdown:
+
+  - type: textarea
+    id: docs_checked
+    attributes:
+      label: Relevant docs already checked
+      description: Link or list the README, wiki page, example, or support doc you already reviewed.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Specific question
+      description: Ask the concrete question you want answered.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add manifests, logs, or constraints if they help answer the question. Redact secrets.
