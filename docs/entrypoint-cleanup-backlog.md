@@ -11,6 +11,29 @@ not mix them into future mechanical moves.
 Preserve existing runtime behavior unless a PR explicitly chooses and documents
 a behavior change.
 
+## Recent safety work now completed
+
+The recent safety refactor series closed the following backlog items:
+
+- Covered destructive `rm`, `rm -rf`, and `mv` operations now go through safe
+  filesystem helpers, and unsafe empty, root, or root-equivalent paths are
+  rejected before mutation.
+- Fixed temp paths and `$$` temp names were replaced with `mktemp` where
+  appropriate, including server install markers, world install archives and
+  extraction directories, S3 source checks, and shutdown result files.
+- Moved `mktemp`-created persistent files now get readable permissions where
+  needed before startup continues.
+- Shared shutdown `rcon_stop` result writing is atomic and emits clearer
+  diagnostics when result files cannot be written or read.
+- Server install marker handling now fails fast for corrupt JSON, incomplete
+  markers, null or empty required fields, unsupported marker types, and
+  unsupported marker artifacts.
+- Server install marker/config mismatches now fail fast by default. The
+  explicit opt-in path is `FORCE_REINSTALL=true`, documented in
+  [`docs/server-install-reinstall-policy.md`](server-install-reinstall-policy.md).
+  That path removes only managed server install state; it does not remove world
+  data, mods, plugins, config, datapacks, resourcepacks, or modpack state.
+
 ## Current remaining cleanup categories
 
 - Low-risk / mechanical:
@@ -129,8 +152,14 @@ a behavior change.
 
 - `runtime.sh` - reconcile `spigot` marker support and improve handling of
   corrupt marker JSON.
-  - Status: corrupt and incomplete marker fail-fast handling completed. See
+  - Status: corrupt, incomplete, and semantically invalid marker fail-fast
+    handling completed. See
     [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
+  - Status: explicit reinstall mismatch policy completed. Valid markers are
+    compared against the requested effective install configuration, mismatches
+    fail fast by default, and `FORCE_REINSTALL=true` is the explicit opt-in
+    server artifact reinstall path. See
+    [`docs/server-install-reinstall-policy.md`](server-install-reinstall-policy.md).
   - Status: Spigot marker support / `resolve_type_auto` behavior is completed
     for the narrow marker-only `TYPE=auto` Spigot resolution. See
     [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
@@ -204,14 +233,15 @@ a behavior change.
 ## logging.sh
 
 - Review `die` argument handling.
-- Consider whether `die` should support multiple arguments safely, for example
-  `die "$@"` or explicit message handling.
+- Status: completed. `die` forwards all arguments through `log` while
+  preserving the existing log format.
 - Preserve current log format semantics unless intentionally changed.
 
 ## s3_client.sh
 
 - Harden temporary-file cleanup in `ensure_s3_source_nonempty_for_remove`.
-- Prefer safer temp handling and/or `trap` where appropriate.
+- Status: completed for the focused temp cleanup pass. Future S3 client changes
+  should stay scoped to explicit S3 behavior, acquisition, or remediation work.
 - Keep S3 environment variable names unchanged.
 - Keep the MinIO alias name `s3` unchanged.
 - Preserve existing behavior unless intentionally changed in a dedicated
@@ -235,8 +265,8 @@ a behavior change.
 ## world_install.sh
 
 - Design boundary: [`docs/world-install-cleanup-boundary.md`](world-install-cleanup-boundary.md).
-- Keep temp archive cleanup, unzip error handling, extracted-world detection,
-  and path-safety hardening in separate PRs.
+- Status: completed for temp archive cleanup, unzip error handling,
+  extracted-world detection, and path-safety hardening.
 - Unzip error-message cleanup is completed with an explicit extract failure.
 - Fixed archive temp path cleanup is completed for `/tmp/world.zip`.
 - Extracted-world detection behavior is completed with deterministic temporary
@@ -267,7 +297,14 @@ a behavior change.
 - Marker temp-file cleanup is completed for `write_server_install_marker`.
 - Corrupt marker JSON handling design boundary:
   [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
-  Status: completed for corrupt and incomplete marker fail-fast handling.
+  Status: completed for corrupt, incomplete, and semantically invalid marker
+  fail-fast handling.
+- Server install reinstall policy:
+  [`docs/server-install-reinstall-policy.md`](server-install-reinstall-policy.md).
+  Status: completed. Marker/config mismatch now fails fast by default, and
+  `FORCE_REINSTALL=true` is the explicit opt-in path for replacing managed
+  server install state without removing world data, mods, plugins, config,
+  datapacks, resourcepacks, or modpack state.
 - Spigot marker auto-resolution design boundary:
   [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
   Status: completed for the narrow `resolve_type_auto` Spigot marker
