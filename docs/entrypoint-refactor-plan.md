@@ -122,6 +122,33 @@ Does not own:
 - Signal trap registration.
 - Shutdown/RCON implementation details.
 
+### Runtime phase orchestration
+
+Suggested file: `scripts/lib/runtime_phase.sh`
+
+Status: completed for the high-level runtime phase after preflight, type
+resolution, runtime environment detection, and command-mode handling.
+`run_runtime_phase` now owns the behavior-preserving sequence of running the
+install phase, honoring `INSTALL_ONLY=true` before runtime launch, and then
+calling `runtime`.
+
+Owns:
+
+- Calling `install`.
+- Preserving the existing install-only early exit log and timing after install.
+- Calling `runtime` only when install-only is not enabled.
+
+Does not own:
+
+- `main()` execution.
+- Preflight checks.
+- `TYPE=auto` resolution.
+- Runtime environment detection.
+- Runtime launch command dispatch.
+- Signal trap registration.
+- Shutdown/RCON implementation details.
+- Process-global state initialization.
+
 ### Install phase orchestration
 
 Suggested file: `scripts/lib/install_phase.sh`
@@ -230,8 +257,6 @@ control:
 
 - source libraries in dependency order.
 - initialize process-global defaults and state that other helpers read.
-- call install and runtime in the correct order.
-- exit early for `install-only` before runtime launch.
 - register the shutdown signal trap.
 - keep top-level `main()` execution and sourced guard behavior.
 
@@ -242,7 +267,6 @@ clear reason to move them.
 Do not casually move:
 
 - signal trap registration
-- install-only orchestration
 - source order
 - process-global initialization for `SERVER_PID`, `RCON_STOP_RESULT`,
   `RCON_STOP_LOCK`, and `RCON_STOP_IN_PROGRESS`
@@ -290,6 +314,7 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
   `install_server`.
 - `install_phase.sh`: high-level install phase ordering.
 - `command_mode.sh`: command-mode dispatch.
+- `runtime_phase.sh`: high-level install-to-runtime phase ordering.
 - `velocity_config.sh`: Velocity config generation.
 - `runtime_launch.sh`: `run_server` and runtime dispatch.
 - `world_install.sh`: world install helpers.
@@ -303,15 +328,12 @@ What intentionally remains in `entrypoint.sh`:
 
 - source order.
 - process-global initialization and defaults.
-- install-only and runtime orchestration.
-- install-only early exit behavior.
 - signal trap registration.
 - `main()` execution and sourced-guard behavior.
 
 What should not be moved casually:
 
 - source order.
-- install-only orchestration.
 - process-global initialization for `SERVER_PID`, `RCON_STOP_RESULT`,
   `RCON_STOP_LOCK`, and `RCON_STOP_IN_PROGRESS`.
 - signal trap timing.

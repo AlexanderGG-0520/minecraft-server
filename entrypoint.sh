@@ -32,6 +32,8 @@ source "${ENTRYPOINT_DIR%/}/scripts/lib/server_properties.sh"
 source "${ENTRYPOINT_DIR%/}/scripts/lib/install_phase.sh"
 # shellcheck source=scripts/lib/command_mode.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/command_mode.sh"
+# shellcheck source=scripts/lib/runtime_phase.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/runtime_phase.sh"
 
 # shellcheck disable=SC2034  # Reserved global for PID-oriented lifecycle handling.
 MC_PID=""
@@ -2077,14 +2079,7 @@ main() {
   preflight
   resolve_type_auto
   detect_runtime_env
-  install
-
-  if is_true "${INSTALL_ONLY:-false}"; then
-    log WARN "INSTALL_ONLY=true, skipping runtime launch and exiting"
-    exit 0
-  fi
-
-  runtime
+  run_runtime_phase
 }
 
 if [[ "${__SOURCED:-0}" != "1" ]]; then
