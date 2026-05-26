@@ -92,8 +92,9 @@ Purpur, Mohist, Taiyitist, and Youer artifact install helpers plus the Spigot
 existing-artifact validation helper have also moved there. Velocity artifact
 installation and `install_server` dispatch have moved there too. `run_server`
 and runtime launch dispatch have moved to `scripts/lib/runtime_launch.sh`.
-Shutdown/RCON/signal handling, lifecycle hook implementation, and install-only
-orchestration remain in `entrypoint.sh`.
+Lifecycle hook implementation has moved to `scripts/lib/lifecycle.sh`.
+Runtime environment detection has moved to `scripts/lib/runtime_env.sh`.
+Shutdown/RCON/signal handling remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
 
@@ -148,6 +149,31 @@ Does not own:
 - Signal trap registration.
 - Shutdown/RCON implementation details.
 - Process-global state initialization.
+
+### Runtime environment detection
+
+Suggested file: `scripts/lib/runtime_env.sh`
+
+Status: completed. `detect_runtime_env` now lives in
+`scripts/lib/runtime_env.sh`, while `entrypoint.sh` still calls it at the same
+point after preflight and `TYPE=auto` resolution.
+
+Owns:
+
+- Detecting OS id/version.
+- Detecting Java version metadata.
+- Normalizing runtime architecture.
+- Detecting container and GPU presence.
+- Exporting the existing runtime environment variables consumed by later
+  helpers.
+
+Does not own:
+
+- Environment defaults.
+- Preflight checks.
+- `TYPE=auto` resolution.
+- C2ME policy decisions.
+- Install or runtime phase ordering.
 
 ### Install phase orchestration
 
@@ -303,6 +329,8 @@ The helper-splitting phase is substantially complete.
 Most reusable behavior now lives in `scripts/lib/*.sh`:
 
 - `logging.sh`: logging and timestamp helpers.
+- `runtime_env.sh`: runtime environment detection and exported runtime
+  metadata.
 - `runtime.sh`: runtime type resolution and install marker helpers.
 - `lifecycle.sh`: lifecycle hook execution.
 - `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;

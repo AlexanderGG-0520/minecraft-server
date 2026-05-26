@@ -41,6 +41,7 @@ jobs:
           source ./scripts/lib/logging.sh
           source ./scripts/lib/filesystem.sh
           source ./scripts/lib/runtime.sh
+          source ./scripts/lib/runtime_env.sh
           source ./scripts/lib/lifecycle.sh
           source ./scripts/lib/rcon.sh
           source ./scripts/lib/shutdown.sh
@@ -67,6 +68,7 @@ jobs:
           declare -F assert_server_install_matches >/dev/null
           declare -F write_server_install_marker >/dev/null
           declare -F resolve_type_auto >/dev/null
+          declare -F detect_runtime_env >/dev/null
           declare -F run_phase_hooks >/dev/null
           declare -F rcon_client >/dev/null
           declare -F rcon_exec >/dev/null
@@ -118,6 +120,9 @@ jobs:
 
       - name: Runtime phase smoke
         run: test/runtime-phase-smoke.sh
+
+      - name: Runtime environment smoke
+        run: test/runtime-env-smoke.sh
 
       - name: Server properties TYPE smoke
         run: |
