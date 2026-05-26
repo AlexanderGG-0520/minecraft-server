@@ -33,5 +33,7 @@ EOF
 
 cmp "$expected" "$JVM_ARGS_FILE"
 
+# Verify skip behavior: an existing file must not be clobbered
+printf '%s\n' "# custom" >> "$JVM_ARGS_FILE"
 install_jvm_args >/dev/null
-cmp "$expected" "$JVM_ARGS_FILE"
+grep -F -- "# custom" "$JVM_ARGS_FILE" >/dev/null
