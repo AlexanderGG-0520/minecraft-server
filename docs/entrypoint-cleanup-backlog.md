@@ -91,6 +91,20 @@ The recent safety refactor series closed the following backlog items:
     or runtime-specific launch commands.
   - Suggested checks: `bash -n`, source smoke, mocked launch-command smoke.
 
+- `runtime_env.sh` - decide how runtime OS detection should behave when
+  `/etc/os-release` exists but does not contain `VERSION_ID`.
+  - Found in: `detect_runtime_env` while adding source-level smoke coverage for
+    the runtime environment boundary.
+  - Current behavior: the existing `grep '^VERSION_ID=' /etc/os-release`
+    pipeline can fail under `set -e` on distributions that omit `VERSION_ID`.
+  - Why this is behavior-changing: tolerating a missing `VERSION_ID` would
+    change startup failure timing on those images, so it should not be folded
+    into a mechanical responsibility move.
+  - Future PR: define whether missing OS version should fail fast, log a
+    warning, or fall back to `unknown`.
+  - Compatibility constraint: preserve existing `RUNTIME_OS` and
+    `RUNTIME_OS_VERSION` variable names and export timing.
+
 ### 2. Temp-file and atomic-write hardening
 
 - `s3_client.sh` - harden temporary-file cleanup in

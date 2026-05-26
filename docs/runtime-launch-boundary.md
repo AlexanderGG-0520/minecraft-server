@@ -12,10 +12,11 @@ install order, or change install-only behavior as part of this document.
 Recommended file: `scripts/lib/runtime_launch.sh`
 
 Status: started. `run_server` and `runtime` have moved mechanically to
-`scripts/lib/runtime_launch.sh`. Shutdown/RCON/signal handling, lifecycle hook
-implementation, and signal trap registration have not moved. Command-mode
-selection now lives in `scripts/lib/command_mode.sh`, and high-level
-install-to-runtime orchestration now lives in `scripts/lib/runtime_phase.sh`.
+`scripts/lib/runtime_launch.sh`. Runtime environment detection now lives in
+`scripts/lib/runtime_env.sh`. Shutdown/RCON/signal handling and signal trap
+registration have not moved. Command-mode selection now lives in
+`scripts/lib/command_mode.sh`, and high-level install-to-runtime orchestration
+now lives in `scripts/lib/runtime_phase.sh`.
 
 Use `scripts/lib/runtime_launch.sh` because the boundary is about launching the
 selected runtime after install/bootstrap has completed. Avoid
@@ -35,7 +36,7 @@ The future library should answer:
 
 `entrypoint.sh` should continue to answer:
 
-- When preflight, type resolution, runtime environment detection, and
+- When preflight, type resolution, the `detect_runtime_env` call, and
   `run_runtime_phase` happen.
 - How signal handling and shutdown orchestration are wired unless a later
   dedicated boundary moves them intentionally.
@@ -191,9 +192,9 @@ Recommended implementation PRs:
 4. Keep process orchestration, signal handling, lifecycle hooks, and RCON
    behavior in `entrypoint.sh` unless they are inseparable from `run_server`.
    - Status: completed for the `runtime` launch dispatch move only. Shutdown,
-     RCON, signal handling, and lifecycle hook implementation remain in
-     `entrypoint.sh`. Install-only orchestration now lives in
-     `scripts/lib/runtime_phase.sh`.
+     RCON and signal handling remain in `entrypoint.sh`. Lifecycle hook
+     implementation now lives in `scripts/lib/lifecycle.sh`. Install-only
+     orchestration now lives in `scripts/lib/runtime_phase.sh`.
 5. After `runtime_launch.sh` stabilizes, consider dedicated behavior-neutral
    boundaries for lifecycle hooks, RCON, and shutdown/signal handling.
 6. Do not combine runtime launch moves with cleanup backlog items.
