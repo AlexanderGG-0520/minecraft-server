@@ -237,7 +237,8 @@ volumes before changing `TYPE` or `VERSION`. See the
 
 ## UUID cache safety notes
 
-`OPS_USERS` and `WHITELIST_USERS` generation uses `/data/uuid_cache.json` to cache Mojang UUID lookups.
+`OPS_USERS` and `WHITELIST_USERS` accept comma-separated Minecraft player names and use
+`/data/uuid_cache.json` to cache Mojang UUID lookups.
 The cache must be a JSON object. If the file is corrupted or contains another JSON type, startup fails
 fast with the cache path and does not print the file contents. Fix the JSON manually or remove the cache
 file to let it be regenerated; the entrypoint does not auto-repair it.
