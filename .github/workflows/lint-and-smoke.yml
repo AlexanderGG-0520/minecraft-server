@@ -134,6 +134,9 @@ jobs:
       - name: C2ME helper smoke
         run: test/c2me-smoke.sh
 
+      - name: Player list users smoke
+        run: test/player-list-users-smoke.sh
+
       - name: Server properties TYPE smoke
         run: |
           set -euo pipefail

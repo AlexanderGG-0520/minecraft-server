@@ -1334,7 +1334,7 @@ parse_csv() {
   if [[ -z "${1:-}" ]]; then
     return 0
   fi
-  printf '%s' "$1" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed '/^$/d'
+  printf '%s\n' "$1" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed '/^$/d'
 }
 
 # transform UUID into hyphenated form
