@@ -96,6 +96,7 @@ Lifecycle hook implementation has moved to `scripts/lib/lifecycle.sh`.
 Runtime environment detection has moved to `scripts/lib/runtime_env.sh`.
 C2ME-specific policy and configuration helpers have moved to
 `scripts/lib/c2me.sh`.
+JVM args generation has moved to `scripts/lib/jvm_args.sh`.
 Shutdown/RCON/signal handling remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
@@ -202,6 +203,27 @@ Does not own:
 - General JVM argument generation.
 - Install phase ordering.
 - Mod installation or activation.
+
+### JVM args generation
+
+Suggested file: `scripts/lib/jvm_args.sh`
+
+Status: completed. `install_jvm_args` now lives in
+`scripts/lib/jvm_args.sh`. `install_phase.sh` still calls it at the same point
+before config activation and before C2ME-specific JVM argument appending.
+
+Owns:
+
+- Generating the configured `JVM_ARGS_FILE`.
+- Preserving the existing skip behavior when the args file already exists.
+- Writing the existing JVM memory, GC, container-support, and extra-args lines.
+
+Does not own:
+
+- `JVM_ARGS_FILE` defaulting.
+- C2ME-specific JVM argument appending.
+- Runtime launch consumption of `JVM_ARGS_FILE`.
+- Install phase ordering.
 
 ### Install phase orchestration
 
@@ -360,6 +382,7 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
 - `runtime_env.sh`: runtime environment detection and exported runtime
   metadata.
 - `c2me.sh`: C2ME policy, GPU/OpenCL checks, and C2ME-specific configuration.
+- `jvm_args.sh`: configured JVM args file generation.
 - `runtime.sh`: runtime type resolution and install marker helpers.
 - `lifecycle.sh`: lifecycle hook execution.
 - `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;

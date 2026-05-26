@@ -35,6 +35,7 @@ jobs:
             source /scripts/lib/runtime.sh
             source /scripts/lib/runtime_env.sh
             source /scripts/lib/c2me.sh
+            source /scripts/lib/jvm_args.sh
             source /scripts/lib/lifecycle.sh
             source /scripts/lib/rcon.sh
             source /scripts/lib/shutdown.sh
@@ -67,6 +68,7 @@ jobs:
             declare -F install_c2me_jvm_args >/dev/null
             declare -F detect_gpu >/dev/null
             declare -F configure_c2me_opencl >/dev/null
+            declare -F install_jvm_args >/dev/null
             declare -F run_phase_hooks >/dev/null
             declare -F rcon_client >/dev/null
             declare -F rcon_exec >/dev/null
