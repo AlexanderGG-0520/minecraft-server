@@ -94,6 +94,8 @@ installation and `install_server` dispatch have moved there too. `run_server`
 and runtime launch dispatch have moved to `scripts/lib/runtime_launch.sh`.
 Lifecycle hook implementation has moved to `scripts/lib/lifecycle.sh`.
 Runtime environment detection has moved to `scripts/lib/runtime_env.sh`.
+C2ME-specific policy and configuration helpers have moved to
+`scripts/lib/c2me.sh`.
 Shutdown/RCON/signal handling remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
@@ -174,6 +176,32 @@ Does not own:
 - `TYPE=auto` resolution.
 - C2ME policy decisions.
 - Install or runtime phase ordering.
+
+### C2ME configuration
+
+Suggested file: `scripts/lib/c2me.sh`
+
+Status: completed. C2ME-specific policy and configuration helpers now live in
+`scripts/lib/c2me.sh`. `install_phase.sh` still calls the same high-level C2ME
+functions at the same points in the install phase. This boundary also includes
+a narrow `JVM_ARGS_FILE` consistency fix: `install_jvm_args` now generates the
+configured `JVM_ARGS_FILE`, and C2ME JVM arguments append to that same file
+instead of the hard-coded `/data/jvm.args` path.
+
+Owns:
+
+- C2ME mod detection.
+- C2ME enablement guard policy.
+- C2ME hardware acceleration JVM argument appending.
+- OpenCL/GPU probing for C2ME.
+- `C2ME_OPENCL_ENABLED` setup.
+
+Does not own:
+
+- General runtime environment detection.
+- General JVM argument generation.
+- Install phase ordering.
+- Mod installation or activation.
 
 ### Install phase orchestration
 
@@ -331,6 +359,7 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
 - `logging.sh`: logging and timestamp helpers.
 - `runtime_env.sh`: runtime environment detection and exported runtime
   metadata.
+- `c2me.sh`: C2ME policy, GPU/OpenCL checks, and C2ME-specific configuration.
 - `runtime.sh`: runtime type resolution and install marker helpers.
 - `lifecycle.sh`: lifecycle hook execution.
 - `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;
