@@ -605,7 +605,7 @@ and should each be handled in a focused PR with source-smoke coverage:
   - `set_prop`
   - `apply_rcon_settings`
   - `install_server_properties`
-  - Likely home: `scripts/lib/server_properties.sh`, after confirming the env
+  - Likely home: extend `scripts/lib/server_properties.sh` (already owns bootstrap), after confirming the env
     contract and preserving property update log messages.
 - Generic boolean/string helpers:
   - `is_true`
