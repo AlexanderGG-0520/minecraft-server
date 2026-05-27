@@ -541,7 +541,7 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
   `ops.json` / `whitelist.json` generation.
 - `paper_config.sh`: Paper-specific config mutation helpers.
 - `bootstrap_files.sh`: basic bootstrap file and directory preparation.
-- `content_assets.sh`: config, plugin, datapack, and resourcepack sync and
+- `content_assets.sh`: configs, plugins, datapacks, and resourcepacks sync and
   activation helpers.
 - `mods.sh`: mods and experimental Modrinth `.mrpack` / modpack helpers.
 - `runtime.sh`: runtime type resolution and install marker helpers.
