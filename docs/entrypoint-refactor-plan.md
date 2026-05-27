@@ -103,6 +103,7 @@ Paper-specific configuration helpers have moved to
 `scripts/lib/paper_config.sh`.
 Basic bootstrap file and directory preparation helpers have moved to
 `scripts/lib/bootstrap_files.sh`.
+Mods and modpack helpers have moved to `scripts/lib/mods.sh`.
 Shutdown/RCON/signal handling remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
@@ -297,6 +298,30 @@ Does not own:
 - Shared activation helpers.
 - Asset sync behavior.
 - Server property mutation.
+- Install phase ordering.
+
+### Mods and modpacks
+
+Suggested file: `scripts/lib/mods.sh`
+
+Status: completed. Mods and Modrinth `.mrpack` helper implementations now live
+in `scripts/lib/mods.sh`. `install_phase.sh` still calls `install_mods`,
+`activate_mods`, and `install_modpack` at the same points.
+
+Owns:
+
+- MinIO-backed mods sync call-site behavior.
+- Mods activation entry point.
+- Modrinth `.mrpack` index extraction and validation helpers.
+- Modpack path safety checks, file hash checks, marker writing/matching, and
+  server-side file installation helpers.
+- Experimental local `.mrpack` install dispatch.
+
+Does not own:
+
+- Shared `activate_dir` machinery.
+- S3/MinIO client setup and source-empty validation mechanics.
+- Plugins, configs, datapacks, or resourcepacks sync/activation.
 - Install phase ordering.
 
 ### Install phase orchestration
