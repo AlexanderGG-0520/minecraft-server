@@ -101,6 +101,8 @@ Player-list and UUID-cache helpers have moved to
 `scripts/lib/player_lists.sh`.
 Paper-specific configuration helpers have moved to
 `scripts/lib/paper_config.sh`.
+Basic bootstrap file and directory preparation helpers have moved to
+`scripts/lib/bootstrap_files.sh`.
 Shutdown/RCON/signal handling remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
@@ -276,6 +278,27 @@ Does not own:
 - Shared string helpers used by Velocity config.
 - Install phase ordering.
 
+### Bootstrap files
+
+Suggested file: `scripts/lib/bootstrap_files.sh`
+
+Status: completed. Basic local bootstrap file and directory preparation helpers
+now live in `scripts/lib/bootstrap_files.sh`. `install_phase.sh` still calls
+`install_dirs`, `install_eula`, and `setup_server_icon` at the same points.
+
+Owns:
+
+- Basic data/config/log/world directory preparation.
+- EULA file generation.
+- Server icon download/install behavior.
+
+Does not own:
+
+- Shared activation helpers.
+- Asset sync behavior.
+- Server property mutation.
+- Install phase ordering.
+
 ### Install phase orchestration
 
 Suggested file: `scripts/lib/install_phase.sh`
@@ -437,6 +460,7 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
 - `player_lists.sh`: player-list parsing, UUID-cache handling, and
   `ops.json` / `whitelist.json` generation.
 - `paper_config.sh`: Paper-specific config mutation helpers.
+- `bootstrap_files.sh`: basic bootstrap file and directory preparation.
 - `runtime.sh`: runtime type resolution and install marker helpers.
 - `lifecycle.sh`: lifecycle hook execution.
 - `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;
