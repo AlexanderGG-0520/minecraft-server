@@ -59,6 +59,46 @@ if find "$DATA_DIR" -maxdepth 1 -name '.server.jar.tmp.*' -print -quit | grep -q
 fi
 test ! -e "$DATA_DIR/server.jar"
 
+s3_tmp="$tmp/s3tmp"
+mkdir -p "$s3_tmp"
+TMPDIR="$s3_tmp"
+export TMPDIR
+
+assert_s3_tmp_empty() {
+  ! find "$TMPDIR" -mindepth 1 -print -quit | grep -q .
+}
+
+mc() {
+  test "$1" = "find"
+  test "$3" = "--print"
+  test "$4" = "{}"
+  case "${MC_MODE:-success}" in
+    success) printf '%s\n' "${2%/}/remote.jar" ;;
+    empty) return 0 ;;
+    fail) return 7 ;;
+    *) return 99 ;;
+  esac
+}
+
+MC_MODE=success ensure_s3_source_nonempty_for_remove "s3/bucket/prefix" "mods"
+assert_s3_tmp_empty
+
+set +e
+output="$(MC_MODE=fail ensure_s3_source_nonempty_for_remove "s3/bucket/prefix" "mods" 2>&1)"
+status=$?
+set -e
+test "$status" -eq 1
+printf '%s\n' "$output" | grep -q 'Failed to list mods source before remove sync: s3/bucket/prefix'
+assert_s3_tmp_empty
+
+set +e
+output="$(MC_MODE=empty ensure_s3_source_nonempty_for_remove "s3/bucket/prefix" "mods" 2>&1)"
+status=$?
+set -e
+test "$status" -eq 1
+printf '%s\n' "$output" | grep -q 'mods remove_extra requested but S3 source is empty: s3/bucket/prefix'
+assert_s3_tmp_empty
+
 create_fixture_zip() {
   local archive="$1"
   local fixture_dir="$tmp/world-fixture"
