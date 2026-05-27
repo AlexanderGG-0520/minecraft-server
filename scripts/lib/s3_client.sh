@@ -18,12 +18,20 @@ configure_mc_alias() {
     || die "Failed to configure MinIO client for ${feature}"
 }
 
+cleanup_s3_source_listing_tmp() {
+  local tmp="${1:-}"
+
+  [[ -z "$tmp" ]] || safe_rm_f "$tmp"
+}
+
 ensure_s3_source_nonempty_for_remove() {
   local src="$1"
   local feature="$2"
   local error_message=""
-  local tmp
-  tmp="$(mktemp)"
+  local tmp=""
+
+  tmp="$(mktemp "${TMPDIR:-/tmp}/s3-source.XXXXXX")" \
+    || die "Failed to create temporary file for ${feature} source listing"
 
   if ! mc find "$src" --print "{}" > "$tmp"; then
     error_message="Failed to list ${feature} source before remove sync: ${src}"
@@ -31,6 +39,6 @@ ensure_s3_source_nonempty_for_remove() {
     error_message="${feature} remove_extra requested but S3 source is empty: ${src}"
   fi
 
-  safe_rm_f "$tmp"
+  cleanup_s3_source_listing_tmp "$tmp"
   [[ -z "$error_message" ]] || die "$error_message"
 }
