@@ -97,6 +97,8 @@ Runtime environment detection has moved to `scripts/lib/runtime_env.sh`.
 C2ME-specific policy and configuration helpers have moved to
 `scripts/lib/c2me.sh`.
 JVM args generation has moved to `scripts/lib/jvm_args.sh`.
+Player-list and UUID-cache helpers have moved to
+`scripts/lib/player_lists.sh`.
 Shutdown/RCON/signal handling remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
@@ -224,6 +226,30 @@ Does not own:
 - C2ME-specific JVM argument appending.
 - Runtime launch consumption of `JVM_ARGS_FILE`.
 - Install phase ordering.
+
+### Player lists and UUID cache
+
+Suggested file: `scripts/lib/player_lists.sh`
+
+Status: completed. Player-list parsing, UUID-cache handling, Mojang UUID
+lookup, UUID formatting, and `ops.json` / `whitelist.json` generation now live
+in `scripts/lib/player_lists.sh`. `install_phase.sh` still calls
+`install_whitelist` and `install_ops` at the same points.
+
+Owns:
+
+- Comma-separated `OPS_USERS` and `WHITELIST_USERS` parsing.
+- UUID cache creation and validation.
+- Mojang UUID lookup and cache update behavior.
+- `ops.json` generation.
+- `whitelist.json` generation.
+
+Does not own:
+
+- `WHITE_LIST` / `white-list` server.properties behavior.
+- Install phase ordering.
+- Server property diff/application.
+- Mojang API behavior or retry policy.
 
 ### Install phase orchestration
 
@@ -383,6 +409,8 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
   metadata.
 - `c2me.sh`: C2ME policy, GPU/OpenCL checks, and C2ME-specific configuration.
 - `jvm_args.sh`: configured JVM args file generation.
+- `player_lists.sh`: player-list parsing, UUID-cache handling, and
+  `ops.json` / `whitelist.json` generation.
 - `runtime.sh`: runtime type resolution and install marker helpers.
 - `lifecycle.sh`: lifecycle hook execution.
 - `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;
