@@ -532,6 +532,7 @@ The helper-splitting phase is substantially complete.
 Most reusable behavior now lives in `scripts/lib/*.sh`:
 
 - `logging.sh`: logging and timestamp helpers.
+- `preflight.sh`: startup preflight validation.
 - `runtime_env.sh`: runtime environment detection and exported runtime
   metadata.
 - `c2me.sh`: C2ME policy, GPU/OpenCL checks, and C2ME-specific configuration.
@@ -540,6 +541,9 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
   `ops.json` / `whitelist.json` generation.
 - `paper_config.sh`: Paper-specific config mutation helpers.
 - `bootstrap_files.sh`: basic bootstrap file and directory preparation.
+- `content_assets.sh`: configs, plugins, datapacks, and resourcepacks sync and
+  activation helpers.
+- `mods.sh`: mods and experimental Modrinth `.mrpack` / modpack helpers.
 - `runtime.sh`: runtime type resolution and install marker helpers.
 - `lifecycle.sh`: lifecycle hook execution.
 - `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;
@@ -561,12 +565,22 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
 `entrypoint.sh` is now primarily orchestration. That is expected. Not every
 remaining line is refactor debt.
 
-What intentionally remains in `entrypoint.sh`:
+## Remaining entrypoint.sh responsibilities after boundary extraction
+
+### Intentionally retained core responsibilities
+
+These should stay in `entrypoint.sh` unless a future PR has a narrow reason to
+change top-level process behavior:
 
 - source order.
-- process-global initialization and defaults.
+- environment default initialization.
+- `JAVA_TOOL_OPTIONS` process-wide IPv4/timezone setup.
+- process-global initialization for shutdown/RCON coordination.
 - signal trap registration.
-- `main()` execution and sourced-guard behavior.
+- command-mode shift application after `handle_command_mode`.
+- `main()` execution.
+- sourced-guard behavior.
+- the Velocity runtime exec footer.
 
 What should not be moved casually:
 
@@ -575,6 +589,72 @@ What should not be moved casually:
   `RCON_STOP_LOCK`, and `RCON_STOP_IN_PROGRESS`.
 - signal trap timing.
 - top-level `main()`/sourced guard behavior.
+- Velocity foreground fallback behavior.
+
+### Possible future behavior-preserving boundaries
+
+These are remaining helper clusters that may be movable, but they are not urgent
+and should each be handled in a focused PR with source-smoke coverage:
+
+- Server properties diff/application helpers:
+  - `PROP_MAP`
+  - `normalize_env_val`
+  - `escape_sed_replacement`
+  - `mask_property_log_value`
+  - `apply_server_properties_diff`
+  - `set_prop`
+  - `apply_rcon_settings`
+  - `install_server_properties`
+  - Likely home: extend `scripts/lib/server_properties.sh` (already owns bootstrap), after confirming the env
+    contract and preserving property update log messages.
+- Generic boolean/string helpers:
+  - `is_true`
+  - `trim_ws`
+  - These are still used by multiple domains. Moving them would require either a
+    small shared utility boundary or moving each helper to the only remaining
+    owner if usage narrows further.
+- Velocity key normalization:
+  - `normalize_toml_key`
+  - `VELOCITY_SERVER_KEYS` initialization
+  - Likely home: `scripts/lib/velocity_config.sh`, but only if source-time
+    initialization can be preserved exactly.
+- Fabric cache cleanup:
+  - `clear_fabric_cache`
+  - Possible home: server install or install-phase-adjacent library. It should
+    not be moved together with behavior changes to Fabric cache policy.
+- World generation wait helpers:
+  - `is_world_generated`
+  - `wait_for_worldgen`
+  - These appear isolated, but moving them should wait until there is a clear
+    active caller or a runtime/worldgen boundary that needs them.
+- `json_escape`:
+  - `rcon_tellraw_all` in `scripts/lib/rcon.sh` still relies on this helper.
+  - A future behavior-preserving move could place it in `scripts/lib/rcon.sh`
+    or a narrow JSON/string helper, preserving exact escaping semantics.
+
+### Future behavior-changing cleanup items
+
+These should not be fixed as part of mechanical slimming. Keep them in the
+cleanup backlog or in dedicated behavior PRs:
+
+- Velocity config ownership and double-call behavior.
+- Velocity artifact install/config generation coupling.
+- Runtime OS detection behavior when `/etc/os-release` lacks `VERSION_ID`.
+- World reset backup/temp/atomic failure handling.
+- Optional MinIO `mc` acquisition strategy changes or client replacement.
+- Spigot BuildTools / self-build support.
+
+### Intentionally untouched for now
+
+These areas are deliberately left alone after the boundary extraction series:
+
+- Shutdown/RCON state and signal trap registration. The implementation helpers
+  have moved, but top-level trap timing and process globals remain process
+  bootstrap concerns.
+- Environment defaults. They are source-time configuration and changing their
+  location could affect `set -u` failure timing or sourced-test behavior.
+- The Velocity runtime exec footer. It is a PID 1 fail-safe and should only move
+  in a dedicated runtime/Velocity behavior PR.
 
 Cleanup backlog and behavior-specific hardening should be handled in dedicated
 PRs. Do not mix those with the mechanical responsibility split.
