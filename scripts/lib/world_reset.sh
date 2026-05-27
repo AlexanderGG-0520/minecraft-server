@@ -283,97 +283,100 @@ validate_world_reset_paths() {
 reset_world() {
   log INFO "Requested world reset"
 
-  local FLAG_FILE="${DATA_DIR:-}/reset-world.flag"  # flag file path
+  local data_dir="${DATA_DIR:-}"
+  local flag_file="${data_dir}/reset-world.flag"  # flag file path
+  local world_dir="${data_dir}/world"
+  local mods_dir="${data_dir}/mods"
+  local backup_dir="${data_dir}/backups"
+  local backup_archive=""
 
   # ---- Safety check 1: explicit confirmation ----
-  if [[ ! -f "${FLAG_FILE}" ]]; then
+  if [[ ! -f "${flag_file}" ]]; then
     log INFO "reset-world.flag file is missing, cannot proceed with world reset"
     return  # return instead of die to avoid stopping the script
   fi
 
-  local WORLD_DIR="${DATA_DIR:-}/world"
-  local MODS_DIR="${DATA_DIR:-}/mods"
+  if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
+    local timestamp
+    timestamp="$(date -u +'%Y%m%d-%H%M%S')"
+    backup_archive="${backup_dir}/world-${timestamp}.tar.gz"
+  fi
+
+  validate_world_reset_paths \
+    "${data_dir}" \
+    "${world_dir}" \
+    "${flag_file}" \
+    "${backup_dir}" \
+    "${backup_archive}" \
+    "${mods_dir}" \
+    "${RESET_WORLD_REMOVE_MODS:-false}" \
+    "${RESET_WORLD_BACKUP:-true}" || return 1
 
   # ---- Safety check 2: directory sanity ----
-  if [[ ! -d "${WORLD_DIR}" ]]; then
+  if [[ ! -d "${world_dir}" ]]; then
     log INFO "World directory does not exist, nothing to reset"
     return
   fi
 
-  if [[ "${WORLD_DIR}" == "/" || "${WORLD_DIR}" == "${DATA_DIR}" ]]; then
-    log ERROR "Unsafe WORLD_DIR detected: ${WORLD_DIR}"
+  if [[ "${world_dir}" == "/" || "${world_dir}" == "${data_dir}" ]]; then
+    log ERROR "Unsafe WORLD_DIR detected: ${world_dir}"
     return  # stop instead of die
   fi
 
-  local BACKUP_DIR="${DATA_DIR:-}/backups"
-  local BACKUP_ARCHIVE=""
-  if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
-    local TS
-    TS="$(date -u +'%Y%m%d-%H%M%S')"
-    BACKUP_ARCHIVE="${BACKUP_DIR}/world-${TS}.tar.gz"
-  fi
-
-  validate_world_reset_paths \
-    "${DATA_DIR:-}" \
-    "${WORLD_DIR}" \
-    "${FLAG_FILE}" \
-    "${BACKUP_DIR}" \
-    "${BACKUP_ARCHIVE}" \
-    "${MODS_DIR}" \
-    "${RESET_WORLD_REMOVE_MODS:-false}" \
-    "${RESET_WORLD_BACKUP:-true}" || return 1
-
-  log INFO "Resetting world at ${WORLD_DIR}"
+  log INFO "Resetting world at ${world_dir}"
 
   # ---- Step 1: mark NotReady ----
-  safe_rm_f "${DATA_DIR}/.ready"
+  safe_rm_f "${data_dir}/.ready"
 
   # ---- Step 2: optional backup ----
   if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
-    mkdir -p "${BACKUP_DIR}"
+    mkdir -p "${backup_dir}"
 
     log INFO "Creating world backup"
-    tar -czf "${BACKUP_ARCHIVE}" -C "${DATA_DIR}" world \
+    tar -czf "${backup_archive}" -C "${data_dir}" world \
       || die "World backup failed; refusing to delete world"
   fi
 
   # ---- Step 3: delete world directory completely ----
   log INFO "Deleting world directory"
-  safe_rm_rf "${WORLD_DIR}" || return 1
-  mkdir -p "${WORLD_DIR}"
+  safe_rm_rf "${world_dir}" || return 1
+  mkdir -p "${world_dir}"
   if [[ "${RESET_WORLD_REMOVE_MODS:-false}" == "true" ]]; then
     log WARN "RESET_WORLD_REMOVE_MODS=true, deleting mods directory"
-    safe_rm_rf "${MODS_DIR}" || return 1
-    mkdir -p "${MODS_DIR}"
+    safe_rm_rf "${mods_dir}" || return 1
+    mkdir -p "${mods_dir}"
   fi
   log INFO "World directory reset complete"
 
   # ---- Step 4: delete the FLAG file to prevent repeated resets ----
-  remove_reset_world_flag "${DATA_DIR:-}" "${FLAG_FILE}" || return 1
+  remove_reset_world_flag "${data_dir}" "${flag_file}" || return 1
 
   log INFO "World reset completed successfully"
 }
 
 handle_reset_world_flag() {
-  local MAX_AGE=1800  # 30 minutes
-  local FLAG="${DATA_DIR:-}/reset-world.flag"
+  local max_age=1800  # 30 minutes
+  local data_dir="${DATA_DIR:-}"
+  local flag="${data_dir}/reset-world.flag"
 
-  if [[ -f "$FLAG" ]]; then
-    local NOW
-    local MTIME
-    NOW=$(date +%s)
-    MTIME=$(stat -c %Y "$FLAG")
+  if [[ -f "$flag" ]]; then
+    validate_world_reset_flag_path "${data_dir}" "${flag}" || return 1
 
-    if (( NOW - MTIME > MAX_AGE )); then
-      log ERROR "reset-world.flag expired (older than ${MAX_AGE}s), resetting aborted"
-      remove_reset_world_flag "${DATA_DIR:-}" "${FLAG}" || return 1
+    local now
+    local mtime
+    now=$(date +%s)
+    mtime=$(stat -c %Y "$flag")
+
+    if (( now - mtime > max_age )); then
+      log ERROR "reset-world.flag expired (older than ${max_age}s), resetting aborted"
+      remove_reset_world_flag "${data_dir}" "${flag}" || return 1
       return
     fi
 
     log WARN "reset-world.flag valid, proceeding to reset world"
     reset_world || return 1
-    if [[ -f "${FLAG}" ]]; then
-      remove_reset_world_flag "${DATA_DIR:-}" "${FLAG}" || return 1
+    if [[ -f "${flag}" ]]; then
+      remove_reset_world_flag "${data_dir}" "${flag}" || return 1
     fi
     log INFO "reset-world.flag consumed"
   else

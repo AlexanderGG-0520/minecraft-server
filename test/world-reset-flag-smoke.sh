@@ -61,6 +61,21 @@ assert_flag_removals() {
   fi
 }
 
+expect_failure() {
+  local name="$1"
+  shift
+
+  set +e
+  "$@" >/dev/null 2>&1
+  local status=$?
+  set -e
+
+  if [[ "$status" -eq 0 ]]; then
+    echo "FAIL: expected failure for ${name}" >&2
+    exit 1
+  fi
+}
+
 run_successful_reset_consumes_flag_once() {
   DATA_DIR="$tmp/success"
   RESET_WORLD_BACKUP=false
@@ -164,8 +179,67 @@ run_expired_flag_is_removed_once() {
   fi
 }
 
+run_unsafe_reset_paths_are_rejected() {
+  expect_failure \
+    "empty DATA_DIR reset paths" \
+    validate_world_reset_paths "" "/world" "/reset-world.flag" "/backups" "" "" false false
+
+  expect_failure \
+    "root DATA_DIR reset paths" \
+    validate_world_reset_paths "/" "/world" "/reset-world.flag" "/backups" "" "" false false
+
+  local data_root="$tmp/data-root"
+  mkdir -p "$data_root"
+  expect_failure \
+    "WORLD_DIR equals DATA_DIR" \
+    validate_world_reset_paths \
+      "$data_root" \
+      "$data_root" \
+      "$data_root/reset-world.flag" \
+      "$data_root/backups" \
+      "" \
+      "$data_root/mods" \
+      false \
+      false
+}
+
+run_relative_data_dir_reset_is_rejected() {
+  local case_dir="$tmp/relative-case"
+  mkdir -p "$case_dir/relative-data/world"
+  printf '%s\n' world > "$case_dir/relative-data/world/level.dat"
+  touch "$case_dir/relative-data/reset-world.flag"
+
+  reset_flag_removal_count
+  set +e
+  output="$(
+    cd "$case_dir"
+    DATA_DIR="relative-data"
+    RESET_WORLD_BACKUP=false
+    RESET_WORLD_REMOVE_MODS=false
+    reset_world 2>&1
+  )"
+  local status=$?
+  set -e
+
+  if [[ "$status" -eq 0 ]]; then
+    echo "FAIL: expected relative DATA_DIR reset to fail" >&2
+    exit 1
+  fi
+
+  assert_file_present "$case_dir/relative-data/reset-world.flag"
+  assert_file_present "$case_dir/relative-data/world/level.dat"
+  assert_flag_removals 0
+
+  if ! printf '%s\n' "$output" | grep -q 'Refusing unsafe world reset path'; then
+    echo "FAIL: expected unsafe reset path log line" >&2
+    exit 1
+  fi
+}
+
 run_successful_reset_consumes_flag_once
 run_direct_reset_world_consumes_flag_once
 run_absent_flag_skips_reset
 run_missing_world_consumes_flag_once
 run_expired_flag_is_removed_once
+run_unsafe_reset_paths_are_rejected
+run_relative_data_dir_reset_is_rejected
