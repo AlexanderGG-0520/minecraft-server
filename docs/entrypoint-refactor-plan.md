@@ -106,6 +106,7 @@ Basic bootstrap file and directory preparation helpers have moved to
 Mods and modpack helpers have moved to `scripts/lib/mods.sh`.
 Content asset sync and activation helpers have moved to
 `scripts/lib/content_assets.sh`.
+Startup preflight validation has moved to `scripts/lib/preflight.sh`.
 Shutdown/RCON/signal handling remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
@@ -186,6 +187,32 @@ Does not own:
 - `TYPE=auto` resolution.
 - C2ME policy decisions.
 - Install or runtime phase ordering.
+
+### Preflight validation
+
+Suggested file: `scripts/lib/preflight.sh`
+
+Status: completed. Startup preflight validation now lives in
+`scripts/lib/preflight.sh`. `main()` still calls `preflight` at the same point
+before `TYPE=auto` resolution, runtime environment detection, install, and
+runtime launch.
+
+Owns:
+
+- Data directory existence and writability check.
+- Required `EULA` presence check.
+- Initial requested `TYPE` validation before auto-resolution.
+- Required `VERSION` presence check for non-vanilla, non-auto runtime types.
+- Initial RCON password safety validation.
+- Removal of stale `${DATA_DIR}/.ready` during preflight.
+
+Does not own:
+
+- Environment defaults.
+- `TYPE=auto` resolution.
+- Runtime environment detection.
+- Install/runtime phase ordering.
+- Command-mode dispatch.
 
 ### C2ME configuration
 
