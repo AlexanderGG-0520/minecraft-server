@@ -51,6 +51,7 @@ jobs:
           source ./scripts/lib/rcon.sh
           source ./scripts/lib/shutdown.sh
           source ./scripts/lib/s3_client.sh
+          source ./scripts/lib/mods.sh
           source ./scripts/lib/velocity_config.sh
           source ./scripts/lib/server_install.sh
           source ./scripts/lib/runtime_launch.sh
@@ -111,6 +112,22 @@ jobs:
           declare -F require_s3_env >/dev/null
           declare -F configure_mc_alias >/dev/null
           declare -F ensure_s3_source_nonempty_for_remove >/dev/null
+          declare -F install_mods >/dev/null
+          declare -F activate_mods >/dev/null
+          declare -F extract_mrpack_index >/dev/null
+          declare -F validate_modrinth_index >/dev/null
+          declare -F safe_modpack_path >/dev/null
+          declare -F select_modrinth_server_files >/dev/null
+          declare -F modpack_install_marker >/dev/null
+          declare -F modpack_file_hash_matches >/dev/null
+          declare -F modpack_marker_has_file >/dev/null
+          declare -F download_modpack_file >/dev/null
+          declare -F verify_modpack_file >/dev/null
+          declare -F install_modpack_file >/dev/null
+          declare -F write_modpack_marker >/dev/null
+          declare -F modpack_marker_matches >/dev/null
+          declare -F install_modrinth_mrpack >/dev/null
+          declare -F install_modpack >/dev/null
           declare -F generate_velocity_toml >/dev/null
           declare -F download_file_atomic >/dev/null
           declare -F download_vanilla_server_atomic >/dev/null
