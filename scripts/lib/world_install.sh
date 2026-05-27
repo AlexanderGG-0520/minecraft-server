@@ -80,6 +80,14 @@ validate_world_install_paths() {
   return 0
 }
 
+cleanup_world_install_temps() {
+  local archive="${1:-}"
+  local extract_dir="${2:-}"
+
+  [[ -z "${archive}" ]] || safe_rm_f "${archive}"
+  [[ -z "${extract_dir}" ]] || safe_rm_rf "${extract_dir}"
+}
+
 install_world() {
   local WORLD_DIR="${DATA_DIR:-}/world"
 
@@ -105,16 +113,15 @@ install_world() {
   # ------------------------------------------------------------
   configure_mc_alias "world"
 
-  local TMP_ZIP EXTRACT_DIR
+  local TMP_ZIP="" EXTRACT_DIR=""
   TMP_ZIP="$(mktemp /tmp/world.XXXXXX.zip)" || return 1
   EXTRACT_DIR="$(mktemp -d /tmp/world-extract.XXXXXX)" || {
-    safe_rm_f "${TMP_ZIP}"
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     return 1
   }
 
   mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}" || {
-    safe_rm_f "${TMP_ZIP}"
-    safe_rm_rf "${EXTRACT_DIR}"
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     die "Failed to download world archive"
   }
 
@@ -122,10 +129,8 @@ install_world() {
   # Extract
   # ------------------------------------------------------------
   if ! unzip -q "${TMP_ZIP}" -d "${EXTRACT_DIR}"; then
-    safe_rm_f "${TMP_ZIP}"
-    safe_rm_rf "${EXTRACT_DIR}"
-    log ERROR "Failed to extract world archive"
-    return 1
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
+    die "Failed to extract world archive with unzip"
   fi
 
   # ------------------------------------------------------------
@@ -148,15 +153,13 @@ install_world() {
   fi
 
   if [[ "${#CANDIDATES[@]}" -gt 1 ]]; then
-    safe_rm_f "${TMP_ZIP}"
-    safe_rm_rf "${EXTRACT_DIR}"
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     log ERROR "Ambiguous world archive layout"
     return 1
   fi
 
   if [[ "${#CANDIDATES[@]}" -eq 0 ]]; then
-    safe_rm_f "${TMP_ZIP}"
-    safe_rm_rf "${EXTRACT_DIR}"
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     log ERROR "Failed to detect world directory in archive"
     return 1
   fi
@@ -166,8 +169,7 @@ install_world() {
   if [[ "${SELECTED_SOURCE}" != "${EXTRACT_DIR}" &&
     "${SELECTED_SOURCE}" != "${EXTRACT_DIR}/world" &&
     "${#TOP_LEVEL_DIRS[@]}" -ne 1 ]]; then
-    safe_rm_f "${TMP_ZIP}"
-    safe_rm_rf "${EXTRACT_DIR}"
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     log ERROR "Ambiguous world archive layout"
     return 1
   fi
@@ -176,32 +178,27 @@ install_world() {
   # Install
   # ------------------------------------------------------------
   if ! validate_world_install_paths "${DATA_DIR:-}" "${WORLD_DIR}"; then
-    safe_rm_f "${TMP_ZIP}"
-    safe_rm_rf "${EXTRACT_DIR}"
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     return 1
   fi
 
   if ! mkdir -p "${DATA_DIR}"; then
-    safe_rm_f "${TMP_ZIP}"
-    safe_rm_rf "${EXTRACT_DIR}"
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     return 1
   fi
 
   if ! validate_world_install_paths "${DATA_DIR:-}" "${WORLD_DIR}"; then
-    safe_rm_f "${TMP_ZIP}"
-    safe_rm_rf "${EXTRACT_DIR}"
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     return 1
   fi
 
   safe_rm_rf "${WORLD_DIR}" || return 1
   if ! safe_mv "${SELECTED_SOURCE}" "${WORLD_DIR}"; then
-    safe_rm_f "${TMP_ZIP}"
-    safe_rm_rf "${EXTRACT_DIR}"
+    cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     return 1
   fi
 
-  safe_rm_f "${TMP_ZIP}"
-  safe_rm_rf "${EXTRACT_DIR}"
+  cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
   safe_rm_f "${DATA_DIR}/reset-world.flag"
 
   log INFO "World installed successfully"

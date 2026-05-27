@@ -528,7 +528,7 @@ jobs:
           status=$?
           set -e
           test "$status" -eq 1
-          printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] Failed to extract world archive$'
+          printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] Failed to extract world archive with unzip$'
           test -f "$DATA_DIR/reset-world.flag"
           test "$(cat "$DATA_DIR/world/level.dat")" = "old-world"
           assert_archive_cleaned
