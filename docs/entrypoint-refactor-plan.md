@@ -99,6 +99,8 @@ C2ME-specific policy and configuration helpers have moved to
 JVM args generation has moved to `scripts/lib/jvm_args.sh`.
 Player-list and UUID-cache helpers have moved to
 `scripts/lib/player_lists.sh`.
+Paper-specific configuration helpers have moved to
+`scripts/lib/paper_config.sh`.
 Shutdown/RCON/signal handling remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
@@ -250,6 +252,29 @@ Does not own:
 - Install phase ordering.
 - Server property diff/application.
 - Mojang API behavior or retry policy.
+
+### Paper config
+
+Suggested file: `scripts/lib/paper_config.sh`
+
+Status: completed. Paper-specific config mutation helpers now live in
+`scripts/lib/paper_config.sh`. `install_phase.sh` still calls
+`configure_paper_configs` and `apply_paper_global_from_env` at the same points.
+
+Owns:
+
+- Paper Velocity config application.
+- Paper config overrides.
+- Paper-specific YAML mutation helpers.
+- Paper-specific `paper-global.yml` fallback generation.
+
+Does not own:
+
+- `WHITE_LIST` / `white-list` server.properties behavior.
+- General server.properties diff/application.
+- Velocity config generation.
+- Shared string helpers used by Velocity config.
+- Install phase ordering.
 
 ### Install phase orchestration
 
@@ -411,6 +436,7 @@ Most reusable behavior now lives in `scripts/lib/*.sh`:
 - `jvm_args.sh`: configured JVM args file generation.
 - `player_lists.sh`: player-list parsing, UUID-cache handling, and
   `ops.json` / `whitelist.json` generation.
+- `paper_config.sh`: Paper-specific config mutation helpers.
 - `runtime.sh`: runtime type resolution and install marker helpers.
 - `lifecycle.sh`: lifecycle hook execution.
 - `rcon.sh`: RCON command helpers and the raw `rcon_stop` implementation;

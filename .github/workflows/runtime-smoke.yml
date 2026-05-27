@@ -37,6 +37,7 @@ jobs:
             source /scripts/lib/c2me.sh
             source /scripts/lib/jvm_args.sh
             source /scripts/lib/player_lists.sh
+            source /scripts/lib/paper_config.sh
             source /scripts/lib/lifecycle.sh
             source /scripts/lib/rcon.sh
             source /scripts/lib/shutdown.sh
@@ -77,6 +78,13 @@ jobs:
             declare -F uuid_with_hyphen >/dev/null
             declare -F install_ops >/dev/null
             declare -F install_whitelist >/dev/null
+            declare -F require_yq >/dev/null
+            declare -F set_server_properties_kv >/dev/null
+            declare -F yq_set_yaml >/dev/null
+            declare -F apply_paper_override_item >/dev/null
+            declare -F configure_paper_configs >/dev/null
+            declare -F yaml_escape_dq >/dev/null
+            declare -F apply_paper_global_from_env >/dev/null
             declare -F run_phase_hooks >/dev/null
             declare -F rcon_client >/dev/null
             declare -F rcon_exec >/dev/null
