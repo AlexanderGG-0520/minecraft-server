@@ -44,6 +44,7 @@ jobs:
           source ./scripts/lib/runtime_env.sh
           source ./scripts/lib/c2me.sh
           source ./scripts/lib/jvm_args.sh
+          source ./scripts/lib/player_lists.sh
           source ./scripts/lib/lifecycle.sh
           source ./scripts/lib/rcon.sh
           source ./scripts/lib/shutdown.sh
@@ -78,6 +79,13 @@ jobs:
           declare -F detect_gpu >/dev/null
           declare -F configure_c2me_opencl >/dev/null
           declare -F install_jvm_args >/dev/null
+          declare -F player_list_uuid_cache_file >/dev/null
+          declare -F init_uuid_cache >/dev/null
+          declare -F uuid_for_player >/dev/null
+          declare -F parse_csv >/dev/null
+          declare -F uuid_with_hyphen >/dev/null
+          declare -F install_ops >/dev/null
+          declare -F install_whitelist >/dev/null
           declare -F run_phase_hooks >/dev/null
           declare -F rcon_client >/dev/null
           declare -F rcon_exec >/dev/null
