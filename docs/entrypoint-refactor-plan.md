@@ -104,6 +104,8 @@ Paper-specific configuration helpers have moved to
 Basic bootstrap file and directory preparation helpers have moved to
 `scripts/lib/bootstrap_files.sh`.
 Mods and modpack helpers have moved to `scripts/lib/mods.sh`.
+Content asset sync and activation helpers have moved to
+`scripts/lib/content_assets.sh`.
 Shutdown/RCON/signal handling remain in `entrypoint.sh`.
 `generate_velocity_toml` has moved to `scripts/lib/velocity_config.sh` without
 changing its call timing.
@@ -319,9 +321,34 @@ Owns:
 
 Does not own:
 
-- Shared `activate_dir` machinery.
 - S3/MinIO client setup and source-empty validation mechanics.
 - Plugins, configs, datapacks, or resourcepacks sync/activation.
+- Install phase ordering.
+
+### Content assets
+
+Suggested file: `scripts/lib/content_assets.sh`
+
+Status: completed. Config, plugin, datapack, and resourcepack sync/activation
+helpers now live in `scripts/lib/content_assets.sh`. Shared `activate_dir`
+machinery moved there too so mods and non-mod content activation use the same
+boundary. `install_phase.sh` still calls each install and activation function
+at the same points.
+
+Owns:
+
+- Shared atomic directory activation via `activate_dir`.
+- Config sync and activation.
+- Plugin sync and activation, including the existing top-level jar policy and
+  non-jar protection behavior.
+- Datapack sync and activation.
+- Resourcepack sync, server.properties auto-apply hook, and activation.
+
+Does not own:
+
+- S3/MinIO client setup and source-empty validation mechanics.
+- Mods or Modrinth `.mrpack` helpers.
+- Server property diff/application helpers.
 - Install phase ordering.
 
 ### Install phase orchestration

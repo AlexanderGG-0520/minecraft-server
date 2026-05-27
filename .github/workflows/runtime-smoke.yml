@@ -43,6 +43,7 @@ jobs:
             source /scripts/lib/rcon.sh
             source /scripts/lib/shutdown.sh
             source /scripts/lib/s3_client.sh
+            source /scripts/lib/content_assets.sh
             source /scripts/lib/mods.sh
             source /scripts/lib/velocity_config.sh
             source /scripts/lib/server_install.sh
@@ -103,6 +104,15 @@ jobs:
             declare -F require_s3_env >/dev/null
             declare -F configure_mc_alias >/dev/null
             declare -F ensure_s3_source_nonempty_for_remove >/dev/null
+            declare -F activate_dir >/dev/null
+            declare -F install_configs >/dev/null
+            declare -F activate_configs >/dev/null
+            declare -F install_plugins >/dev/null
+            declare -F activate_plugins >/dev/null
+            declare -F install_datapacks >/dev/null
+            declare -F activate_datapacks >/dev/null
+            declare -F install_resourcepacks >/dev/null
+            declare -F activate_resourcepacks >/dev/null
             declare -F install_mods >/dev/null
             declare -F activate_mods >/dev/null
             declare -F extract_mrpack_index >/dev/null
