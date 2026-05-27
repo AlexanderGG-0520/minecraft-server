@@ -4,21 +4,54 @@ require_yq() {
   command -v yq >/dev/null 2>&1 || die "yq is required to edit YAML configs (install yq in the image)"
 }
 
+validate_server_properties_key() {
+  local key="$1"
+  [[ "$key" =~ ^[A-Za-z0-9._-]+$ ]] \
+    || die "Invalid server.properties key: '${key}'"
+}
+
 # Apply key=value to server.properties (replace if exists, append if not)
 set_server_properties_kv() {
   local file="$1" key="$2" value="$3"
+  local tmp_file
+
+  validate_server_properties_key "$key"
   mkdir -p "$(dirname "$file")"
   touch "$file"
+  tmp_file="$(mktemp "${file}.XXXXXX")" || die "Failed to create temporary file for '${file}'"
 
-  # Replace only key lines without breaking comments
-  if grep -Eq "^[[:space:]]*${key}[[:space:]]*=" "$file"; then
-    # Use GNU sed (assuming Linux, not macOS -i'' format)
-    local sed_value
-    sed_value="$(escape_sed_replacement "$value")"
-    sed -i -E "s|^[[:space:]]*(${key})[[:space:]]*=.*$|\1=${sed_value}|g" "$file"
-  else
-    printf "%s=%s\n" "$key" "$value" >> "$file"
+  if ! awk -v key="$key" -v value="$value" '
+    BEGIN {
+      found = 0
+    }
+    {
+      line = $0
+      if (match(line, /^[[:space:]]*[^=]+[[:space:]]*=/)) {
+        candidate = substr(line, 1, RLENGTH)
+        sub(/^[[:space:]]*/, "", candidate)
+        sub(/[[:space:]]*=$/, "", candidate)
+        if (candidate == key) {
+          print key "=" value
+          found = 1
+          next
+        }
+      }
+      print line
+    }
+    END {
+      if (!found) {
+        print key "=" value
+      }
+    }
+  ' "$file" > "$tmp_file"; then
+    rm -f "$tmp_file"
+    die "Failed to update server.properties file '${file}'"
   fi
+
+  mv "$tmp_file" "$file" || {
+    rm -f "$tmp_file"
+    die "Failed to replace server.properties file '${file}'"
+  }
 }
 
 # Set value on YAML dot path (roughly detect true/false/number/string types)
