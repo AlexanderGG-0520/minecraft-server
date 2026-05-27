@@ -41,6 +41,7 @@ jobs:
           source ./scripts/lib/logging.sh
           source ./scripts/lib/filesystem.sh
           source ./scripts/lib/runtime.sh
+          source ./scripts/lib/preflight.sh
           source ./scripts/lib/runtime_env.sh
           source ./scripts/lib/c2me.sh
           source ./scripts/lib/jvm_args.sh
@@ -75,6 +76,7 @@ jobs:
           declare -F assert_server_install_matches >/dev/null
           declare -F write_server_install_marker >/dev/null
           declare -F resolve_type_auto >/dev/null
+          declare -F preflight >/dev/null
           declare -F detect_runtime_env >/dev/null
           declare -F should_enable_c2me >/dev/null
           declare -F detect_optimize_mod >/dev/null
