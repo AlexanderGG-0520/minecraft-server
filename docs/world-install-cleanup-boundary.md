@@ -39,7 +39,7 @@ Inside `install_world`, current behavior is:
 - Extraction runs into the temporary extraction directory:
   - `unzip -q "${TMP_ZIP}" -d "${EXTRACT_DIR}"`
 - Unzip failure removes the temporary archive, logs
-  `Failed to extract world archive`, and returns failure.
+  `Failed to extract world archive with unzip`, and returns failure.
 - Detection supports direct `world/level.dat`, single-root `MyWorld/level.dat`,
   and flat root `level.dat` layouts.
 - Multiple valid world candidates fail with `Ambiguous world archive layout`.
@@ -109,7 +109,8 @@ A separate PR may:
 Keep this separate unless it is trivially and clearly part of the temp archive
 cleanup without changing behavior.
 
-Status: completed with explicit `Failed to extract world archive` messaging.
+Status: completed with explicit `Failed to extract world archive with unzip`
+messaging.
 
 ### C. Extracted world directory detection improvement
 

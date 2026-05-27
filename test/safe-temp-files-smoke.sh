@@ -72,6 +72,15 @@ create_fixture_zip() {
 archive="$tmp/world.zip"
 create_fixture_zip "$archive"
 
+snapshot_world_install_temps() {
+  find /tmp -maxdepth 1 \( -name 'world.*.zip' -o -name 'world-extract.*' \) -print | sort
+}
+
+assert_world_install_temps_unchanged() {
+  diff -u "$world_temp_snapshot" <(snapshot_world_install_temps)
+  test ! -e /tmp/world.zip
+}
+
 configure_mc_alias() {
   test "$1" = "world"
 }
@@ -84,6 +93,8 @@ mc() {
 
 WORLD_S3_BUCKET=bucket
 WORLD_S3_KEY=world.zip
+world_temp_snapshot="$tmp/world-temp-snapshot.txt"
+snapshot_world_install_temps > "$world_temp_snapshot"
 touch "$DATA_DIR/reset-world.flag"
 install_world
 
@@ -94,5 +105,24 @@ case "$archive_target" in
 esac
 test "$archive_target" != "/tmp/world.zip"
 test ! -e "$archive_target"
-test ! -e /tmp/world.zip
+assert_world_install_temps_unchanged
 test -f "$DATA_DIR/world/level.dat"
+
+archive="$tmp/invalid-world.zip"
+printf '%s\n' "not a zip" > "$archive"
+DATA_DIR="$tmp/invalid-world-data"
+mkdir -p "$DATA_DIR/world"
+printf '%s\n' old-world > "$DATA_DIR/world/level.dat"
+touch "$DATA_DIR/reset-world.flag"
+
+set +e
+output="$(install_world 2>&1)"
+status=$?
+set -e
+test "$status" -eq 1
+printf '%s\n' "$output" | grep -q 'Failed to extract world archive with unzip'
+archive_target="$(cat "$tmp/world-archive-target.txt")"
+test ! -e "$archive_target"
+assert_world_install_temps_unchanged
+test -f "$DATA_DIR/reset-world.flag"
+test "$(cat "$DATA_DIR/world/level.dat")" = "old-world"
