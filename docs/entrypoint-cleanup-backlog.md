@@ -11,9 +11,10 @@ not mix them into future mechanical moves.
 Preserve existing runtime behavior unless a PR explicitly chooses and documents
 a behavior change.
 
-## Recent safety work now completed
+## Completed safety and cleanup work
 
-The recent safety refactor series closed the following backlog items:
+The safety refactor and post-entrypoint-split cleanup series closed the
+following backlog items:
 
 - Covered destructive `rm`, `rm -rf`, and `mv` operations now go through safe
   filesystem helpers, and unsafe empty, root, or root-equivalent paths are
@@ -34,6 +35,17 @@ The recent safety refactor series closed the following backlog items:
   That path removes only managed server install state; it does not remove world
   data, mods, plugins, config, datapacks, resourcepacks, or modpack state.
 
+The focused post-split cleanup PRs are also complete:
+
+- #161: `world_reset.sh` path safety and function-local variable cleanup.
+- #162: `world_install.sh` temporary archive cleanup and clearer unzip failure
+  reporting.
+- #163: `s3_client.sh` temporary source-listing cleanup.
+- #164: `runtime.sh` server install marker temp-file cleanup and clearer
+  corrupt marker JSON reporting.
+- #165: `server_properties.sh` safe `TYPE` handling under `set -u`.
+- #166: `logging.sh` `die` argument handling clarification.
+
 ## Current remaining cleanup categories
 
 - Low-risk / mechanical:
@@ -42,8 +54,9 @@ The recent safety refactor series closed the following backlog items:
 - Behavior-changing / needs design:
   - Velocity config ownership and double-call behavior.
   - Velocity install/config coupling.
+  - Spigot marker auto-resolution policy. Keep this as a behavior/spec decision
+    separate from cleanup and separate from Spigot BuildTools/self-build work.
 - High-risk / destructive-path-adjacent:
-  - `world_reset.sh` duplicated reset flag removal.
   - `world_reset.sh` backup/temp/atomic failure handling.
 - Feature work, not cleanup:
   - Spigot BuildTools / self-build support.
@@ -164,8 +177,8 @@ The recent safety refactor series closed the following backlog items:
 
 ### 4. Marker and config behavior decisions
 
-- `runtime.sh` - reconcile `spigot` marker support and improve handling of
-  corrupt marker JSON.
+- `runtime.sh` - keep Spigot marker auto-resolution as a behavior/spec decision
+  separate from marker cleanup.
   - Status: corrupt, incomplete, and semantically invalid marker fail-fast
     handling completed. See
     [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
@@ -174,8 +187,8 @@ The recent safety refactor series closed the following backlog items:
     fail fast by default, and `FORCE_REINSTALL=true` is the explicit opt-in
     server artifact reinstall path. See
     [`docs/server-install-reinstall-policy.md`](server-install-reinstall-policy.md).
-  - Status: Spigot marker support / `resolve_type_auto` behavior is completed
-    for the narrow marker-only `TYPE=auto` Spigot resolution. See
+  - Status: Spigot marker auto-resolution remains a behavior/spec decision, not
+    cleanup. See
     [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
     Spigot BuildTools/self-build remains separate feature work, not cleanup.
     Velocity config ownership remains a separate behavior decision.
@@ -321,9 +334,8 @@ The recent safety refactor series closed the following backlog items:
   datapacks, resourcepacks, or modpack state.
 - Spigot marker auto-resolution design boundary:
   [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
-  Status: completed for the narrow `resolve_type_auto` Spigot marker
-  auto-resolution. `TYPE=auto` now resolves to `spigot` from a valid existing
-  install marker with `type=spigot` and a present marker artifact.
+  Status: open behavior/spec decision. Keep any change to whether and how
+  `TYPE=auto` resolves Spigot markers out of cleanup PRs.
 - Spigot BuildTools/self-build support remains separate feature work, not
   cleanup.
 - Invalid or corrupt marker JSON handling is completed for:
@@ -370,8 +382,11 @@ The recent safety refactor series closed the following backlog items:
 Prefer docs-only boundaries before implementation for any remaining
 behavior-sensitive item:
 
-1. `world_reset.sh` duplicated reset flag removal boundary.
-2. Stop cleanup and move to feature work only after an explicit maintainer
+1. `world_reset.sh` backup/temp/atomic handling boundary, if the destructive
+   reset behavior is worth revisiting.
+2. Spigot marker auto-resolution behavior/spec PR, if maintainers choose to
+   define that policy now.
+3. Stop cleanup and move to feature work only after an explicit maintainer
    choice.
 
 ## Guardrails

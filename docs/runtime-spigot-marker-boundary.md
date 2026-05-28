@@ -3,15 +3,15 @@
 This note defines a docs-only boundary for whether and how `TYPE=auto` should
 resolve valid server install markers whose `type` is `spigot`.
 
-Implementation status: completed for the narrow `resolve_type_auto` Spigot
-marker support. `TYPE=auto` now resolves to `spigot` when a valid server
-install marker has `type=spigot` and the marker artifact exists under
-`${DATA_DIR}`. This is marker-only support for existing installed artifacts.
-Marker write format, marker temporary-file handling, corrupt and incomplete
-marker fail-fast behavior, missing marker fallback behavior, `install_server`
-dispatch, server artifact download behavior, explicit `TYPE=spigot`
-bring-your-own behavior, and Spigot BuildTools/self-build behavior are
-unchanged. Spigot BuildTools/self-build remains separate feature work.
+Status: behavior/spec decision boundary, not cleanup backlog. Keep any change
+to whether and how `TYPE=auto` resolves Spigot markers separate from marker
+temporary-file cleanup, corrupt marker handling, and other post-split cleanup
+PRs. Marker write format, marker temporary-file handling, corrupt and
+incomplete marker fail-fast behavior, missing marker fallback behavior,
+`install_server` dispatch, server artifact download behavior, explicit
+`TYPE=spigot` bring-your-own behavior, and Spigot BuildTools/self-build
+behavior are separate concerns. Spigot BuildTools/self-build remains separate
+feature work.
 
 ## Current Behavior
 
@@ -63,12 +63,13 @@ Existing smoke coverage includes:
 - Runtime smoke for explicit `TYPE=spigot` failing when no artifact exists.
 - Runtime smoke for explicit `TYPE=spigot` using an existing `server.jar`.
 - Runtime smoke for `TYPE=auto` resolving a valid `paper` marker.
-- Runtime smoke for `TYPE=auto` resolving a valid `spigot` marker.
+- Runtime smoke coverage for Spigot marker auto-resolution belongs with any
+  PR that intentionally changes or confirms that behavior.
 - Runtime marker smoke for corrupt and incomplete marker fail-fast behavior.
 
-The previous mismatch where `spigot` was a supported runtime type but
-`TYPE=auto` did not resolve `type=spigot` from a valid server install marker
-is resolved.
+Any mismatch between explicit `TYPE=spigot` support and marker-based
+`TYPE=auto` behavior is a behavior/spec decision for this boundary, not a
+cleanup item.
 
 ## Behavior Policy Candidates
 
@@ -167,7 +168,7 @@ Future implementation smoke tests should cover:
 - `TYPE=auto` with an unsupported marker type still behaves as currently
   expected, unless that behavior is explicitly scoped.
 - `TYPE=auto` with corrupt marker still fails with
-  `Corrupt server install marker`.
+  `Invalid/corrupt server install marker JSON`.
 - `TYPE=auto` with incomplete marker still fails with
   `Incomplete server install marker`.
 - Explicit `TYPE=spigot` behavior remains covered.

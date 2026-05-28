@@ -40,7 +40,7 @@ installation and `TYPE=auto` resolution.
   fails with the existing artifact mismatch error rather than replacing the
   artifact automatically.
 - If marker JSON is corrupt or unreadable as JSON, it fails with
-  `Corrupt server install marker`.
+  `Invalid/corrupt server install marker JSON`.
 - If marker JSON is valid but missing a required field or has a null required
   field, it fails with `Incomplete server install marker`.
 - An empty `build` field remains valid when the field exists.
@@ -73,7 +73,7 @@ installation and `TYPE=auto` resolution.
 - Artifact detection checks `velocity.jar`, `fabric-server-launch.jar`,
   Forge/NeoForge `run.sh`, and `server.jar`, then falls back to `vanilla`.
 - If marker JSON is corrupt or unreadable as JSON, it fails with
-  `Corrupt server install marker` and does not continue to artifact detection.
+  `Invalid/corrupt server install marker JSON` and does not continue to artifact detection.
 - If marker JSON is valid but missing a required field or has a null required
   field, it fails with `Incomplete server install marker` and does not continue
   to artifact detection.
@@ -87,7 +87,7 @@ If `.server-install.json` exists but is invalid JSON, fail with an explicit
 error such as:
 
 ```text
-Corrupt server install marker
+Invalid/corrupt server install marker JSON
 ```
 
 Rationale: the marker exists as install state. Corrupt install state should not
@@ -131,7 +131,7 @@ claims to be authoritative install state and should not be silently ignored.
 Current policy:
 
 - Missing marker remains non-fatal where currently non-fatal.
-- Existing corrupt marker fails fast with `Corrupt server install marker`.
+- Existing corrupt marker fails fast with `Invalid/corrupt server install marker JSON`.
 - Existing marker with missing or null required fields fails fast with
   `Incomplete server install marker`.
 - Valid marker mismatch continues to fail as today.
@@ -172,12 +172,12 @@ Smoke tests cover:
 - Valid marker matching expected artifact, type, version, and build.
 - Valid marker mismatch failing as before.
 - Missing marker behavior remaining non-fatal where currently non-fatal.
-- Corrupt marker JSON failing with `Corrupt server install marker`.
+- Corrupt marker JSON failing with `Invalid/corrupt server install marker JSON`.
 - Valid JSON missing required fields failing with
   `Incomplete server install marker`.
 - `TYPE=auto` with a valid marker resolving as before.
 - `TYPE=auto` with corrupt marker failing with
-  `Corrupt server install marker`.
+  `Invalid/corrupt server install marker JSON`.
 - `TYPE=auto` with incomplete marker failing with
   `Incomplete server install marker`.
 - Avoid Minecraft server boot.
