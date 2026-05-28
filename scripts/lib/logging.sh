@@ -17,4 +17,12 @@ log() {
   printf '[%s] [%s] %s\n' "$(ts)" "$level" "$*" >&2
 }
 
-die() { log ERROR "$@"; exit 1; }
+die() {
+  local message="$*"
+
+  # Contract: die accepts one complete message string or multiple message
+  # arguments. Multiple arguments are joined with spaces to preserve existing
+  # call-site output while avoiding format string handling.
+  log ERROR "$message"
+  exit 1
+}
