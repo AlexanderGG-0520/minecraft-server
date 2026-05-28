@@ -1,8 +1,13 @@
 # shellcheck shell=bash
 
+server_properties_type() {
+  printf '%s' "${TYPE:-}"
+}
+
 ensure_server_properties() {
   local props="${DATA_DIR}/server.properties"
-  local type="${TYPE:-}"
+  local type
+  type="$(server_properties_type)"
 
   if ! uses_server_properties "$type"; then
     log INFO "TYPE=${type} does not use server.properties, skipping bootstrap"
@@ -19,7 +24,8 @@ ensure_server_properties() {
 
 bootstrap_server_properties() {
   local props="${DATA_DIR}/server.properties"
-  local type="${TYPE:-}"
+  local type
+  type="$(server_properties_type)"
 
   if [[ -f "$props" ]]; then
     log INFO "server.properties already exists"
