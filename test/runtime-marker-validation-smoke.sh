@@ -32,7 +32,11 @@ write_server_install_marker "server.jar" "paper" "1.21.8" "123"
 assert_server_install_matches "server.jar" "paper" "1.21.8" "123"
 
 printf '{\n' > "$marker"
-expect_failure "Invalid server install marker JSON: $marker" \
+expect_failure "Invalid/corrupt server install marker JSON: $marker" \
+  assert_server_install_matches "server.jar" "paper" "1.21.8"
+
+printf '[]\n' > "$marker"
+expect_failure "Invalid server install marker: $marker must be a JSON object" \
   assert_server_install_matches "server.jar" "paper" "1.21.8"
 
 printf '{"artifact":"server.jar","type":"paper","build":"123"}\n' > "$marker"
@@ -61,7 +65,7 @@ expect_failure "Invalid server install marker: $marker unsupported artifact othe
 
 printf '{\n' > "$marker"
 TYPE=auto
-expect_failure "Invalid server install marker JSON: $marker" resolve_type_auto
+expect_failure "Invalid/corrupt server install marker JSON: $marker" resolve_type_auto
 
 printf '{"artifact":"server.jar","type":"paper","version":"","build":"123"}\n' > "$marker"
 TYPE=auto

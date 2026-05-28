@@ -120,4 +120,4 @@ test -f "$tmp/server.jar"
 
 printf '{\n' > "$tmp/.server-install.json"
 TYPE=auto
-expect_failure "Invalid server install marker JSON: $tmp/.server-install.json" resolve_type_auto
+expect_failure "Invalid/corrupt server install marker JSON: $tmp/.server-install.json" resolve_type_auto

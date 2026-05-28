@@ -33,6 +33,15 @@ assert_no_marker_temp_files() {
   fi
 }
 
+assert_no_marker_temp_files_in() {
+  local dir="$1"
+
+  if find "$dir" -maxdepth 1 -name '.server-install.json.tmp.*' -print -quit | grep -q .; then
+    echo "FAIL: marker temp file was left behind in $dir" >&2
+    exit 1
+  fi
+}
+
 test "$(server_install_marker)" = "$tmp/.server-install.json"
 
 write_server_install_marker "server.jar" "paper" "1.21.8" "123"
@@ -47,6 +56,21 @@ write_server_install_marker "server.jar" "vanilla" "1.21.8"
 test "$(read_server_install_marker_field "$tmp/.server-install.json" build)" = ""
 assert_no_marker_temp_files
 
+fail_tmp="$tmp/write-failure"
+mkdir -p "$fail_tmp"
+(
+  DATA_DIR="$fail_tmp"
+  mv() { return 7; }
+
+  set +e
+  write_server_install_marker "server.jar" "paper" "1.21.8" "123"
+  status=$?
+  set -e
+  test "$status" -eq 1
+)
+test ! -f "$fail_tmp/.server-install.json"
+assert_no_marker_temp_files_in "$fail_tmp"
+
 write_server_install_marker "server.jar" "paper" "1.21.8" "123"
 expect_failure \
   "Server install marker mismatch at $tmp/.server-install.json: type current=paper requested=vanilla; build current=123 requested=<empty>" \
@@ -56,7 +80,7 @@ rm -f "$tmp/.server-install.json"
 assert_server_install_matches "server.jar" "paper" "1.21.8" "123"
 
 printf '{\n' > "$tmp/.server-install.json"
-expect_failure "Invalid server install marker JSON: $tmp/.server-install.json" \
+expect_failure "Invalid/corrupt server install marker JSON: $tmp/.server-install.json" \
   assert_server_install_matches "server.jar" "paper" "1.21.8"
 
 printf '{"artifact":"server.jar","type":"paper","version":"1.21.8"}\n' > "$tmp/.server-install.json"
@@ -77,7 +101,7 @@ test "$TYPE" = "spigot"
 
 printf '{\n' > "$tmp/.server-install.json"
 TYPE=auto
-expect_failure "Invalid server install marker JSON: $tmp/.server-install.json" resolve_type_auto
+expect_failure "Invalid/corrupt server install marker JSON: $tmp/.server-install.json" resolve_type_auto
 
 printf '{"artifact":"server.jar","type":"paper","version":"1.21.8"}\n' > "$tmp/.server-install.json"
 TYPE=auto
