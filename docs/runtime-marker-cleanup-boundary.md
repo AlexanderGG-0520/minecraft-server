@@ -1,6 +1,6 @@
 # runtime.sh marker temporary-file cleanup boundary
 
-This note defines the boundary for a future behavior-preserving cleanup of
+This note defines the boundary for the completed behavior-preserving cleanup of
 temporary-file handling in `scripts/lib/runtime.sh`, especially
 `write_server_install_marker`.
 
@@ -25,13 +25,14 @@ installation and `TYPE=auto` resolution.
 - `write_server_install_marker` receives artifact, installed type, installed
   version, and optional build value.
 - When no build value is passed, the marker still contains `"build": ""`.
-- The current marker temporary file name is `tmp="${marker}.tmp.$$"`.
+- The marker temporary file is created with `mktemp` in the marker directory
+  using the `.server-install.json.tmp.XXXXXX` pattern.
 - The current write flow uses `jq -n` with `--arg` values, redirects JSON to
-  the temporary file, then runs `mv -f "$tmp" "$marker"`.
+  the temporary file, then runs a guarded move to replace the marker.
 - The final `mv -f` provides the existing replacement behavior once the
   temporary marker file has been written.
-- There is currently no explicit cleanup branch for a failed `jq`, redirection,
-  or `mv`.
+- Temporary marker cleanup is attempted after failed `jq`, redirection, or
+  move operations.
 
 `assert_server_install_matches` currently behaves as follows:
 
@@ -43,8 +44,8 @@ installation and `TYPE=auto` resolution.
   it fails fast rather than replacing the existing server artifact
   automatically.
 - Invalid or corrupt marker JSON now fails fast with
-  `Corrupt server install marker`; incomplete markers now fail fast with
-  `Incomplete server install marker`.
+  `Invalid/corrupt server install marker JSON`; incomplete markers now fail
+  fast with `Incomplete server install marker`.
 
 `resolve_type_auto` currently behaves as follows:
 
@@ -72,8 +73,8 @@ installation and `TYPE=auto` resolution.
   `fabric-server-launch.jar`, Forge/NeoForge `run.sh`, and `server.jar`, then
   falls back to `vanilla`.
 - Invalid or corrupt marker JSON now fails fast with
-  `Corrupt server install marker`; incomplete markers now fail fast with
-  `Incomplete server install marker`.
+  `Invalid/corrupt server install marker JSON`; incomplete markers now fail
+  fast with `Incomplete server install marker`.
 
 Current Spigot marker behavior:
 
@@ -133,8 +134,8 @@ temporary-file cleanup implementation:
 - Spigot marker support and `resolve_type_auto` support decisions.
   Design boundary:
   [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
-  Status: completed for the narrow `resolve_type_auto` Spigot marker
-  auto-resolution. Spigot BuildTools/self-build remains separate feature work.
+  Status: behavior/spec decision, not cleanup. Spigot BuildTools/self-build
+  remains separate feature work.
 - Marker schema changes, if ever needed.
 
 ## Staged plan
@@ -145,6 +146,7 @@ temporary-file cleanup implementation:
 2. Behavior-preserving `write_server_install_marker` temp-file cleanup only.
    Use `mktemp` in the marker directory, preserve marker JSON shape and
    write-then-`mv -f` replacement behavior, and add offline smoke tests.
+   Status: completed.
 
 3. Separate invalid or corrupt marker JSON behavior PR, only if desired.
 

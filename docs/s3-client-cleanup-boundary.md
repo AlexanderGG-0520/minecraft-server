@@ -1,6 +1,6 @@
 # s3_client.sh temporary-file cleanup boundary
 
-This note defines the boundary for a future behavior-preserving cleanup of
+This note defines the boundary for the completed behavior-preserving cleanup of
 temporary-file handling in `scripts/lib/s3_client.sh`, especially
 `ensure_s3_source_nonempty_for_remove`.
 

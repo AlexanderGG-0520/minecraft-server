@@ -7,8 +7,10 @@ responsibility boundaries before moving substantial behavior.
 Deferred non-mechanical cleanup and hardening items are tracked in
 [`docs/entrypoint-cleanup-backlog.md`](entrypoint-cleanup-backlog.md). Keep those
 items out of future mechanical moves.
-That backlog is the next phase after the responsibility split; do not fold its
-behavior-changing items into more mechanical moves.
+The first post-split cleanup series is complete for the focused `world_reset.sh`,
+`world_install.sh`, `s3_client.sh`, `runtime.sh`, `server_properties.sh`, and
+`logging.sh` items. Remaining backlog entries are behavior/spec decisions or
+explicitly deferred higher-risk cleanup; do not fold them into mechanical moves.
 
 This is not a literal MVC split. The useful analogy is:
 
