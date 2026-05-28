@@ -53,8 +53,12 @@ validate_server_install_marker() {
   local marker="$1"
   local field
 
+  if ! jq '.' "$marker" >/dev/null 2>&1; then
+    die "Invalid/corrupt server install marker JSON: ${marker}"
+  fi
+
   if ! jq -e 'type == "object"' "$marker" >/dev/null 2>&1; then
-    die "Invalid server install marker JSON: ${marker}"
+    die "Invalid server install marker: ${marker} must be a JSON object"
   fi
 
   for field in artifact type version build; do
@@ -74,13 +78,13 @@ validate_server_install_marker() {
   done
 
   local installed_type
-  installed_type="$(jq -r '.type' "$marker")" || die "Invalid server install marker JSON: ${marker}"
+  installed_type="$(jq -r '.type' "$marker")" || die "Invalid/corrupt server install marker JSON: ${marker}"
   if ! is_supported_runtime_type "$installed_type"; then
     die "Invalid server install marker: ${marker} unsupported type ${installed_type}"
   fi
 
   local installed_artifact
-  installed_artifact="$(jq -r '.artifact' "$marker")" || die "Invalid server install marker JSON: ${marker}"
+  installed_artifact="$(jq -r '.artifact' "$marker")" || die "Invalid/corrupt server install marker JSON: ${marker}"
   if ! is_managed_server_artifact "$installed_artifact"; then
     die "Invalid server install marker: ${marker} unsupported artifact ${installed_artifact}"
   fi
@@ -97,7 +101,7 @@ read_server_install_marker_field() {
   fi
 
   if ! value="$(jq -r --arg field "$field" '.[$field]' "$marker" 2>/dev/null)"; then
-    die "Invalid server install marker JSON: ${marker}"
+    die "Invalid/corrupt server install marker JSON: ${marker}"
   fi
 
   printf '%s' "$value"
@@ -208,6 +212,12 @@ assert_server_install_matches() {
   fi
 }
 
+cleanup_server_install_marker_tmp() {
+  local tmp="${1:-}"
+
+  [[ -z "$tmp" ]] || safe_rm_f "$tmp"
+}
+
 write_server_install_marker() {
   local artifact="$1"
   local installed_type="$2"
@@ -216,7 +226,8 @@ write_server_install_marker() {
   local marker marker_dir tmp
   marker="$(server_install_marker)"
   marker_dir="$(dirname "$marker")"
-  tmp="$(mktemp "${marker_dir}/.server-install.json.tmp.XXXXXX")" || return 1
+  tmp="$(mktemp "${marker_dir}/.server-install.json.tmp.XXXXXX")" \
+    || die "Failed to create temporary server install marker: ${marker}"
 
   if ! jq -n \
     --arg artifact "$artifact" \
@@ -224,17 +235,17 @@ write_server_install_marker() {
     --arg version "$installed_version" \
     --arg build "$build" \
     '{artifact:$artifact,type:$type,version:$version,build:$build}' > "$tmp"; then
-    safe_rm_f "$tmp"
+    cleanup_server_install_marker_tmp "$tmp"
     return 1
   fi
 
   if ! safe_mv_f "$tmp" "$marker"; then
-    safe_rm_f "$tmp"
+    cleanup_server_install_marker_tmp "$tmp"
     return 1
   fi
   set_readable_file_permissions "$marker"
 
-  safe_rm_f "$tmp"
+  cleanup_server_install_marker_tmp "$tmp"
 }
 
 resolve_type_auto() {
