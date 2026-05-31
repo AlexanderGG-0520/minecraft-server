@@ -3,14 +3,29 @@
 generate_velocity_toml() {
   [[ "${TYPE:-}" == "velocity" ]] || return 0
 
-  local CONFIG_FILE="${DATA_DIR}/velocity.toml"
+  local config_file="${DATA_DIR}/velocity.toml"
+  local config_dir
+  local config_tmp=""
 
-  safe_rm_f "${CONFIG_FILE}"
+  if [[ -e "${config_file}" ]]; then
+    if [[ -f "${config_file}" ]]; then
+      log INFO "velocity.toml already exists, leaving user-managed config unchanged"
+      return 0
+    fi
+    die "Failed to generate velocity.toml fallback: ${config_file} exists but is not a regular file"
+  fi
+
+  config_dir="$(dirname "${config_file}")"
+  if [[ ! -d "${config_dir}" || ! -w "${config_dir}" ]]; then
+    die "Failed to generate velocity.toml fallback: ${config_dir} is not writable"
+  fi
 
   [[ -n "${VELOCITY_SERVERS:-}" ]] || die "VELOCITY_SERVERS is required"
   [[ -n "${VELOCITY_SECRET:-}"  ]] || die "VELOCITY_SECRET is required"
 
   log INFO "Generating velocity.toml"
+  config_tmp="$(mktemp "${config_dir}/.velocity.toml.tmp.XXXXXX")" \
+    || die "Failed to generate velocity.toml fallback: could not create temporary file"
 
   # For checking servers existence (not needed if declared externally, but safer this way)
   declare -gA VELOCITY_SERVER_KEYS 2>/dev/null || true
@@ -128,7 +143,16 @@ EOF
         echo "  \"${domain}\" = [ \"${srv}\" ]"
       done
     fi
-  } > "${CONFIG_FILE}"
+  } > "${config_tmp}" || {
+    safe_rm_f "${config_tmp}"
+    die "Failed to generate velocity.toml fallback"
+  }
+
+  if ! safe_mv_f "${config_tmp}" "${config_file}"; then
+    safe_rm_f "${config_tmp}"
+    die "Failed to generate velocity.toml fallback"
+  fi
+  set_readable_file_permissions "${config_file}"
 
   log INFO "velocity.toml generated"
 }

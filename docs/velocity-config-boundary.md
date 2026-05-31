@@ -1,17 +1,20 @@
 # Velocity config generation boundary
 
-This document defines the proposed responsibility boundary for Velocity proxy
-configuration generation.
+This document defines the responsibility boundary for Velocity proxy
+configuration generation and the implemented user-managed config ownership
+policy.
 
-It is a design plan only. Do not move functions, change call timing, change
-generated `velocity.toml` content, change server artifact installation, or
-change runtime launch behavior as part of this document.
+The original boundary was a design plan. The current implementation preserves
+call timing, generated fallback `velocity.toml` content, server artifact
+installation, and runtime launch behavior while treating existing user-managed
+Velocity config files as authoritative.
 
 ## Proposed boundary
 
 Recommended file: `scripts/lib/velocity_config.sh`
 
-Status: completed for the mechanical function move.
+Status: completed for the mechanical function move and the user-managed config
+ownership behavior.
 `generate_velocity_toml` now lives in `scripts/lib/velocity_config.sh`. The
 existing call from `install_velocity_server_artifact` and the later call from
 `install()` remain in place with unchanged timing.
@@ -60,9 +63,28 @@ Current call sites:
     sequence.
 
 Do not clean up this double call casually. The current timing may affect
-first-boot behavior, restart behavior, and config regeneration semantics. Any
-future move must preserve call timing unless a dedicated behavior PR
-intentionally changes it.
+first-boot behavior, restart behavior, and config generation semantics. The
+current behavior is idempotent for user-managed configs because existing
+`velocity.toml` is left unchanged.
+
+## Config ownership policy
+
+User-managed Velocity config files are authoritative.
+
+- If `${DATA_DIR}/velocity.toml` already exists, the entrypoint does not
+  rewrite, patch, chmod, or chown it.
+- If `${DATA_DIR}/forwarding.secret` already exists, the Velocity config flow
+  does not rewrite, chmod, or chown it. The current fallback generator does not
+  create or require this file; generated fallback TOML keeps the existing
+  inline `forwarding-secret` setting.
+- Existing read-only `velocity.toml` and `forwarding.secret` files are accepted
+  as user-managed files.
+- If `velocity.toml` is missing for `TYPE=velocity`, the entrypoint generates
+  the fallback file only when `${DATA_DIR}` is writable.
+- Ownership and permission changes are limited to fallback files created by the
+  entrypoint flow.
+- If the fallback file cannot be generated, startup fails fast with a clear
+  `Failed to generate velocity.toml fallback` error.
 
 ## What should move
 

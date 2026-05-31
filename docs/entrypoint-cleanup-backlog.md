@@ -52,8 +52,8 @@ The focused post-split cleanup PRs are also complete:
   - Very little remains after the recent focused cleanup PRs. Treat any new
     low-risk item as a separate, explicit boundary before implementation.
 - Behavior-changing / needs design:
-  - Velocity config ownership and double-call behavior.
-  - Velocity install/config coupling.
+  - Velocity install/config coupling and double-call timing, if maintainers
+    choose to revisit it. User-managed Velocity config ownership is completed.
 - High-risk / destructive-path-adjacent:
   - `world_reset.sh` backup/temp/atomic failure handling.
 - Feature work, not cleanup:
@@ -197,6 +197,9 @@ The focused post-split cleanup PRs are also complete:
 
 - `velocity_config.sh` - review `trim_ws` / `normalize_toml_key` ownership and
   decide whether the double `generate_velocity_toml` call should remain.
+  - Status: user-managed Velocity config ownership is completed.
+    Existing `velocity.toml` and `forwarding.secret` files are authoritative
+    and are not rewritten or chmod/chowned by the Velocity config flow.
   - Risk: behavior-changing.
   - Suggested PR boundary: `scripts/lib/velocity_config.sh`.
   - Do not change generated `velocity.toml` content without a dedicated
