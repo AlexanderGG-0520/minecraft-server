@@ -93,6 +93,12 @@ TYPE=auto
 resolve_type_auto
 test "$TYPE" = "paper"
 
+write_server_install_marker "velocity.jar" "velocity" "3.4.0" "500"
+touch "$tmp/velocity.jar"
+TYPE=auto
+resolve_type_auto
+test "$TYPE" = "velocity"
+
 write_server_install_marker "server.jar" "spigot" "1.21.8" ""
 touch "$tmp/server.jar"
 TYPE=auto
