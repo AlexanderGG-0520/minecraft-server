@@ -7,9 +7,12 @@ generate_velocity_toml() {
   local config_dir
   local config_tmp=""
 
-  if [[ -f "${config_file}" ]]; then
-    log INFO "velocity.toml already exists, leaving user-managed config unchanged"
-    return 0
+  if [[ -e "${config_file}" ]]; then
+    if [[ -f "${config_file}" ]]; then
+      log INFO "velocity.toml already exists, leaving user-managed config unchanged"
+      return 0
+    fi
+    die "Failed to generate velocity.toml fallback: ${config_file} exists but is not a regular file"
   fi
 
   config_dir="$(dirname "${config_file}")"
