@@ -12,10 +12,7 @@ source ./scripts/lib/filesystem.sh
 source ./scripts/lib/velocity_config.sh
 
 normalize_toml_key() {
-  local key="$1"
-  key="${key//-/_}"
-  key="${key// /_}"
-  printf '%s' "${key}"
+  printf '%s\n' "${1//[^a-zA-Z0-9_]/_}"
 }
 
 trim_ws() {
