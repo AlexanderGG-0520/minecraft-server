@@ -106,8 +106,13 @@ create_world_reset_backup() {
   mkdir -p "${backup_dir}" || return 1
   backup_tmp="$(mktemp "${backup_dir}/.${backup_base}.tmp.XXXXXX")" || return 1
 
+  local umask_value mode
+  umask_value="$(umask)" || { cleanup_world_reset_backup_tmp "${backup_tmp}"; return 1; }
+  mode=$((0666 & ~8#${umask_value}))
+  printf -v mode '%03o' "${mode}"
+  chmod "${mode}" -- "${backup_tmp}" || { cleanup_world_reset_backup_tmp "${backup_tmp}"; return 1; }
+
   if ! tar -czf "${backup_tmp}" -C "${data_dir}" world; then
-    cleanup_world_reset_backup_tmp "${backup_tmp}"
     return 1
   fi
 
