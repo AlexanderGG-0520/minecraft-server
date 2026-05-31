@@ -88,6 +88,37 @@ remove_reset_world_flag() {
   safe_rm_f "${flag_path}"
 }
 
+cleanup_world_reset_backup_tmp() {
+  local tmp="${1:-}"
+
+  [[ -z "${tmp}" ]] || safe_rm_f "${tmp}"
+}
+
+create_world_reset_backup() {
+  local data_dir="$1"
+  local backup_dir="$2"
+  local backup_archive="$3"
+  local backup_base
+  local backup_tmp=""
+
+  backup_base="$(basename "${backup_archive}")"
+
+  mkdir -p "${backup_dir}" || return 1
+  backup_tmp="$(mktemp "${backup_dir}/.${backup_base}.tmp.XXXXXX")" || return 1
+
+  if ! tar -czf "${backup_tmp}" -C "${data_dir}" world; then
+    cleanup_world_reset_backup_tmp "${backup_tmp}"
+    return 1
+  fi
+
+  if ! safe_mv_f "${backup_tmp}" "${backup_archive}"; then
+    cleanup_world_reset_backup_tmp "${backup_tmp}"
+    return 1
+  fi
+
+  cleanup_world_reset_backup_tmp "${backup_tmp}"
+}
+
 validate_world_reset_paths() {
   local data_dir="${1:-}"
   local world_dir="${2:-}"
@@ -330,10 +361,8 @@ reset_world() {
 
   # ---- Step 2: optional backup ----
   if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
-    mkdir -p "${backup_dir}"
-
     log INFO "Creating world backup"
-    tar -czf "${backup_archive}" -C "${data_dir}" world \
+    create_world_reset_backup "${data_dir}" "${backup_dir}" "${backup_archive}" \
       || die "World backup failed; refusing to delete world"
   fi
 
