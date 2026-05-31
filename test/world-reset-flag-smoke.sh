@@ -50,6 +50,15 @@ assert_file_present() {
   fi
 }
 
+assert_no_backup_temps() {
+  local dir="$1"
+
+  if find "$dir" -maxdepth 1 -name '.world-*.tar.gz.tmp.*' -print -quit 2>/dev/null | grep -q .; then
+    echo "FAIL: expected no world reset backup temp files in ${dir}" >&2
+    exit 1
+  fi
+}
+
 assert_flag_removals() {
   local expected="$1"
   local actual
@@ -179,6 +188,66 @@ run_expired_flag_is_removed_once() {
   fi
 }
 
+run_backup_success_publishes_final_archive_only() {
+  DATA_DIR="$tmp/backup-success"
+  RESET_WORLD_BACKUP=true
+  RESET_WORLD_REMOVE_MODS=false
+  mkdir -p "$DATA_DIR/world"
+  printf '%s\n' world > "$DATA_DIR/world/level.dat"
+  touch "$DATA_DIR/reset-world.flag"
+
+  reset_flag_removal_count
+  reset_world >/dev/null 2>&1
+
+  assert_file_absent "$DATA_DIR/reset-world.flag"
+  assert_file_present "$DATA_DIR/world"
+  assert_no_backup_temps "$DATA_DIR/backups"
+  test "$(find "$DATA_DIR/backups" -maxdepth 1 -type f -name 'world-*.tar.gz' | wc -l)" -eq 1
+}
+
+run_backup_failure_removes_staged_archive() {
+  DATA_DIR="$tmp/backup-failure"
+  RESET_WORLD_BACKUP=true
+  RESET_WORLD_REMOVE_MODS=false
+  mkdir -p "$DATA_DIR/world"
+  printf '%s\n' world > "$DATA_DIR/world/level.dat"
+  touch "$DATA_DIR/reset-world.flag"
+
+  local fail_bin="$tmp/backup-failure-bin"
+  mkdir -p "$fail_bin"
+  {
+    printf '%s\n' '#!/usr/bin/env bash'
+    printf '%s\n' "printf '%s\\n' partial > \"\$2\""
+    printf '%s\n' 'exit 7'
+  } > "$fail_bin/tar"
+  chmod +x "$fail_bin/tar"
+
+  reset_flag_removal_count
+  set +e
+  output="$(
+    PATH="$fail_bin:$PATH"
+    reset_world 2>&1
+  )"
+  local status=$?
+  set -e
+
+  if [[ "$status" -eq 0 ]]; then
+    echo "FAIL: expected backup failure to fail reset" >&2
+    exit 1
+  fi
+
+  assert_file_present "$DATA_DIR/reset-world.flag"
+  assert_file_present "$DATA_DIR/world/level.dat"
+  assert_flag_removals 0
+  assert_no_backup_temps "$DATA_DIR/backups"
+  test "$(find "$DATA_DIR/backups" -maxdepth 1 -type f -name 'world-*.tar.gz' | wc -l)" -eq 0
+
+  if ! printf '%s\n' "$output" | grep -q 'World backup failed; refusing to delete world'; then
+    echo "FAIL: expected backup failure log line" >&2
+    exit 1
+  fi
+}
+
 run_unsafe_reset_paths_are_rejected() {
   expect_failure \
     "empty DATA_DIR reset paths" \
@@ -241,5 +310,7 @@ run_direct_reset_world_consumes_flag_once
 run_absent_flag_skips_reset
 run_missing_world_consumes_flag_once
 run_expired_flag_is_removed_once
+run_backup_success_publishes_final_archive_only
+run_backup_failure_removes_staged_archive
 run_unsafe_reset_paths_are_rejected
 run_relative_data_dir_reset_is_rejected
