@@ -9,7 +9,7 @@ call timing, generated fallback `velocity.toml` content, server artifact
 installation, and runtime launch behavior while treating existing user-managed
 Velocity config files as authoritative.
 
-## Proposed boundary
+## Implemented boundary
 
 Recommended file: `scripts/lib/velocity_config.sh`
 
@@ -65,7 +65,8 @@ Current call sites:
 Do not clean up this double call casually. The current timing may affect
 first-boot behavior, restart behavior, and config generation semantics. The
 current behavior is idempotent for user-managed configs because existing
-`velocity.toml` is left unchanged.
+`velocity.toml` is left unchanged. This call timing is intentionally preserved
+and is not an active post-split cleanup backlog item.
 
 ## Config ownership policy
 
@@ -120,13 +121,12 @@ installation. The Velocity artifact helper calls `generate_velocity_toml`
 mechanically because that call was part of the original Velocity branch before
 artifact installation moved into `scripts/lib/server_install.sh`.
 
-The later install-sequence call remains in place. This is acceptable for the
-mechanical server artifact move, but it is not the desired long-term ownership
-boundary because `generate_velocity_toml` is configuration generation, not
-artifact installation.
+The later install-sequence call remains in place. This preserves the current
+startup timing while the user-managed ownership policy prevents existing
+ConfigMap/Secret-style files from being rewritten or chmod/chowned.
 
-Future work should separate ownership without changing behavior first. In
-particular:
+Any future call-timing redesign should be treated as behavior work. In
+particular, it must:
 
 - Preserve the call from `install_velocity_server_artifact` if it still exists
   during the mechanical move.
@@ -149,12 +149,16 @@ Recommended implementation PRs:
    - Preserve all current call sites and call timing.
    - Preserve generated `velocity.toml` content.
    - Status: completed for the mechanical function move.
-3. Optionally change behavior later.
-   - Decide whether `generate_velocity_toml` should be called once or multiple
-     times.
-   - Decide whether artifact installation should trigger config generation.
+3. Implement user-managed config ownership.
+   - Existing `velocity.toml` and `forwarding.secret` files are authoritative.
+   - Ownership and permission changes are limited to fallback files created by
+     the entrypoint flow.
+   - Preserve existing call timing and generated fallback content.
+   - Status: completed.
+4. Optionally redesign call timing later.
+   - This is future behavior work, not active cleanup backlog.
    - Add focused smoke tests before changing behavior.
-4. Only after the Velocity config boundary is stable, consider runtime launch
+5. Only after the Velocity config boundary is stable, consider runtime launch
    dispatch or `run_server` boundaries.
 
 ## Risk notes

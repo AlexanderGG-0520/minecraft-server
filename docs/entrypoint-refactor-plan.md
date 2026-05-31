@@ -9,8 +9,10 @@ Deferred non-mechanical cleanup and hardening items are tracked in
 items out of future mechanical moves.
 The first post-split cleanup series is complete for the focused `world_reset.sh`,
 `world_install.sh`, `s3_client.sh`, `runtime.sh`, `server_properties.sh`, and
-`logging.sh` items. Remaining backlog entries are behavior/spec decisions or
-explicitly deferred higher-risk cleanup; do not fold them into mechanical moves.
+`logging.sh` items. The final post-split behavior/cleanup items are also
+complete: world reset backup staging, Spigot marker auto-resolution, and
+Velocity user-managed config ownership. Any new behavior work should be tracked
+as a fresh feature/design item rather than folded into mechanical moves.
 
 This is not a literal MVC split. The useful analogy is:
 
@@ -76,7 +78,7 @@ after call sites are stable.
 
 The proposed server artifact installation boundary is documented in
 [`docs/server-artifact-install-boundary.md`](server-artifact-install-boundary.md).
-The proposed Velocity config generation boundary is documented in
+The implemented Velocity config generation boundary is documented in
 [`docs/velocity-config-boundary.md`](velocity-config-boundary.md).
 The proposed runtime launch boundary is documented in
 [`docs/runtime-launch-boundary.md`](runtime-launch-boundary.md).
@@ -639,10 +641,7 @@ and should each be handled in a focused PR with source-smoke coverage:
 These should not be fixed as part of mechanical slimming. Keep them in the
 cleanup backlog or in dedicated behavior PRs:
 
-- Velocity config ownership and double-call behavior.
-- Velocity artifact install/config generation coupling.
 - Runtime OS detection behavior when `/etc/os-release` lacks `VERSION_ID`.
-- World reset backup/temp/atomic failure handling.
 - Optional MinIO `mc` acquisition strategy changes or client replacement.
 - Spigot BuildTools / self-build support.
 
