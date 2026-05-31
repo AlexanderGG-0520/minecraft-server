@@ -3,15 +3,13 @@
 This note defines a docs-only boundary for whether and how `TYPE=auto` should
 resolve valid server install markers whose `type` is `spigot`.
 
-Status: behavior/spec decision boundary, not cleanup backlog. Keep any change
-to whether and how `TYPE=auto` resolves Spigot markers separate from marker
-temporary-file cleanup, corrupt marker handling, and other post-split cleanup
-PRs. Marker write format, marker temporary-file handling, corrupt and
-incomplete marker fail-fast behavior, missing marker fallback behavior,
-`install_server` dispatch, server artifact download behavior, explicit
-`TYPE=spigot` bring-your-own behavior, and Spigot BuildTools/self-build
-behavior are separate concerns. Spigot BuildTools/self-build remains separate
-feature work.
+Status: implemented for marker auto-resolution. `TYPE=auto` resolves a valid
+Spigot install marker when the marker artifact exists under `${DATA_DIR}`.
+Marker write format, marker temporary-file handling, corrupt and incomplete
+marker fail-fast behavior, missing marker fallback behavior, `install_server`
+dispatch, server artifact download behavior, explicit `TYPE=spigot`
+bring-your-own behavior, and Spigot BuildTools/self-build behavior are
+unchanged. Spigot BuildTools/self-build remains separate feature work.
 
 ## Current Behavior
 
@@ -63,21 +61,20 @@ Existing smoke coverage includes:
 - Runtime smoke for explicit `TYPE=spigot` failing when no artifact exists.
 - Runtime smoke for explicit `TYPE=spigot` using an existing `server.jar`.
 - Runtime smoke for `TYPE=auto` resolving a valid `paper` marker.
-- Runtime smoke coverage for Spigot marker auto-resolution belongs with any
-  PR that intentionally changes or confirms that behavior.
+- Runtime marker smoke for `TYPE=auto` resolving a valid `velocity` marker.
+- Runtime marker smoke for `TYPE=auto` resolving a valid `spigot` marker.
 - Runtime marker smoke for corrupt and incomplete marker fail-fast behavior.
 
-Any mismatch between explicit `TYPE=spigot` support and marker-based
-`TYPE=auto` behavior is a behavior/spec decision for this boundary, not a
-cleanup item.
+The previous mismatch between explicit `TYPE=spigot` support and marker-based
+`TYPE=auto` behavior is resolved for valid existing install markers.
 
-## Behavior Policy Candidates
+## Behavior Policy
 
-### Option A: add Spigot to marker-supported TYPE=auto types
+Implemented policy: add Spigot to marker-supported `TYPE=auto` types.
 
-Add `spigot` to the `resolve_type_auto` marker-supported type case. With a valid
+With `spigot` in the `resolve_type_auto` marker-supported type case, a valid
 marker whose `type` is `spigot` and whose artifact exists under `${DATA_DIR}`,
-`TYPE=auto` would resolve to `spigot`.
+`TYPE=auto` resolves to `spigot`.
 
 Rationale: if a valid marker says the installed artifact is Spigot and the
 runtime supports explicit `TYPE=spigot`, marker-based `TYPE=auto` should honor
@@ -90,7 +87,7 @@ Guardrail: keep this limited to marker resolution for existing installed
 artifacts. Do not add BuildTools/self-build, download behavior, or install
 dispatch changes.
 
-### Option B: keep Spigot excluded
+Rejected alternative: keep Spigot excluded.
 
 Leave `spigot` out of the `resolve_type_auto` marker-supported type case.
 
@@ -101,7 +98,7 @@ Risk: valid installed Spigot artifacts cannot resolve through marker-based
 Marker auto-resolution may fall through to artifact detection and classify the
 same `server.jar` as `vanilla`.
 
-### Option C: add Spigot after BuildTools/self-build
+Rejected alternative: add Spigot after BuildTools/self-build.
 
 Keep Spigot marker auto-resolution excluded until a future managed Spigot
 BuildTools/self-build feature exists.
@@ -111,42 +108,23 @@ Rationale: marker auto support would align with full managed install support.
 Risk: delays support for bring-your-own Spigot artifact marker resolution and
 keeps the current supported-runtime versus marker-auto mismatch in place.
 
-## Recommended Future Policy
-
-Prefer Option A: add `spigot` to marker-supported `TYPE=auto` resolution for
-valid existing install markers only.
-
-Recommended policy for a future implementation:
-
-- Add `spigot` to the `resolve_type_auto` marker-supported type case.
-- Resolve `TYPE=auto` to `spigot` only when the marker is valid and the marker
-  artifact exists under `${DATA_DIR}`.
-- Preserve explicit `TYPE=spigot` behavior.
-- Keep Spigot BuildTools/self-build separate.
-- Do not change Spigot install/download behavior.
-- Do not change marker write format.
-- Do not change marker temporary-file handling.
-- Do not change corrupt or incomplete marker fail-fast behavior.
-- Do not change `TYPE=auto` artifact fallback behavior for missing markers.
-- Add smoke coverage for `TYPE=auto` resolving a valid `spigot` marker.
-
-This recommendation treats marker auto-resolution as a read of existing install
+This policy treats marker auto-resolution as a read of existing install
 state, not as a claim that the image can build or download Spigot.
 
-## Future Implementation Boundary
+## Implementation Boundary
 
-A future implementation PR may:
+The implementation:
 
-- Add `spigot` to the marker-supported `TYPE=auto` case in
+- Keeps `spigot` in the marker-supported `TYPE=auto` case in
   `scripts/lib/runtime.sh`.
-- Add or update smoke tests for valid Spigot marker resolution.
+- Adds smoke coverage for valid Spigot marker resolution.
 - Preserve explicit `TYPE=spigot` behavior.
 - Preserve corrupt and incomplete marker fail-fast behavior.
 - Preserve missing marker fallback behavior.
 - Preserve Spigot bring-your-own artifact behavior.
 - Keep BuildTools/self-build out of scope.
 
-A future implementation PR must not:
+The implementation does not:
 
 - Implement Spigot BuildTools/self-build.
 - Change server artifact download behavior.
@@ -160,10 +138,9 @@ A future implementation PR must not:
 
 ## Smoke Guidance
 
-Future implementation smoke tests should cover:
+Smoke tests should cover:
 
-- `TYPE=auto` with valid marker `type=spigot` resolves to `spigot`, if support
-  is implemented.
+- `TYPE=auto` with valid marker `type=spigot` resolves to `spigot`.
 - `TYPE=auto` with valid marker `type=paper` still resolves as before.
 - `TYPE=auto` with an unsupported marker type still behaves as currently
   expected, unless that behavior is explicitly scoped.

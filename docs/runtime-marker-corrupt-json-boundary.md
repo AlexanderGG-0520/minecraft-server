@@ -58,12 +58,13 @@ installation and `TYPE=auto` resolution.
   - `paper`
   - `purpur`
   - `quilt`
+  - `spigot`
   - `taiyitist`
   - `vanilla`
   - `velocity`
   - `youer`
-- `spigot` marker support is not part of this boundary and remains a separate
-  `resolve_type_auto` behavior decision. See
+- `spigot` marker auto-resolution is implemented for valid existing install
+  markers and remains separate from Spigot BuildTools/self-build. See
   [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
 - If the marker type is supported and the marker artifact exists under
   `${DATA_DIR}`, `TYPE` is set from the marker and auto resolution returns.

@@ -17,6 +17,18 @@ is_supported_runtime_type() {
   esac
 }
 
+is_marker_auto_resolvable_type() {
+  local type="$1"
+  case "$type" in
+    fabric|forge|mohist|neoforge|paper|purpur|quilt|spigot|taiyitist|vanilla|velocity|youer)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 uses_server_properties() {
   local type="$1"
   case "$type" in
@@ -260,12 +272,15 @@ resolve_type_auto() {
     read_server_install_marker_field "${marker}" version >/dev/null
     read_server_install_marker_field "${marker}" build >/dev/null
 
-    if [[ -e "${DATA_DIR}/${installed_artifact}" ]]; then
+    if ! is_marker_auto_resolvable_type "${installed_type}"; then
+      log WARN "Install marker type is not supported for TYPE=auto, falling back to artifact detection: ${installed_type}"
+    elif [[ -e "${DATA_DIR}/${installed_artifact}" ]]; then
       TYPE="${installed_type}"
       log INFO "TYPE auto-resolved to '${TYPE}' from install marker"
       return 0
+    else
+      log WARN "Install marker exists but artifact is missing, falling back to artifact detection: ${installed_artifact}"
     fi
-    log WARN "Install marker exists but artifact is missing, falling back to artifact detection: ${installed_artifact}"
   fi
 
   if [[ -f "${DATA_DIR}/velocity.jar" ]]; then

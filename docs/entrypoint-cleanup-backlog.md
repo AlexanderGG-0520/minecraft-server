@@ -54,8 +54,6 @@ The focused post-split cleanup PRs are also complete:
 - Behavior-changing / needs design:
   - Velocity config ownership and double-call behavior.
   - Velocity install/config coupling.
-  - Spigot marker auto-resolution policy. Keep this as a behavior/spec decision
-    separate from cleanup and separate from Spigot BuildTools/self-build work.
 - High-risk / destructive-path-adjacent:
   - `world_reset.sh` backup/temp/atomic failure handling.
 - Feature work, not cleanup:
@@ -177,8 +175,8 @@ The focused post-split cleanup PRs are also complete:
 
 ### 4. Marker and config behavior decisions
 
-- `runtime.sh` - keep Spigot marker auto-resolution as a behavior/spec decision
-  separate from marker cleanup.
+- `runtime.sh` - keep Spigot BuildTools/self-build separate from marker
+  auto-resolution behavior.
   - Status: corrupt, incomplete, and semantically invalid marker fail-fast
     handling completed. See
     [`docs/runtime-marker-corrupt-json-boundary.md`](runtime-marker-corrupt-json-boundary.md).
@@ -187,8 +185,8 @@ The focused post-split cleanup PRs are also complete:
     fail fast by default, and `FORCE_REINSTALL=true` is the explicit opt-in
     server artifact reinstall path. See
     [`docs/server-install-reinstall-policy.md`](server-install-reinstall-policy.md).
-  - Status: Spigot marker auto-resolution remains a behavior/spec decision, not
-    cleanup. See
+  - Status: Spigot marker auto-resolution behavior is implemented for valid
+    existing install markers. See
     [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
     Spigot BuildTools/self-build remains separate feature work, not cleanup.
     Velocity config ownership remains a separate behavior decision.
@@ -334,8 +332,8 @@ The focused post-split cleanup PRs are also complete:
   datapacks, resourcepacks, or modpack state.
 - Spigot marker auto-resolution design boundary:
   [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
-  Status: open behavior/spec decision. Keep any change to whether and how
-  `TYPE=auto` resolves Spigot markers out of cleanup PRs.
+  Status: implemented for valid existing install markers. Keep Spigot
+  BuildTools/self-build support out of cleanup and marker behavior PRs.
 - Spigot BuildTools/self-build support remains separate feature work, not
   cleanup.
 - Invalid or corrupt marker JSON handling is completed for:
@@ -384,9 +382,7 @@ behavior-sensitive item:
 
 1. `world_reset.sh` backup/temp/atomic handling boundary, if the destructive
    reset behavior is worth revisiting.
-2. Spigot marker auto-resolution behavior/spec PR, if maintainers choose to
-   define that policy now.
-3. Stop cleanup and move to feature work only after an explicit maintainer
+2. Stop cleanup and move to feature work only after an explicit maintainer
    choice.
 
 ## Guardrails
