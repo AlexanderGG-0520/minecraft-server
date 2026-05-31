@@ -274,7 +274,7 @@ resolve_type_auto() {
 
     if ! is_marker_auto_resolvable_type "${installed_type}"; then
       log WARN "Install marker type is not supported for TYPE=auto, falling back to artifact detection: ${installed_type}"
-    elif [[ -e "${DATA_DIR}/${installed_artifact}" ]]; then
+    elif [[ -f "${DATA_DIR}/${installed_artifact}" ]]; then
       TYPE="${installed_type}"
       log INFO "TYPE auto-resolved to '${TYPE}' from install marker"
       return 0
