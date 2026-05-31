@@ -122,9 +122,9 @@ A future marker temporary-file implementation PR must not:
 - Combine with S3, world install/reset, Velocity, MinIO, or Spigot BuildTools
   cleanup.
 
-## Behavior-changing follow-ups
+## Behavior-changing follow-up status
 
-These are separate behavior decisions and should not be included in the marker
+These separate behavior decisions were intentionally kept out of the marker
 temporary-file cleanup implementation:
 
 - Invalid or corrupt marker JSON handling in `assert_server_install_matches`
@@ -134,7 +134,7 @@ temporary-file cleanup implementation:
 - Spigot marker support and `resolve_type_auto` support decisions.
   Design boundary:
   [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
-  Status: behavior/spec decision, not cleanup. Spigot BuildTools/self-build
+  Status: completed for valid existing install markers. Spigot BuildTools/self-build
   remains separate feature work.
 - Marker schema changes, if ever needed.
 
@@ -148,9 +148,11 @@ temporary-file cleanup implementation:
    write-then-`mv -f` replacement behavior, and add offline smoke tests.
    Status: completed.
 
-3. Separate invalid or corrupt marker JSON behavior PR, only if desired.
+3. Separate invalid or corrupt marker JSON behavior PR.
+   Status: completed for corrupt and incomplete marker fail-fast handling.
 
-4. Separate Spigot marker support behavior PR, only if desired.
+4. Separate Spigot marker support behavior PR.
+   Status: completed for valid existing install markers.
 
 ## Smoke guidance
 

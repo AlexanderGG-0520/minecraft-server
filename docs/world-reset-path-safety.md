@@ -3,8 +3,9 @@
 This note defines the `DATA_DIR` / `WORLD_DIR` path-safety hardening boundary
 for `scripts/lib/world_reset.sh`.
 
-Implementation status: completed for `world_reset.sh`. `world_install.sh`
-path-safety remains separate and is documented in
+Implementation status: completed for `world_reset.sh`, including path-safety,
+obvious function-local variable localization, and backup staging/temp cleanup.
+`world_install.sh` path-safety remains separate and is documented in
 [`docs/world-install-path-safety.md`](world-install-path-safety.md).
 
 ## Current Behavior
@@ -42,7 +43,8 @@ Current reset behavior relevant to destructive paths:
 - When `RESET_WORLD_BACKUP` is unset or `true`, reset creates
   `BACKUP_DIR="${DATA_DIR}/backups"` and writes
   `world-${TS}.tar.gz`, where `TS="$(date -u +'%Y%m%d-%H%M%S')"`.
-- Backup uses `tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C "${DATA_DIR}" world`.
+- Backup is first written to a `mktemp` archive in `BACKUP_DIR`, then moved to
+  `world-${TS}.tar.gz` only after `tar` succeeds.
 - Backup failure calls `die "World backup failed; refusing to delete world"`
   before world deletion.
 - Reset deletes the world with `rm -rf "${WORLD_DIR}"`, then recreates it with
@@ -72,7 +74,9 @@ Current destructive operations:
 - `rm -f "${FLAG_FILE}"`
 - `rm -rf "${WORLD_DIR}"`
 - `rm -rf "${MODS_DIR}"` when `RESET_WORLD_REMOVE_MODS=true`
-- `tar -czf "${BACKUP_DIR}/world-${TS}.tar.gz" -C "${DATA_DIR}" world`
+- `tar -czf "${BACKUP_DIR}/.world-${TS}.tar.gz.tmp.XXXXXX" -C "${DATA_DIR}" world`
+- `mv -f` of the completed temporary backup archive to
+  `${BACKUP_DIR}/world-${TS}.tar.gz`
 
 ## Implemented Safety Policy
 
@@ -155,6 +159,8 @@ The implementation:
 - Preserves reset trigger behavior for valid paths.
 - Preserves `reset-world.flag` age semantics.
 - Preserves backup naming and timestamp format.
+- Stages backups through a temporary archive in the validated backup directory
+  before publishing the final backup.
 - Preserves backup failure behavior:
   `World backup failed; refusing to delete world`.
 - Preserves `RESET_WORLD_BACKUP` and `RESET_WORLD_REMOVE_MODS` semantics.
@@ -175,8 +181,8 @@ The implementation does not:
 - Combine with MinIO or `mc` remediation.
 - Combine with unrelated cleanup or reset behavior changes.
 
-Separate obvious function-local variable localization is completed. Reset
-behavior changes remain separate.
+Separate obvious function-local variable localization and backup staging/temp
+cleanup are completed. Further reset behavior changes remain separate.
 
 ## Smoke Coverage
 
@@ -186,6 +192,7 @@ Path-safety smoke tests cover success with:
 - Fresh `reset-world.flag` present.
 - Existing world directory reset according to current behavior.
 - Backup creation according to current behavior when backups are enabled.
+- Backup temp archive cleanup on success and backup failure.
 - Reset flag handling remaining correct on the successful path.
 - Optional mods cleanup preserving current behavior when
   `RESET_WORLD_REMOVE_MODS=true`.

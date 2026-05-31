@@ -98,18 +98,18 @@ Risk: valid installed Spigot artifacts cannot resolve through marker-based
 Marker auto-resolution may fall through to artifact detection and classify the
 same `server.jar` as `vanilla`.
 
-Rejected alternative: add Spigot after BuildTools/self-build.
+Rejected alternative: add Spigot only after BuildTools/self-build.
 
-Keep Spigot marker auto-resolution excluded until a future managed Spigot
-BuildTools/self-build feature exists.
+This alternative would have kept Spigot marker auto-resolution excluded until a
+future managed Spigot BuildTools/self-build feature exists.
 
 Rationale: marker auto support would align with full managed install support.
 
 Risk: delays support for bring-your-own Spigot artifact marker resolution and
 keeps the current supported-runtime versus marker-auto mismatch in place.
 
-This policy treats marker auto-resolution as a read of existing install
-state, not as a claim that the image can build or download Spigot.
+The implemented policy treats marker auto-resolution as a read of existing
+install state, not as a claim that the image can build or download Spigot.
 
 ## Implementation Boundary
 

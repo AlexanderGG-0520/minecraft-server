@@ -45,23 +45,26 @@ The focused post-split cleanup PRs are also complete:
   corrupt marker JSON reporting.
 - #165: `server_properties.sh` safe `TYPE` handling under `set -u`.
 - #166: `logging.sh` `die` argument handling clarification.
+- #168: `world_reset.sh` backup staging and temporary archive cleanup.
+- #169: Spigot install marker auto-resolution for `TYPE=auto`.
+- #170: Velocity user-managed config ownership behavior.
 
-## Current remaining cleanup categories
+## Current backlog status
 
-- Low-risk / mechanical:
-  - Very little remains after the recent focused cleanup PRs. Treat any new
-    low-risk item as a separate, explicit boundary before implementation.
-- Behavior-changing / needs design:
-  - Velocity install/config coupling and double-call timing, if maintainers
-    choose to revisit it. User-managed Velocity config ownership is completed.
-- High-risk / destructive-path-adjacent:
-  - `world_reset.sh` backup/temp/atomic failure handling.
+- Active post-split cleanup:
+  - None. Treat any new low-risk item as a separate, explicit boundary before
+    implementation.
+- Active post-split behavior decisions:
+  - None. Velocity user-managed config ownership and Spigot marker
+    auto-resolution are completed.
+- Active destructive-path-adjacent cleanup:
+  - None. World reset path safety and backup staging are completed.
 - Feature work, not cleanup:
   - Spigot BuildTools / self-build support.
   - Optional MinIO `mc` client replacement.
   - MinIO `mc` acquisition strategy changes.
 
-## Prioritized backlog
+## Historical backlog item status
 
 ### 1. Low-risk shell hygiene
 
@@ -164,8 +167,8 @@ The focused post-split cleanup PRs are also complete:
 - `world_reset.sh` - localize variables and harden path checks around
   destructive reset behavior.
   - Status: path-safety completed; obvious function-local variable
-    localization completed separately. Remaining reset cleanup is
-    behavior-sensitive and destructive-path-adjacent. See
+    localization completed separately; backup staging and temporary archive
+    cleanup completed in #168. See
     [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
   - Risk: high.
   - Suggested PR boundary: `scripts/lib/world_reset.sh`.
@@ -186,10 +189,9 @@ The focused post-split cleanup PRs are also complete:
     server artifact reinstall path. See
     [`docs/server-install-reinstall-policy.md`](server-install-reinstall-policy.md).
   - Status: Spigot marker auto-resolution behavior is implemented for valid
-    existing install markers. See
+    existing install markers in #169. See
     [`docs/runtime-spigot-marker-boundary.md`](runtime-spigot-marker-boundary.md).
     Spigot BuildTools/self-build remains separate feature work, not cleanup.
-    Velocity config ownership remains a separate behavior decision.
   - Risk: behavior-changing.
   - Suggested PR boundary: `scripts/lib/runtime.sh`.
   - Do not change marker path/JSON format casually.
@@ -197,9 +199,11 @@ The focused post-split cleanup PRs are also complete:
 
 - `velocity_config.sh` - review `trim_ws` / `normalize_toml_key` ownership and
   decide whether the double `generate_velocity_toml` call should remain.
-  - Status: user-managed Velocity config ownership is completed.
+  - Status: user-managed Velocity config ownership is completed in #170.
     Existing `velocity.toml` and `forwarding.secret` files are authoritative
     and are not rewritten or chmod/chowned by the Velocity config flow.
+  - Status: install/config double-call timing is intentionally preserved. It is
+    not an active cleanup backlog item unless maintainers choose to revisit it.
   - Risk: behavior-changing.
   - Suggested PR boundary: `scripts/lib/velocity_config.sh`.
   - Do not change generated `velocity.toml` content without a dedicated
@@ -210,6 +214,9 @@ The focused post-split cleanup PRs are also complete:
 - `server_install.sh` / `velocity_config.sh` - review the coupling between
   Velocity artifact installation and Velocity config generation only in a
   dedicated behavior PR.
+  - Status: user-managed config ownership is completed while preserving the
+    existing install/config call timing. Further coupling changes are optional
+    future behavior work, not active cleanup backlog.
   - Risk: behavior-changing.
   - Suggested PR boundary: `scripts/lib/server_install.sh` and
     `scripts/lib/velocity_config.sh`.
@@ -349,8 +356,7 @@ The focused post-split cleanup PRs are also complete:
 - Path-safety design boundary:
   [`docs/world-reset-path-safety.md`](world-reset-path-safety.md).
 - Status: path-safety and obvious function-local variable localization
-  completed. Keep other reset cleanup separate from reset timing changes and
-  unrelated reset behavior changes.
+  completed. Backup staging and temporary archive cleanup are also completed.
 - Localize variables in `reset_world` / `handle_reset_world_flag`, including:
   - Status: completed for obvious function-local reset variables.
   - `FLAG_FILE`
@@ -373,19 +379,18 @@ The focused post-split cleanup PRs are also complete:
   deletion now goes through the shared validated removal helper, and
   `handle_reset_world_flag` only consumes a fresh flag after `reset_world`
   returns successfully when the flag still exists.
-- Backup/temp/atomic handling remains unresolved and should stay in a dedicated
-  destructive-path-adjacent PR.
+- Backup/temp/atomic handling is completed. Backups are staged through a
+  temporary archive in the validated backup directory, then published only
+  after `tar` succeeds.
 - Preserve existing reset behavior until a dedicated non-mechanical improvement
   PR.
 
 ## Recommended next PR candidates
 
-Prefer docs-only boundaries before implementation for any remaining
-behavior-sensitive item:
+The post-split cleanup and behavior backlog is effectively closed. Prefer
+feature/design docs before implementation for any new behavior-sensitive item:
 
-1. `world_reset.sh` backup/temp/atomic handling boundary, if the destructive
-   reset behavior is worth revisiting.
-2. Stop cleanup and move to feature work only after an explicit maintainer
+1. Stop cleanup and move to feature work only after an explicit maintainer
    choice.
 
 ## Guardrails
