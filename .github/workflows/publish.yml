@@ -2,6 +2,11 @@ name: Publish Docker Images to GHCR
 
 on:
     workflow_dispatch:
+        inputs:
+            release_tag:
+                description: Optional existing release tag to backfill versioned image tags, for example v0.1.0
+                required: false
+                type: string
     push:
         branches:
         - main
@@ -61,15 +66,29 @@ jobs:
         # -----------------------------------
         -   name: Prepare image tags
             id: image-tags
+            env:
+                RELEASE_TAG: ${{ inputs.release_tag || '' }}
             run: |
+                if [[ -n "${RELEASE_TAG}" && ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+                    echo "Invalid release_tag: ${RELEASE_TAG}" >&2
+                    exit 1
+                fi
+
+                version_tag=""
+                if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+                    version_tag="${GITHUB_REF_NAME}"
+                elif [[ -n "${RELEASE_TAG}" ]]; then
+                    version_tag="${RELEASE_TAG}"
+                fi
+
                 {
                     echo 'tags<<EOF'
                     printf '%s\n' "ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.target }}"
                     printf '%s\n' "alecjp02/minecraft-server:${{ matrix.target }}"
 
-                    if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-                        printf '%s\n' "ghcr.io/alexandergg-0520/minecraft-server:${GITHUB_REF_NAME}-${{ matrix.target }}"
-                        printf '%s\n' "alecjp02/minecraft-server:${GITHUB_REF_NAME}-${{ matrix.target }}"
+                    if [[ -n "${version_tag}" ]]; then
+                        printf '%s\n' "ghcr.io/alexandergg-0520/minecraft-server:${version_tag}-${{ matrix.target }}"
+                        printf '%s\n' "alecjp02/minecraft-server:${version_tag}-${{ matrix.target }}"
                     fi
 
                     echo EOF
