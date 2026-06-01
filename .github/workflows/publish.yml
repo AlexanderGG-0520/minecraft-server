@@ -62,20 +62,16 @@ jobs:
         -   name: Prepare image tags
             id: image-tags
             run: |
-                tags="ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.target }}"
-                tags="$tags
-                alecjp02/minecraft-server:${{ matrix.target }}"
-
-                if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-                    tags="$tags
-                    ghcr.io/alexandergg-0520/minecraft-server:${GITHUB_REF_NAME}-${{ matrix.target }}"
-                    tags="$tags
-                    alecjp02/minecraft-server:${GITHUB_REF_NAME}-${{ matrix.target }}"
-                fi
-
                 {
                     echo 'tags<<EOF'
-                    echo "$tags"
+                    printf '%s\n' "ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.target }}"
+                    printf '%s\n' "alecjp02/minecraft-server:${{ matrix.target }}"
+
+                    if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+                        printf '%s\n' "ghcr.io/alexandergg-0520/minecraft-server:${GITHUB_REF_NAME}-${{ matrix.target }}"
+                        printf '%s\n' "alecjp02/minecraft-server:${GITHUB_REF_NAME}-${{ matrix.target }}"
+                    fi
+
                     echo EOF
                 } >> "$GITHUB_OUTPUT"
 
