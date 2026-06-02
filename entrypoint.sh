@@ -398,7 +398,10 @@ install_server_properties() {
   # shellcheck disable=SC2034  # Retained as a conventional path binding for this install step.
   PROPS_FILE="${DATA_DIR}/server.properties"
 
+  ensure_server_properties
+
   if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-true}" == "true" ]]; then
+    log INFO "server.properties ready, applying env diff"
     apply_server_properties_diff
   else
     log INFO "server.properties exists, no changes applied"

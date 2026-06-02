@@ -227,6 +227,9 @@ jobs:
           test "$status" -eq 1
           printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] bootstrap_server_properties: unsupported TYPE=$'
 
+      - name: Server properties bootstrap diff smoke
+        run: test/server-properties-bootstrap-diff-smoke.sh
+
       - name: Runtime launch message smoke
         run: |
           set -euo pipefail
