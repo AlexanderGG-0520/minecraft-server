@@ -113,6 +113,7 @@ create_world_reset_backup() {
   chmod "${mode}" -- "${backup_tmp}" || { cleanup_world_reset_backup_tmp "${backup_tmp}"; return 1; }
 
   if ! tar -czf "${backup_tmp}" -C "${data_dir}" world; then
+    cleanup_world_reset_backup_tmp "${backup_tmp}"
     return 1
   fi
 

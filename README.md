@@ -235,6 +235,31 @@ automatically. Existing artifacts without a marker are left in place with a warn
 volumes before changing `TYPE` or `VERSION`. See the
 [server reinstall policy](docs/server-install-reinstall-policy.md) for `FORCE_REINSTALL=true` behavior.
 
+## `server.properties` environment overrides
+
+When `APPLY_SERVER_PROPERTIES_DIFF=true` (the default), known `server.properties` keys can be set with
+environment variables by uppercasing the key and replacing `-` and `.` with `_`.
+
+Examples:
+
+* `online-mode` -> `ONLINE_MODE`
+* `enforce-secure-profile` -> `ENFORCE_SECURE_PROFILE`
+* `server-port` -> `SERVER_PORT`
+* `query.port` -> `QUERY_PORT`
+* `rcon.port` -> `RCON_PORT`
+* `require-resource-pack` -> `REQUIRE_RESOURCE_PACK`
+* `resource-pack` -> `RESOURCE_PACK`
+* `view-distance` -> `VIEW_DISTANCE`
+* `simulation-distance` -> `SIMULATION_DISTANCE`
+
+Only environment variables that are explicitly set are applied. If a variable is set to an empty
+string, the corresponding line is written as `key=`. Existing keys are replaced, missing keys are
+appended, and comments or unrelated keys are preserved where possible.
+
+Minecraft versions differ in which `server.properties` keys they support. This image keeps mappings for
+both old and new keys; unsupported keys are not added unless you explicitly set the matching
+environment variable.
+
 ## UUID cache safety notes
 
 `OPS_USERS` and `WHITELIST_USERS` accept comma-separated Minecraft player names and use
