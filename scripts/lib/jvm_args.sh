@@ -1,12 +1,33 @@
 # shellcheck shell=bash
 
+jvm_managed_env_is_exported() {
+  local declaration
+  local name
+
+  for name in \
+    JVM_XMS \
+    JVM_XMX \
+    JVM_GC \
+    JVM_USE_CONTAINER_SUPPORT \
+    JVM_EXTRA_ARGS
+  do
+    if declaration="$(declare -p "$name" 2>/dev/null)" && [[ "${declaration}" =~ ^declare\ -[^[:space:]]*x ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 install_jvm_args() {
   log INFO "Generating JVM args"
 
   # skip if already exists
   if [[ -f "${JVM_ARGS_FILE}" ]]; then
-    log INFO "jvm.args already exists, skipping generation"
-    return
+    if ! jvm_managed_env_is_exported; then
+      log INFO "jvm.args already exists, skipping generation"
+      return
+    fi
   fi
 
   : "${JVM_XMS:=512M}"
