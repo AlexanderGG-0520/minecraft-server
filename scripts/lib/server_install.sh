@@ -84,14 +84,17 @@ install_fabric_server_artifact() {
 
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for fabric"
 
-  json="$(curl -fsSL "https://meta.fabricmc.net/v2/versions/loader/${VERSION}" || true)"
+  LOADER_VERSION="${FABRIC_LOADER_VERSION:-latest}"
+  if [[ "${LOADER_VERSION}" == "latest" ]]; then
+    json="$(curl -fsSL "https://meta.fabricmc.net/v2/versions/loader/${VERSION}" || true)"
 
-  LOADER_VERSION="$(printf '%s' "$json" | jq -er '
-    if type=="array" and length>0 and .[0].loader.version
-    then .[0].loader.version
-    else empty
-    end
-  ')"
+    LOADER_VERSION="$(printf '%s' "$json" | jq -er '
+      if type=="array" and length>0 and .[0].loader.version
+      then .[0].loader.version
+      else empty
+      end
+    ')"
+  fi
 
   [[ -n "${LOADER_VERSION}" ]] || die "Failed to resolve Fabric loader version"
 
