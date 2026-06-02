@@ -22,9 +22,14 @@ jobs:
         run: |
           shopt -s nullglob
           lib_scripts=(scripts/lib/*.sh)
+          test_scripts=(test/*.sh)
           test "${#lib_scripts[@]}" -gt 0
+          test "${#test_scripts[@]}" -gt 0
           bash -n entrypoint.sh
           for script in "${lib_scripts[@]}"; do
+            bash -n "$script"
+          done
+          for script in "${test_scripts[@]}"; do
             bash -n "$script"
           done
 
@@ -32,8 +37,10 @@ jobs:
         run: |
           shopt -s nullglob
           lib_scripts=(scripts/lib/*.sh)
+          test_scripts=(test/*.sh)
           test "${#lib_scripts[@]}" -gt 0
-          shellcheck -x -s bash entrypoint.sh "${lib_scripts[@]}"
+          test "${#test_scripts[@]}" -gt 0
+          shellcheck -x -s bash entrypoint.sh "${lib_scripts[@]}" "${test_scripts[@]}"
 
       - name: Source library smoke
         run: |
@@ -181,6 +188,9 @@ jobs:
 
       - name: Runtime environment smoke
         run: test/runtime-env-smoke.sh
+
+      - name: Fabric loader version smoke
+        run: test/fabric-loader-version-smoke.sh
 
       - name: C2ME helper smoke
         run: test/c2me-smoke.sh
