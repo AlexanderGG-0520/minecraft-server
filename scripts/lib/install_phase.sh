@@ -6,6 +6,8 @@ install() {
 
   install_dirs
   install_eula
+  # shellcheck source=scripts/lib/fabric_install.sh
+  source "${ENTRYPOINT_DIR:-.}/scripts/lib/fabric_install.sh"
   install_server        # server jar
   clear_fabric_cache
   setup_server_icon
@@ -20,7 +22,7 @@ install() {
   install_mods          # mods (most important)
   activate_mods         # activate mods
   install_datapacks     # datapacks
-  activate_datapacks    # activate datapacks
+  activate_datapacks    # datapacks
   install_jvm_args
   install_configs
   activate_configs
