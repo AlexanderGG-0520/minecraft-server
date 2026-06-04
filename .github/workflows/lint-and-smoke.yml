@@ -479,8 +479,9 @@ jobs:
           }
 
           PATH="$tmp/bin:$PATH"
-          S3_BUCKET=bucket
-          WORLD_S3_PREFIX=world
+          WORLDS_ENABLED=true
+          WORLDS_S3_BUCKET=bucket
+          WORLDS_S3_PREFIX=world
           TMP_ARCHIVE_TARGET="$tmp/archive-target.txt"
           export TMP_ARCHIVE_TARGET
           WORLD_TEMP_SNAPSHOT="$tmp/world-temp-snapshot.txt"

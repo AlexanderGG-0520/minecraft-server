@@ -143,8 +143,9 @@ mc() {
   esac
 }
 
-S3_BUCKET=bucket
-WORLD_S3_PREFIX=world
+WORLDS_ENABLED=true
+WORLDS_S3_BUCKET=bucket
+WORLDS_S3_PREFIX=world
 world_temp_snapshot="$tmp/world-temp-snapshot.txt"
 snapshot_world_install_temps > "$world_temp_snapshot"
 touch "$DATA_DIR/reset-world.flag"

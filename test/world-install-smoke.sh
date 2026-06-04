@@ -63,9 +63,26 @@ assert_no_s3_calls() {
   test ! -s "$mc_calls"
 }
 
+DATA_DIR="$tmp/disabled-unset"
+unset WORLDS_ENABLED
+reset_calls
+output="$(install_world 2>&1)"
+printf '%s\n' "$output" | grep -q 'Worlds disabled'
+assert_no_s3_calls
+test ! -e "$DATA_DIR/world"
+
+DATA_DIR="$tmp/disabled-false"
+WORLDS_ENABLED=false
+reset_calls
+output="$(install_world 2>&1)"
+printf '%s\n' "$output" | grep -q 'Worlds disabled'
+assert_no_s3_calls
+test ! -e "$DATA_DIR/world"
+
 DATA_DIR="$tmp/success"
-S3_BUCKET=bucket
-WORLD_S3_PREFIX=prefix/
+WORLDS_ENABLED=true
+WORLDS_S3_BUCKET=bucket
+WORLDS_S3_PREFIX=prefix/
 MC_LS_MODE=single
 reset_calls
 install_world
@@ -78,26 +95,26 @@ esac
 test -f "$DATA_DIR/world/level.dat"
 
 DATA_DIR="$tmp/missing-bucket"
-unset S3_BUCKET
-WORLD_S3_PREFIX=prefix
+unset WORLDS_S3_BUCKET
+WORLDS_S3_PREFIX=prefix
 reset_calls
 output="$(install_world 2>&1)"
-printf '%s\n' "$output" | grep -q 'S3_BUCKET or WORLD_S3_PREFIX not set, skipping world install'
+printf '%s\n' "$output" | grep -q 'WORLDS_S3_BUCKET or WORLDS_S3_PREFIX not set, skipping world install'
 assert_no_s3_calls
 test ! -e "$DATA_DIR/world"
 
 DATA_DIR="$tmp/missing-prefix"
-S3_BUCKET=bucket
-unset WORLD_S3_PREFIX
+WORLDS_S3_BUCKET=bucket
+unset WORLDS_S3_PREFIX
 reset_calls
 output="$(install_world 2>&1)"
-printf '%s\n' "$output" | grep -q 'S3_BUCKET or WORLD_S3_PREFIX not set, skipping world install'
+printf '%s\n' "$output" | grep -q 'WORLDS_S3_BUCKET or WORLDS_S3_PREFIX not set, skipping world install'
 assert_no_s3_calls
 test ! -e "$DATA_DIR/world"
 
 DATA_DIR="$tmp/no-archive"
-S3_BUCKET=bucket
-WORLD_S3_PREFIX=prefix
+WORLDS_S3_BUCKET=bucket
+WORLDS_S3_PREFIX=prefix
 MC_LS_MODE=empty
 reset_calls
 set +e
@@ -124,8 +141,8 @@ test "$(cat "$mc_calls")" = "ls --json s3/bucket/prefix/"
 test ! -e "$DATA_DIR/world"
 
 DATA_DIR="$tmp/existing-world"
-S3_BUCKET=bucket
-WORLD_S3_PREFIX=prefix
+WORLDS_S3_BUCKET=bucket
+WORLDS_S3_PREFIX=prefix
 MC_LS_MODE=single
 mkdir -p "$DATA_DIR/world"
 printf '%s\n' existing > "$DATA_DIR/world/level.dat"

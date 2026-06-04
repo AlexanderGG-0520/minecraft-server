@@ -94,6 +94,11 @@ install_world() {
   # ------------------------------------------------------------
   # Guard
   # ------------------------------------------------------------
+  if [[ "${WORLDS_ENABLED:-false}" != "true" ]]; then
+    log INFO "Worlds disabled"
+    return 0
+  fi
+
   if [[ -n "${DATA_DIR:-}" &&
     -d "${WORLD_DIR}" &&
     ! -f "${DATA_DIR}/reset-world.flag" ]]; then
@@ -101,8 +106,8 @@ install_world() {
     return 0
   fi
 
-  if [[ -z "${S3_BUCKET:-}" || -z "${WORLD_S3_PREFIX:-}" ]]; then
-    log INFO "S3_BUCKET or WORLD_S3_PREFIX not set, skipping world install"
+  if [[ -z "${WORLDS_S3_BUCKET:-}" || -z "${WORLDS_S3_PREFIX:-}" ]]; then
+    log INFO "WORLDS_S3_BUCKET or WORLDS_S3_PREFIX not set, skipping world install"
     return 0
   fi
 
@@ -113,9 +118,9 @@ install_world() {
   # ------------------------------------------------------------
   configure_mc_alias "world"
 
-  local WORLD_PREFIX="${WORLD_S3_PREFIX%/}"
-  local WORLD_SOURCE="s3/${S3_BUCKET}/${WORLD_PREFIX}"
-  local WORLD_SOURCE_DISPLAY="s3://${S3_BUCKET}/${WORLD_PREFIX}"
+  local WORLD_PREFIX="${WORLDS_S3_PREFIX%/}"
+  local WORLD_SOURCE="s3/${WORLDS_S3_BUCKET}/${WORLD_PREFIX}"
+  local WORLD_SOURCE_DISPLAY="s3://${WORLDS_S3_BUCKET}/${WORLD_PREFIX}"
   local WORLD_ARCHIVE_LISTING=""
   local WORLD_ARCHIVE_KEY=""
   local WORLD_ARCHIVES=()
