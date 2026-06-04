@@ -10,6 +10,7 @@ trap 'rm -rf "$tmp"' EXIT
 source ./scripts/lib/logging.sh
 source ./scripts/lib/filesystem.sh
 source ./scripts/lib/world_reset.sh
+source ./scripts/lib/world_install.sh
 
 flag_removals_file="$tmp/flag-removals"
 : > "$flag_removals_file"
@@ -99,7 +100,7 @@ run_successful_reset_consumes_flag_once() {
   assert_file_absent "$DATA_DIR/reset-world.flag"
   assert_file_absent "$DATA_DIR/.ready"
   assert_file_absent "$DATA_DIR/world/level.dat"
-  assert_file_present "$DATA_DIR/world"
+  assert_file_absent "$DATA_DIR/world"
   assert_flag_removals 1
 
   if [[ "$(printf '%s\n' "$output" | grep -c 'reset-world.flag consumed')" != "1" ]]; then
@@ -121,7 +122,7 @@ run_direct_reset_world_consumes_flag_once() {
 
   assert_file_absent "$DATA_DIR/reset-world.flag"
   assert_file_absent "$DATA_DIR/world/level.dat"
-  assert_file_present "$DATA_DIR/world"
+  assert_file_absent "$DATA_DIR/world"
   assert_flag_removals 1
 
   if ! printf '%s\n' "$output" | grep -q 'World reset completed successfully'; then
@@ -200,9 +201,61 @@ run_backup_success_publishes_final_archive_only() {
   reset_world >/dev/null 2>&1
 
   assert_file_absent "$DATA_DIR/reset-world.flag"
-  assert_file_present "$DATA_DIR/world"
+  assert_file_absent "$DATA_DIR/world"
   assert_no_backup_temps "$DATA_DIR/backups"
   test "$(find "$DATA_DIR/backups" -maxdepth 1 -type f -name 'world-*.tar.gz' | wc -l)" -eq 1
+}
+
+run_reset_then_installs_s3_world() {
+  DATA_DIR="$tmp/reset-then-install"
+  RESET_WORLD_BACKUP=false
+  RESET_WORLD_REMOVE_MODS=false
+  WORLDS_ENABLED=true
+  WORLDS_S3_BUCKET=bucket
+  WORLDS_S3_PREFIX=world
+
+  mkdir -p "$DATA_DIR/world"
+  printf '%s\n' old-world > "$DATA_DIR/world/level.dat"
+  touch "$DATA_DIR/reset-world.flag"
+
+  local fixture_dir="$tmp/reset-install-fixture"
+  local fixture_archive="$tmp/reset-install-world.zip"
+  local mc_calls="$tmp/reset-install-mc-calls"
+  mkdir -p "$fixture_dir/world"
+  printf '%s\n' s3-world > "$fixture_dir/world/level.dat"
+  (cd "$fixture_dir" && zip -qr "$fixture_archive" world)
+  : > "$mc_calls"
+
+  configure_mc_alias() {
+    test "$1" = "world"
+  }
+
+  mc() {
+    printf '%s\n' "$*" >> "$mc_calls"
+    case "$1" in
+      ls)
+        test "$2" = "--json"
+        test "$3" = "s3/bucket/world/"
+        printf '%s\n' '{"type":"file","key":"world.zip"}'
+        ;;
+      cp)
+        test "$2" = "s3/bucket/world/world.zip"
+        command cp "$fixture_archive" "$3"
+        ;;
+      *)
+        return 99
+        ;;
+    esac
+  }
+
+  handle_reset_world_flag >/dev/null 2>&1
+  assert_file_absent "$DATA_DIR/reset-world.flag"
+  assert_file_absent "$DATA_DIR/world"
+
+  install_world >/dev/null 2>&1
+  assert_file_present "$DATA_DIR/world/level.dat"
+  test "$(cat "$DATA_DIR/world/level.dat")" = "s3-world"
+  test "$(sed -n '1p' "$mc_calls")" = "ls --json s3/bucket/world/"
 }
 
 run_backup_failure_removes_staged_archive() {
@@ -311,6 +364,7 @@ run_absent_flag_skips_reset
 run_missing_world_consumes_flag_once
 run_expired_flag_is_removed_once
 run_backup_success_publishes_final_archive_only
+run_reset_then_installs_s3_world
 run_backup_failure_removes_staged_archive
 run_unsafe_reset_paths_are_rejected
 run_relative_data_dir_reset_is_rejected

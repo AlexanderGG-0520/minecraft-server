@@ -375,7 +375,6 @@ reset_world() {
   # ---- Step 3: delete world directory completely ----
   log INFO "Deleting world directory"
   safe_rm_rf "${world_dir}" || return 1
-  mkdir -p "${world_dir}"
   if [[ "${RESET_WORLD_REMOVE_MODS:-false}" == "true" ]]; then
     log WARN "RESET_WORLD_REMOVE_MODS=true, deleting mods directory"
     safe_rm_rf "${mods_dir}" || return 1
