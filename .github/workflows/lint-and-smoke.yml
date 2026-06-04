@@ -677,7 +677,7 @@ jobs:
           handle_reset_world_flag
           test ! -f "$DATA_DIR/reset-world.flag"
           test ! -f "$DATA_DIR/.ready"
-          test -d "$DATA_DIR/world"
+          test ! -e "$DATA_DIR/world"
           test ! -f "$DATA_DIR/world/level.dat"
           test -f "$DATA_DIR/mods/server-mod.jar"
 
@@ -689,7 +689,7 @@ jobs:
           handle_reset_world_flag
           test ! -f "$DATA_DIR/reset-world.flag"
           test ! -f "$DATA_DIR/.ready"
-          test -d "$DATA_DIR/world"
+          test ! -e "$DATA_DIR/world"
           test ! -f "$DATA_DIR/world/level.dat"
           test -d "$DATA_DIR/mods"
           test ! -f "$DATA_DIR/mods/server-mod.jar"
