@@ -113,7 +113,7 @@ The extracted-world detection implementation:
 This implementation does not:
 
 - Change S3/MinIO behavior.
-- Change `S3_BUCKET` or `WORLD_S3_KEY` semantics.
+- Change `S3_BUCKET` or `WORLD_S3_PREFIX` semantics.
 - Change temp archive behavior.
 - Change `rm -rf` path-safety.
 - Change `reset-world.flag` cleanup after successful install.
