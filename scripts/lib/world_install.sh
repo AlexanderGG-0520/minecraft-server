@@ -100,7 +100,7 @@ install_world() {
   fi
 
   if [[ -n "${DATA_DIR:-}" &&
-    -d "${WORLD_DIR}" &&
+    -f "${WORLD_DIR}/level.dat" &&
     ! -f "${DATA_DIR}/reset-world.flag" ]]; then
     log INFO "World already exists, skipping world install"
     return 0

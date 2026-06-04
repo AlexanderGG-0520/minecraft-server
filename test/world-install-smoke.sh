@@ -140,6 +140,15 @@ test "$(cat "$configure_calls")" = "world"
 test "$(cat "$mc_calls")" = "ls --json s3/bucket/prefix/"
 test ! -e "$DATA_DIR/world"
 
+DATA_DIR="$tmp/empty-world"
+MC_LS_MODE=single
+mkdir -p "$DATA_DIR/world"
+reset_calls
+install_world
+test "$(cat "$configure_calls")" = "world"
+test "$(sed -n '1p' "$mc_calls")" = "ls --json s3/bucket/prefix/"
+test -f "$DATA_DIR/world/level.dat"
+
 DATA_DIR="$tmp/existing-world"
 WORLDS_S3_BUCKET=bucket
 WORLDS_S3_PREFIX=prefix
