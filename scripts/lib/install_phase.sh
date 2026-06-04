@@ -15,6 +15,7 @@ install() {
   ensure_server_properties
 
   handle_reset_world_flag
+  install_world
 
   install_server_properties
   install_mods          # mods (most important)
