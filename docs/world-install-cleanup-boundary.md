@@ -28,14 +28,14 @@ Inside `install_world`, current behavior is:
   present, world install logs that the world already exists and returns.
 - If `${DATA_DIR}/reset-world.flag` is present, the existing-world skip guard
   does not return early.
-- If either `WORLD_S3_BUCKET` or `WORLD_S3_KEY` is empty or unset, world install
+- If either `S3_BUCKET` or `WORLD_S3_KEY` is empty or unset, world install
   logs that the S3 world settings are missing and returns.
 - When installation proceeds, it logs `Installing world from S3`.
 - The archive path is created with `mktemp /tmp/world.XXXXXX.zip`.
 - The extraction directory is created with `mktemp -d /tmp/world-extract.XXXXXX`.
 - The MinIO client alias is configured with `configure_mc_alias "world"`.
 - The archive is downloaded with:
-  - `mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}"`
+  - `mc cp "s3/${S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}"`
 - Download failure calls `die "Failed to download world archive"`.
 - Extraction runs into the temporary extraction directory:
   - `unzip -q "${TMP_ZIP}" -d "${EXTRACT_DIR}"`
@@ -94,7 +94,7 @@ Status: completed for the fixed temp archive path cleanup.
 That PR must not:
 
 - Change extracted-world detection.
-- Change `WORLD_S3_BUCKET` or `WORLD_S3_KEY` semantics.
+- Change `S3_BUCKET` or `WORLD_S3_KEY` semantics.
 - Change S3/MinIO behavior.
 - Change `rm -rf` target behavior.
 - Change install order or runtime launch behavior.
@@ -164,7 +164,7 @@ reset behavior changes remain separate.
 
 Future implementation must not casually:
 
-- Change `WORLD_S3_BUCKET` or `WORLD_S3_KEY` semantics.
+- Change `S3_BUCKET` or `WORLD_S3_KEY` semantics.
 - Change S3/MinIO alias or credential behavior.
 - Change `DATA_DIR` or `WORLD_DIR` semantics.
 - Change `rm -rf` target behavior outside a dedicated path-safety PR.

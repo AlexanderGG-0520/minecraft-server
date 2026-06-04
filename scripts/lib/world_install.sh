@@ -101,8 +101,8 @@ install_world() {
     return 0
   fi
 
-  if [[ -z "${WORLD_S3_BUCKET:-}" || -z "${WORLD_S3_KEY:-}" ]]; then
-    log INFO "WORLD_S3_BUCKET or WORLD_S3_KEY not set, skipping world install"
+  if [[ -z "${S3_BUCKET:-}" || -z "${WORLD_S3_KEY:-}" ]]; then
+    log INFO "S3_BUCKET or WORLD_S3_KEY not set, skipping world install"
     return 0
   fi
 
@@ -120,7 +120,7 @@ install_world() {
     return 1
   }
 
-  mc cp "s3/${WORLD_S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}" || {
+  mc cp "s3/${S3_BUCKET}/${WORLD_S3_KEY}" "${TMP_ZIP}" || {
     cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     die "Failed to download world archive"
   }
