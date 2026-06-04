@@ -24,18 +24,20 @@ this cleanup boundary.
 Inside `install_world`, current behavior is:
 
 - `WORLD_DIR` is local to the function and set to `${DATA_DIR}/world`.
+- If `WORLDS_ENABLED` is unset or is not `true`, world install logs
+  `Worlds disabled` and returns.
 - If `${WORLD_DIR}` already exists and `${DATA_DIR}/reset-world.flag` is not
   present, world install logs that the world already exists and returns.
 - If `${DATA_DIR}/reset-world.flag` is present, the existing-world skip guard
   does not return early.
-- If either `S3_BUCKET` or `WORLD_S3_PREFIX` is empty or unset, world install
-  logs that the S3 world settings are missing and returns.
+- If either `WORLDS_S3_BUCKET` or `WORLDS_S3_PREFIX` is empty or unset, world
+  install logs that the S3 world settings are missing and returns.
 - When installation proceeds, it logs `Installing world from S3`.
 - The archive path is created with `mktemp /tmp/world.XXXXXX.zip`.
 - The extraction directory is created with `mktemp -d /tmp/world-extract.XXXXXX`.
 - The MinIO client alias is configured with `configure_mc_alias "world"`.
-- The direct child objects under `S3_BUCKET` and `WORLD_S3_PREFIX` are listed
-  without recursive traversal.
+- The direct child objects under `WORLDS_S3_BUCKET` and `WORLDS_S3_PREFIX` are
+  listed without recursive traversal.
 - Exactly one direct child `.zip` archive is selected and downloaded to
   `${TMP_ZIP}`.
 - Zero direct child `.zip` archives or multiple direct child `.zip` archives
@@ -98,7 +100,7 @@ Status: completed for the fixed temp archive path cleanup.
 That PR must not:
 
 - Change extracted-world detection.
-- Change `S3_BUCKET` or `WORLD_S3_PREFIX` semantics.
+- Change `WORLDS_ENABLED`, `WORLDS_S3_BUCKET`, or `WORLDS_S3_PREFIX` semantics.
 - Change S3/MinIO behavior.
 - Change `rm -rf` target behavior.
 - Change install order or runtime launch behavior.
@@ -168,7 +170,7 @@ reset behavior changes remain separate.
 
 Future implementation must not casually:
 
-- Change `S3_BUCKET` or `WORLD_S3_PREFIX` semantics.
+- Change `WORLDS_ENABLED`, `WORLDS_S3_BUCKET`, or `WORLDS_S3_PREFIX` semantics.
 - Change S3/MinIO alias or credential behavior.
 - Change `DATA_DIR` or `WORLD_DIR` semantics.
 - Change `rm -rf` target behavior outside a dedicated path-safety PR.

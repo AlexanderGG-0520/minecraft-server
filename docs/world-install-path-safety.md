@@ -66,7 +66,7 @@ The path-safety implementation:
   before `rm -rf "${WORLD_DIR}"`.
 - Adds smoke tests with harmless temporary directories.
 - Preserves S3/MinIO behavior.
-- Preserves `S3_BUCKET` and `WORLD_S3_PREFIX` semantics.
+- Preserves `WORLDS_ENABLED`, `WORLDS_S3_BUCKET`, and `WORLDS_S3_PREFIX` semantics.
 - Preserves `configure_mc_alias "world"`.
 - Preserves `mc cp` source semantics.
 - Preserves deterministic extraction detection behavior.
