@@ -327,14 +327,25 @@ jobs:
           cat > "$tmp/bin/mc" <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
-          test "$1" = "cp"
-          test "$2" = "s3/bucket/world.zip"
-          printf '%s\n' "$3" > "$TMP_ARCHIVE_TARGET"
-          case "${MC_MODE:-success}" in
-            success) cp "$WORLD_FIXTURE_ZIP" "$3" ;;
-            fail) : > "$3"; exit 7 ;;
-            invalid) printf '%s\n' "not a zip" > "$3" ;;
-            *) exit 99 ;;
+          case "$1" in
+            ls)
+              test "$2" = "--json"
+              test "$3" = "s3/bucket/world/"
+              printf '%s\n' '{"type":"file","key":"world.zip"}'
+              ;;
+            cp)
+              test "$2" = "s3/bucket/world/world.zip"
+              printf '%s\n' "$3" > "$TMP_ARCHIVE_TARGET"
+              case "${MC_MODE:-success}" in
+                success) cp "$WORLD_FIXTURE_ZIP" "$3" ;;
+                fail) : > "$3"; exit 7 ;;
+                invalid) printf '%s\n' "not a zip" > "$3" ;;
+                *) exit 99 ;;
+              esac
+              ;;
+            *)
+              exit 99
+              ;;
           esac
           EOF
           chmod +x "$tmp/bin/mc"
@@ -469,7 +480,7 @@ jobs:
 
           PATH="$tmp/bin:$PATH"
           S3_BUCKET=bucket
-          WORLD_S3_KEY=world.zip
+          WORLD_S3_PREFIX=world
           TMP_ARCHIVE_TARGET="$tmp/archive-target.txt"
           export TMP_ARCHIVE_TARGET
           WORLD_TEMP_SNAPSHOT="$tmp/world-temp-snapshot.txt"

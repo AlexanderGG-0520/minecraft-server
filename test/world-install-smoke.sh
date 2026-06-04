@@ -27,9 +27,30 @@ configure_mc_alias() {
 }
 
 mc() {
-  test "$1" = "cp"
-  printf '%s\n' "$2" >> "$mc_calls"
-  command cp "$archive" "$3"
+  printf '%s\n' "$*" >> "$mc_calls"
+  case "$1" in
+    ls)
+      test "$2" = "--json"
+      case "${MC_LS_MODE:-single}" in
+        single) printf '%s\n' '{"type":"file","key":"world.zip"}' ;;
+        empty)
+          printf '%s\n' '{"type":"file","key":"notes.txt"}'
+          printf '%s\n' '{"type":"folder","key":"nested.zip/"}'
+          ;;
+        multiple)
+          printf '%s\n' '{"type":"file","key":"first.zip"}'
+          printf '%s\n' '{"type":"file","key":"second.zip"}'
+          ;;
+        *) return 99 ;;
+      esac
+      ;;
+    cp)
+      command cp "$archive" "$3"
+      ;;
+    *)
+      return 99
+      ;;
+  esac
 }
 
 reset_calls() {
@@ -44,34 +65,68 @@ assert_no_s3_calls() {
 
 DATA_DIR="$tmp/success"
 S3_BUCKET=bucket
-WORLD_S3_KEY=prefix/world.zip
+WORLD_S3_PREFIX=prefix/
+MC_LS_MODE=single
 reset_calls
 install_world
 test "$(cat "$configure_calls")" = "world"
-test "$(cat "$mc_calls")" = "s3/bucket/prefix/world.zip"
+test "$(sed -n '1p' "$mc_calls")" = "ls --json s3/bucket/prefix/"
+case "$(sed -n '2p' "$mc_calls")" in
+  "cp s3/bucket/prefix/world.zip /tmp/world."*.zip) ;;
+  *) echo "unexpected world archive copy call" >&2; exit 1 ;;
+esac
 test -f "$DATA_DIR/world/level.dat"
 
 DATA_DIR="$tmp/missing-bucket"
 unset S3_BUCKET
-WORLD_S3_KEY=prefix/world.zip
+WORLD_S3_PREFIX=prefix
 reset_calls
 output="$(install_world 2>&1)"
-printf '%s\n' "$output" | grep -q 'S3_BUCKET or WORLD_S3_KEY not set, skipping world install'
+printf '%s\n' "$output" | grep -q 'S3_BUCKET or WORLD_S3_PREFIX not set, skipping world install'
 assert_no_s3_calls
 test ! -e "$DATA_DIR/world"
 
-DATA_DIR="$tmp/missing-key"
+DATA_DIR="$tmp/missing-prefix"
 S3_BUCKET=bucket
-unset WORLD_S3_KEY
+unset WORLD_S3_PREFIX
 reset_calls
 output="$(install_world 2>&1)"
-printf '%s\n' "$output" | grep -q 'S3_BUCKET or WORLD_S3_KEY not set, skipping world install'
+printf '%s\n' "$output" | grep -q 'S3_BUCKET or WORLD_S3_PREFIX not set, skipping world install'
 assert_no_s3_calls
+test ! -e "$DATA_DIR/world"
+
+DATA_DIR="$tmp/no-archive"
+S3_BUCKET=bucket
+WORLD_S3_PREFIX=prefix
+MC_LS_MODE=empty
+reset_calls
+set +e
+output="$(install_world 2>&1)"
+status=$?
+set -e
+test "$status" -eq 1
+printf '%s\n' "$output" | grep -q 'No world archive found under s3://bucket/prefix'
+test "$(cat "$configure_calls")" = "world"
+test "$(cat "$mc_calls")" = "ls --json s3/bucket/prefix/"
+test ! -e "$DATA_DIR/world"
+
+DATA_DIR="$tmp/ambiguous-archive"
+MC_LS_MODE=multiple
+reset_calls
+set +e
+output="$(install_world 2>&1)"
+status=$?
+set -e
+test "$status" -eq 1
+printf '%s\n' "$output" | grep -q 'Ambiguous world archive source under s3://bucket/prefix'
+test "$(cat "$configure_calls")" = "world"
+test "$(cat "$mc_calls")" = "ls --json s3/bucket/prefix/"
 test ! -e "$DATA_DIR/world"
 
 DATA_DIR="$tmp/existing-world"
 S3_BUCKET=bucket
-WORLD_S3_KEY=prefix/world.zip
+WORLD_S3_PREFIX=prefix
+MC_LS_MODE=single
 mkdir -p "$DATA_DIR/world"
 printf '%s\n' existing > "$DATA_DIR/world/level.dat"
 reset_calls

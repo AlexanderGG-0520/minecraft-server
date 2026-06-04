@@ -126,13 +126,25 @@ configure_mc_alias() {
 }
 
 mc() {
-  test "$1" = "cp"
-  printf '%s\n' "$3" > "$tmp/world-archive-target.txt"
-  command cp "$archive" "$3"
+  case "$1" in
+    ls)
+      test "$2" = "--json"
+      test "$3" = "s3/bucket/world/"
+      printf '%s\n' '{"type":"file","key":"world.zip"}'
+      ;;
+    cp)
+      test "$2" = "s3/bucket/world/world.zip"
+      printf '%s\n' "$3" > "$tmp/world-archive-target.txt"
+      command cp "$archive" "$3"
+      ;;
+    *)
+      return 99
+      ;;
+  esac
 }
 
 S3_BUCKET=bucket
-WORLD_S3_KEY=world.zip
+WORLD_S3_PREFIX=world
 world_temp_snapshot="$tmp/world-temp-snapshot.txt"
 snapshot_world_install_temps > "$world_temp_snapshot"
 touch "$DATA_DIR/reset-world.flag"
