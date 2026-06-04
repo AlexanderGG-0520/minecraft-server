@@ -171,7 +171,7 @@ The implementation does not:
 - Change `world_install.sh`.
 - Change `install_world` behavior.
 - Change S3/MinIO behavior.
-- Change `WORLD_S3_BUCKET` or `WORLD_S3_KEY` behavior.
+- Change `S3_BUCKET` or `WORLD_S3_KEY` behavior.
 - Change install dispatch or runtime launch behavior.
 - Change backup retention semantics unless documented.
 - Change reset trigger semantics.

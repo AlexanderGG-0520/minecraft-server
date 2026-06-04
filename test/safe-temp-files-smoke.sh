@@ -131,7 +131,7 @@ mc() {
   command cp "$archive" "$3"
 }
 
-WORLD_S3_BUCKET=bucket
+S3_BUCKET=bucket
 WORLD_S3_KEY=world.zip
 world_temp_snapshot="$tmp/world-temp-snapshot.txt"
 snapshot_world_install_temps > "$world_temp_snapshot"

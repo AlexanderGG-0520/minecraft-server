@@ -468,7 +468,7 @@ jobs:
           }
 
           PATH="$tmp/bin:$PATH"
-          WORLD_S3_BUCKET=bucket
+          S3_BUCKET=bucket
           WORLD_S3_KEY=world.zip
           TMP_ARCHIVE_TARGET="$tmp/archive-target.txt"
           export TMP_ARCHIVE_TARGET
