@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2030,SC2031
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -98,9 +99,203 @@ test ! -e "$INPUT_RESOURCEPACKS_DIR"
 
 (
   # shellcheck disable=SC2031  # Parent temp directory is intentionally read from this subshell.
+  DATA_DIR="$tmp/properties-explicit-precedence"
+  APPLY_SERVER_PROPERTIES_DIFF=true
+  RESOURCE_PACK='https://cdn.example.test/manual.zip'
+  RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true
+  RESOURCEPACKS_PUBLIC_BASE_URL='https://assets.example.test'
+  RESOURCEPACKS_S3_PREFIX='fabric/prison/resourcepacks'
+  RESOURCEPACKS_FILE='generated.zip'
+  export DATA_DIR APPLY_SERVER_PROPERTIES_DIFF RESOURCE_PACK
+  export RESOURCEPACKS_AUTO_SET_RESOURCE_PACK RESOURCEPACKS_PUBLIC_BASE_URL RESOURCEPACKS_S3_PREFIX RESOURCEPACKS_FILE
+
+  source ./scripts/lib/logging.sh
+  source ./scripts/lib/runtime.sh
+  source ./scripts/lib/server_properties.sh
+
+  mkdir -p "$DATA_DIR"
+  printf '%s\n' 'resource-pack=' > "$DATA_DIR/server.properties"
+
+  prepare_resourcepack_public_url_env
+  apply_server_properties_diff >/dev/null 2>&1
+  grep -Fx 'resource-pack=https://cdn.example.test/manual.zip' "$DATA_DIR/server.properties" >/dev/null
+  if grep -F 'generated.zip' "$DATA_DIR/server.properties" >/dev/null; then
+    echo "FAIL: generated resource-pack URL overrode explicit RESOURCE_PACK" >&2
+    exit 1
+  fi
+)
+
+(
+  # shellcheck disable=SC2031  # Parent temp directory is intentionally read from this subshell.
+  DATA_DIR="$tmp/properties-generated-url"
+  APPLY_SERVER_PROPERTIES_DIFF=true
+  RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true
+  RESOURCEPACKS_PUBLIC_BASE_URL='https://assets.example.test'
+  RESOURCEPACKS_S3_PREFIX='fabric/prison/resourcepacks'
+  RESOURCEPACKS_FILE='pack.zip'
+  export DATA_DIR APPLY_SERVER_PROPERTIES_DIFF
+  export RESOURCEPACKS_AUTO_SET_RESOURCE_PACK RESOURCEPACKS_PUBLIC_BASE_URL RESOURCEPACKS_S3_PREFIX RESOURCEPACKS_FILE
+  unset RESOURCE_PACK
+
+  source ./scripts/lib/logging.sh
+  source ./scripts/lib/runtime.sh
+  source ./scripts/lib/server_properties.sh
+
+  mkdir -p "$DATA_DIR"
+  printf '%s\n' 'resource-pack=' > "$DATA_DIR/server.properties"
+
+  prepare_resourcepack_public_url_env
+  apply_server_properties_diff >/dev/null 2>&1
+  grep -Fx 'resource-pack=https://assets.example.test/fabric/prison/resourcepacks/pack.zip' "$DATA_DIR/server.properties" >/dev/null
+)
+
+(
+  # shellcheck disable=SC2031  # Parent temp directory is intentionally read from this subshell.
+  DATA_DIR="$tmp/properties-generated-url-slashes"
+  APPLY_SERVER_PROPERTIES_DIFF=true
+  RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true
+  RESOURCEPACKS_PUBLIC_BASE_URL='https://assets.example.test/'
+  RESOURCEPACKS_S3_PREFIX='/fabric/prison/resourcepacks/'
+  RESOURCEPACKS_FILE='/pack.zip'
+  export DATA_DIR APPLY_SERVER_PROPERTIES_DIFF
+  export RESOURCEPACKS_AUTO_SET_RESOURCE_PACK RESOURCEPACKS_PUBLIC_BASE_URL RESOURCEPACKS_S3_PREFIX RESOURCEPACKS_FILE
+  unset RESOURCE_PACK
+
+  source ./scripts/lib/logging.sh
+  source ./scripts/lib/runtime.sh
+  source ./scripts/lib/server_properties.sh
+
+  mkdir -p "$DATA_DIR"
+  printf '%s\n' 'resource-pack=' > "$DATA_DIR/server.properties"
+
+  prepare_resourcepack_public_url_env
+  apply_server_properties_diff >/dev/null 2>&1
+  grep -Fx 'resource-pack=https://assets.example.test/fabric/prison/resourcepacks/pack.zip' "$DATA_DIR/server.properties" >/dev/null
+  if grep -F 'assets.example.test//fabric' "$DATA_DIR/server.properties" >/dev/null; then
+    echo "FAIL: generated resource-pack URL contains malformed boundary slashes" >&2
+    exit 1
+  fi
+  if grep -F 'resourcepacks/resourcepacks' "$DATA_DIR/server.properties" >/dev/null; then
+    echo "FAIL: generated resource-pack URL duplicated resourcepacks path components" >&2
+    exit 1
+  fi
+)
+
+(
+  # shellcheck disable=SC2031  # Parent temp directory is intentionally read from this subshell.
+  DATA_DIR="$tmp/properties-auto-disabled"
+  APPLY_SERVER_PROPERTIES_DIFF=true
+  RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=false
+  RESOURCEPACKS_PUBLIC_BASE_URL='https://assets.example.test'
+  RESOURCEPACKS_S3_PREFIX='fabric/prison/resourcepacks'
+  RESOURCEPACKS_FILE='pack.zip'
+  export DATA_DIR APPLY_SERVER_PROPERTIES_DIFF
+  export RESOURCEPACKS_AUTO_SET_RESOURCE_PACK RESOURCEPACKS_PUBLIC_BASE_URL RESOURCEPACKS_S3_PREFIX RESOURCEPACKS_FILE
+  unset RESOURCE_PACK
+
+  source ./scripts/lib/logging.sh
+  source ./scripts/lib/runtime.sh
+  source ./scripts/lib/server_properties.sh
+
+  mkdir -p "$DATA_DIR"
+  printf '%s\n' 'custom-key=keep' > "$DATA_DIR/server.properties"
+
+  prepare_resourcepack_public_url_env
+  apply_server_properties_diff >/dev/null 2>&1
+  grep -Fx 'custom-key=keep' "$DATA_DIR/server.properties" >/dev/null
+  if grep -F 'resource-pack=' "$DATA_DIR/server.properties" >/dev/null; then
+    echo "FAIL: RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=false wrote resource-pack" >&2
+    exit 1
+  fi
+)
+
+(
+  # shellcheck disable=SC2031  # Parent temp directory is intentionally read from this subshell.
+  DATA_DIR="$tmp/properties-auto-missing-base"
+  APPLY_SERVER_PROPERTIES_DIFF=true
+  RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true
+  RESOURCEPACKS_S3_PREFIX='fabric/prison/resourcepacks'
+  RESOURCEPACKS_FILE='pack.zip'
+  export DATA_DIR APPLY_SERVER_PROPERTIES_DIFF RESOURCEPACKS_AUTO_SET_RESOURCE_PACK RESOURCEPACKS_S3_PREFIX RESOURCEPACKS_FILE
+  unset RESOURCE_PACK
+  unset RESOURCEPACKS_PUBLIC_BASE_URL
+
+  source ./scripts/lib/logging.sh
+  source ./scripts/lib/runtime.sh
+  source ./scripts/lib/server_properties.sh
+
+  mkdir -p "$DATA_DIR"
+  printf '%s\n' 'resource-pack=' > "$DATA_DIR/server.properties"
+
+  set +e
+  output="$(prepare_resourcepack_public_url_env 2>&1)"
+  status=$?
+  set -e
+
+  test "$status" -eq 1
+  printf '%s\n' "$output" | grep -q 'RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true but RESOURCEPACKS_PUBLIC_BASE_URL is empty'
+)
+
+(
+  # shellcheck disable=SC2031  # Parent temp directory is intentionally read from this subshell.
+  DATA_DIR="$tmp/properties-auto-missing-file"
+  APPLY_SERVER_PROPERTIES_DIFF=true
+  RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true
+  RESOURCEPACKS_PUBLIC_BASE_URL='https://assets.example.test'
+  RESOURCEPACKS_S3_PREFIX='fabric/prison/resourcepacks'
+  export DATA_DIR APPLY_SERVER_PROPERTIES_DIFF RESOURCEPACKS_AUTO_SET_RESOURCE_PACK RESOURCEPACKS_PUBLIC_BASE_URL RESOURCEPACKS_S3_PREFIX
+  unset RESOURCE_PACK
+  unset RESOURCEPACKS_FILE
+
+  source ./scripts/lib/logging.sh
+  source ./scripts/lib/runtime.sh
+  source ./scripts/lib/server_properties.sh
+
+  mkdir -p "$DATA_DIR"
+  printf '%s\n' 'resource-pack=' > "$DATA_DIR/server.properties"
+
+  set +e
+  output="$(prepare_resourcepack_public_url_env 2>&1)"
+  status=$?
+  set -e
+
+  test "$status" -eq 1
+  printf '%s\n' "$output" | grep -q 'RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true but RESOURCEPACKS_FILE is empty'
+)
+
+(
+  # shellcheck disable=SC2031  # Parent temp directory is intentionally read from this subshell.
+  DATA_DIR="$tmp/properties-base-includes-prefix"
+  APPLY_SERVER_PROPERTIES_DIFF=true
+  RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true
+  RESOURCEPACKS_PUBLIC_BASE_URL='https://assets.example.test/fabric/prison/resourcepacks'
+  RESOURCEPACKS_S3_PREFIX='fabric/prison/resourcepacks'
+  RESOURCEPACKS_FILE='pack.zip'
+  export DATA_DIR APPLY_SERVER_PROPERTIES_DIFF
+  export RESOURCEPACKS_AUTO_SET_RESOURCE_PACK RESOURCEPACKS_PUBLIC_BASE_URL RESOURCEPACKS_S3_PREFIX RESOURCEPACKS_FILE
+  unset RESOURCE_PACK
+
+  source ./scripts/lib/logging.sh
+  source ./scripts/lib/runtime.sh
+  source ./scripts/lib/server_properties.sh
+
+  mkdir -p "$DATA_DIR"
+  printf '%s\n' 'resource-pack=' > "$DATA_DIR/server.properties"
+
+  set +e
+  output="$(prepare_resourcepack_public_url_env 2>&1)"
+  status=$?
+  set -e
+
+  test "$status" -eq 1
+  printf '%s\n' "$output" | grep -q 'RESOURCEPACKS_PUBLIC_BASE_URL must be the public bucket-root URL'
+)
+
+(
+  # shellcheck disable=SC2031  # Parent temp directory is intentionally read from this subshell.
   DATA_DIR="$tmp/properties-s3-url"
   APPLY_SERVER_PROPERTIES_DIFF=true
-  RESOURCE_PACK='s3/bucket/resourcepacks/example.zip'
+  RESOURCE_PACK='s3://bucket/resourcepacks/example.zip'
   export DATA_DIR APPLY_SERVER_PROPERTIES_DIFF RESOURCE_PACK
 
   source ./scripts/lib/logging.sh
