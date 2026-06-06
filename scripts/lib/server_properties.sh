@@ -7,6 +7,9 @@ SERVER_PROPERTIES_ENV_MAP=(
   "SEED=level-seed"
   "MODE=gamemode"
   "RESOURCE_PACK_ENFORCE=require-resource-pack"
+  "RESOURCEPACK_REQUIRED=require-resource-pack"
+  "RESOURCEPACK_URL=resource-pack"
+  "RESOURCEPACK_SHA1=resource-pack-sha1"
   "ACCEPTS_TRANSFERS=accepts-transfers"
   "ALLOW_FLIGHT=allow-flight"
   "ALLOW_NETHER=allow-nether"
@@ -136,6 +139,18 @@ validate_server_property_key() {
   [[ "$key" =~ ^[A-Za-z0-9_.-]+$ ]] || die "Invalid server.properties key: '${key}'"
 }
 
+validate_server_property_env_value() {
+  local key="$1"
+  local value="$2"
+
+  case "$key" in
+    resource-pack)
+      [[ -z "$value" || "$value" == http://* || "$value" == https://* ]] \
+        || die "Invalid resource-pack URL: resource-pack must be an HTTP/HTTPS URL accessible to Minecraft clients"
+      ;;
+  esac
+}
+
 server_property_value() {
   local file="$1"
   local key="$2"
@@ -235,6 +250,7 @@ apply_server_properties_diff() {
     fi
 
     env_val="$(normalize_env_val "${!env_key}")"
+    validate_server_property_env_value "$prop_key" "$env_val"
     current_val="$(server_property_value "$props_file" "$prop_key")"
     if server_property_exists "$props_file" "$prop_key"; then
       action="Updated"
