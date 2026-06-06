@@ -29,7 +29,6 @@ install() {
   activate_plugins
   if [[ ! "${TYPE}" == "velocity" ]]; then
     install_resourcepacks
-    activate_resourcepacks
   fi
   install_modpack
   install_c2me_jvm_args

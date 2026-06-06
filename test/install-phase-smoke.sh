@@ -59,7 +59,7 @@ expected_common_suffix="install_modpack install_c2me_jvm_args install_whitelist 
 TYPE=paper
 calls=""
 install
-expected_paper="${expected_common_prefix} install_resourcepacks activate_resourcepacks ${expected_common_suffix}"
+expected_paper="${expected_common_prefix} install_resourcepacks ${expected_common_suffix}"
 if [[ "$calls" != "$expected_paper" ]]; then
   echo "FAIL: unexpected paper install phase order" >&2
   printf 'expected: %s\nactual:   %s\n' "$expected_paper" "$calls" >&2
