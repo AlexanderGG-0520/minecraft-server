@@ -252,6 +252,10 @@ Examples:
 * `view-distance` -> `VIEW_DISTANCE`
 * `simulation-distance` -> `SIMULATION_DISTANCE`
 
+For server resource packs, `RESOURCE_PACK` must be a client-accessible `http://` or `https://`
+URL. S3/MinIO sync paths such as `s3/bucket/resourcepacks` are internal asset sources and are not
+valid `resource-pack` values for Minecraft clients.
+
 Only environment variables that are explicitly set are applied. If a variable is set to an empty
 string, the corresponding line is written as `key=`. Existing keys are replaced, missing keys are
 appended, and comments or unrelated keys are preserved where possible.
@@ -273,6 +277,10 @@ file to let it be regenerated; the entrypoint does not auto-repair it.
 The image uses the MinIO `mc` client for S3-backed mods, plugins, configs, datapacks, resourcepacks,
 and world archives. `MC_CONFIG_DIR` defaults to `/tmp/mc-config`, so `mc` credentials are not written
 under `/data/.mc` on persistent world volumes.
+
+Resourcepacks synced from S3/MinIO are stored as local files for operator-managed distribution
+workflows. Minecraft clients are not served files from `/data/resourcepacks` automatically; set
+`RESOURCE_PACK` to the HTTP/HTTPS URL that clients can fetch.
 
 For asset syncs, `*_REMOVE_EXTRA=false` is the safer default. Enabling `*_REMOVE_EXTRA=true` treats the
 selected remote S3/MinIO prefix as authoritative: local files that are not present under that prefix may

@@ -132,8 +132,6 @@ log INFO "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${RESOURCEPACKS_S3_PREFIX:=resourcepacks/latest}"
 : "${RESOURCEPACKS_SYNC_ONCE:=true}"
 : "${RESOURCEPACKS_REMOVE_EXTRA:=false}"
-: "${RESOURCEPACKS_AUTO_APPLY:=true}"
-: "${RESOURCEPACK_REQUIRED:=false}"
 
 # Modpacks (experimental)
 : "${MODPACK_URL:=}"
