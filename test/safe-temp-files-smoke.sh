@@ -12,6 +12,7 @@ source ./scripts/lib/filesystem.sh
 source ./scripts/lib/runtime.sh
 source ./scripts/lib/server_install.sh
 source ./scripts/lib/s3_client.sh
+source ./scripts/lib/world_paths.sh
 source ./scripts/lib/world_install.sh
 
 DATA_DIR="$tmp/data"

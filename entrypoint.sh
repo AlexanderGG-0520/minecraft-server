@@ -20,6 +20,8 @@ source "${ENTRYPOINT_DIR%/}/scripts/lib/jvm_args.sh"
 source "${ENTRYPOINT_DIR%/}/scripts/lib/player_lists.sh"
 # shellcheck source=scripts/lib/paper_config.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/paper_config.sh"
+# shellcheck source=scripts/lib/world_paths.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/world_paths.sh"
 # shellcheck source=scripts/lib/bootstrap_files.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/bootstrap_files.sh"
 # shellcheck source=scripts/lib/lifecycle.sh

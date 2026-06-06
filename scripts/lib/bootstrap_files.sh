@@ -3,10 +3,13 @@
 install_dirs() {
   log INFO "Preparing directory structure"
 
+  local world_dir
+  world_dir="$(minecraft_world_dir)" || return 1
+
   mkdir -p \
     "${DATA_DIR}/logs" \
     "${DATA_DIR}/config" \
-    "${DATA_DIR}/world"
+    "${world_dir}"
 
   if [[ "${TYPE}" == "paper" || "${TYPE}" == "purpur" || "${TYPE}" == "spigot" ]]; then
     mkdir -p "${DATA_DIR}/plugins"

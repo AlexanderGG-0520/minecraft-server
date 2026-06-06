@@ -9,6 +9,7 @@ trap 'rm -rf "$tmp"' EXIT
 
 source ./scripts/lib/logging.sh
 source ./scripts/lib/filesystem.sh
+source ./scripts/lib/world_paths.sh
 source ./scripts/lib/world_reset.sh
 source ./scripts/lib/world_install.sh
 
@@ -358,6 +359,25 @@ run_relative_data_dir_reset_is_rejected() {
   fi
 }
 
+run_custom_level_name_reset_uses_matching_world_dir() {
+  DATA_DIR="$tmp/custom-level-reset"
+  LEVEL_NAME=custom-world
+  RESET_WORLD_BACKUP=false
+  RESET_WORLD_REMOVE_MODS=false
+  mkdir -p "$DATA_DIR/custom-world" "$DATA_DIR/world"
+  printf '%s\n' custom > "$DATA_DIR/custom-world/level.dat"
+  printf '%s\n' default > "$DATA_DIR/world/level.dat"
+  touch "$DATA_DIR/reset-world.flag"
+
+  reset_flag_removal_count
+  reset_world >/dev/null 2>&1
+
+  assert_file_absent "$DATA_DIR/custom-world"
+  assert_file_present "$DATA_DIR/world/level.dat"
+  test "$(cat "$DATA_DIR/world/level.dat")" = "default"
+  assert_flag_removals 1
+}
+
 run_successful_reset_consumes_flag_once
 run_direct_reset_world_consumes_flag_once
 run_absent_flag_skips_reset
@@ -368,3 +388,4 @@ run_reset_then_installs_s3_world
 run_backup_failure_removes_staged_archive
 run_unsafe_reset_paths_are_rejected
 run_relative_data_dir_reset_is_rejected
+run_custom_level_name_reset_uses_matching_world_dir

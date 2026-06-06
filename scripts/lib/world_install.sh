@@ -3,6 +3,7 @@
 validate_world_install_paths() {
   local data_dir="${1:-}"
   local world_dir="${2:-}"
+  local expected_world_dir_literal
 
   if [[ -z "${data_dir}" ]]; then
     log ERROR "DATA_DIR is required for world install"
@@ -19,7 +20,8 @@ validate_world_install_paths() {
     return 1
   fi
 
-  if [[ "${world_dir}" != "${data_dir}/world" ]]; then
+  expected_world_dir_literal="$(minecraft_world_dir "${data_dir}")" || return 1
+  if [[ "${world_dir}" != "${expected_world_dir_literal}" ]]; then
     log ERROR "Refusing unsafe world install path"
     return 1
   fi
@@ -41,7 +43,7 @@ validate_world_install_paths() {
     return 1
   fi
 
-  local resolved_data_dir resolved_world_dir expected_world_dir
+  local resolved_data_dir resolved_world_dir expected_world_dir expected_world_name
   if ! resolved_data_dir="$(realpath -m -- "${data_dir}")"; then
     log ERROR "Refusing unsafe world install path"
     return 1
@@ -52,7 +54,8 @@ validate_world_install_paths() {
     return 1
   fi
 
-  if ! expected_world_dir="$(realpath -m -- "${resolved_data_dir}/world")"; then
+  expected_world_name="$(minecraft_world_name)" || return 1
+  if ! expected_world_dir="$(realpath -m -- "${resolved_data_dir}/${expected_world_name}")"; then
     log ERROR "Refusing unsafe world install path"
     return 1
   fi
@@ -64,7 +67,7 @@ validate_world_install_paths() {
     "${resolved_world_dir}" == "/data" ||
     "${resolved_world_dir}" == "${resolved_data_dir}" ||
     "${resolved_world_dir}" != "${expected_world_dir}" ||
-    "${resolved_world_dir##*/}" != "world" ]]; then
+    "${resolved_world_dir##*/}" != "${expected_world_name}" ]]; then
     log ERROR "Refusing unsafe world install path"
     return 1
   fi
@@ -89,7 +92,8 @@ cleanup_world_install_temps() {
 }
 
 install_world() {
-  local WORLD_DIR="${DATA_DIR:-}/world"
+  local WORLD_DIR
+  WORLD_DIR="$(minecraft_world_dir)" || return 1
 
   # ------------------------------------------------------------
   # Guard
