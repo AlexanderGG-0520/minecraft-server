@@ -301,7 +301,7 @@ install_plugins() {
 }
 
 activate_plugins() {
-  log INFO "Install plugins (Paper | Purpur | Mohist | Taiyitist | Youer | Velocity only)"
+  log INFO "Activate plugins (Paper | Purpur | Mohist | Taiyitist | Youer | Velocity only)"
 
   [[ "${PLUGINS_ENABLED:-true}" == "true" ]] || { log INFO "Plugins disabled"; return 0; }
 
@@ -472,36 +472,43 @@ install_resourcepacks() {
     return
   }
 
-  RP_DIR="${INPUT_RESOURCEPACKS_DIR}/resourcepacks"
-  mkdir -p "${RP_DIR}"
+  local rp_dir="${INPUT_RESOURCEPACKS_DIR:-/resourcepacks}"
+  refuse_unsafe_filesystem_path "${rp_dir}" "create resourcepacks staging directory" \
+    || die "Unsafe resourcepacks staging directory: ${rp_dir:-<empty>}"
+  mkdir -p "${rp_dir}"
 
   # now already resourcepacks present and sync once mode, skipping
-  if [[ "${RESOURCEPACKS_SYNC_ONCE}" == "true" ]] \
-   && find "${RP_DIR}" -mindepth 1 -maxdepth 1 -print -quit | grep -q . \
-   && [[ "${RESOURCEPACKS_REMOVE_EXTRA}" != "true" ]]; then
-  log INFO "Resourcepacks already present, skipping sync"
-  return
+  if [[ "${RESOURCEPACKS_SYNC_ONCE:-true}" == "true" ]] \
+    && find "${rp_dir}" -mindepth 1 -maxdepth 1 -print -quit | grep -q . \
+    && [[ "${RESOURCEPACKS_REMOVE_EXTRA:-false}" != "true" ]]; then
+    log INFO "Resourcepacks already present, skipping sync"
+    return
   fi
 
   log INFO "Configuring MinIO client for resourcepacks"
   configure_mc_alias "resourcepacks"
 
-  local -a remove_args=()
-  if [[ "${RESOURCEPACKS_REMOVE_EXTRA}" == "true" ]]; then
-    remove_args=(--remove)
-    ensure_s3_source_nonempty_for_remove "s3/${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}" "resourcepacks"
+  local src="s3/${RESOURCEPACKS_S3_BUCKET}"
+  if [[ -n "${RESOURCEPACKS_S3_PREFIX:-}" ]]; then
+    src="${src%/}/${RESOURCEPACKS_S3_PREFIX}"
   fi
 
-  log INFO "Syncing resourcepacks from s3://${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}"
+  local -a remove_args=()
+  if [[ "${RESOURCEPACKS_REMOVE_EXTRA:-false}" == "true" ]]; then
+    remove_args=(--remove)
+    ensure_s3_source_nonempty_for_remove "${src}" "resourcepacks"
+  fi
+
+  log INFO "Syncing resourcepacks from ${src}"
   mc mirror \
     --overwrite \
     "${remove_args[@]}" \
-    "s3/${RESOURCEPACKS_S3_BUCKET}/${RESOURCEPACKS_S3_PREFIX}" \
-    "${RP_DIR}" \
+    "${src}" \
+    "${rp_dir}" \
     || die "Failed to sync resourcepacks"
 
   # ---- server.properties linkage (optional) ----
-  if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]] && [[ -f "${DATA_DIR}/server.properties" ]]; then
+  if [[ "${RESOURCEPACKS_AUTO_APPLY:-true}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]] && [[ -f "${DATA_DIR}/server.properties" ]]; then
     log INFO "Applying resource-pack settings to server.properties"
 
     : "${RESOURCEPACK_SHA1:=}"
@@ -509,11 +516,11 @@ install_resourcepacks() {
     sed -i \
       -e "s|^resource-pack=.*|resource-pack=${RESOURCEPACK_URL}|" \
       -e "s|^resource-pack-sha1=.*|resource-pack-sha1=${RESOURCEPACK_SHA1}|" \
-      -e "s|^require-resource-pack=.*|require-resource-pack=${RESOURCEPACK_REQUIRED}|" \
+      -e "s|^require-resource-pack=.*|require-resource-pack=${RESOURCEPACK_REQUIRED:-false}|" \
       "${DATA_DIR}/server.properties" || true
   fi
 
-  if [[ "${RESOURCEPACKS_AUTO_APPLY}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]] && [[ ! -f "${DATA_DIR}/server.properties" ]]; then
+  if [[ "${RESOURCEPACKS_AUTO_APPLY:-true}" == "true" ]] && [[ -n "${RESOURCEPACK_URL:-}" ]] && [[ ! -f "${DATA_DIR}/server.properties" ]]; then
     log WARN "server.properties not found, skipping resource-pack auto apply"
   fi
 
@@ -521,5 +528,8 @@ install_resourcepacks() {
 }
 
 activate_resourcepacks() {
-  activate_dir "${INPUT_RESOURCEPACKS_DIR:-/resourcepacks}" "${DATA_DIR}/resourcepacks" "resourcepacks"
+  local rp_dir="${INPUT_RESOURCEPACKS_DIR:-/resourcepacks}"
+  refuse_unsafe_filesystem_path "${rp_dir}" "activate resourcepacks from" \
+    || die "Unsafe resourcepacks staging directory: ${rp_dir:-<empty>}"
+  activate_dir "${rp_dir}" "${DATA_DIR}/resourcepacks" "resourcepacks"
 }
