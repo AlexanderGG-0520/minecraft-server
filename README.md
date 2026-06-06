@@ -256,6 +256,38 @@ For server resource packs, `RESOURCE_PACK` must be a client-accessible `http://`
 URL. S3/MinIO sync paths such as `s3/bucket/resourcepacks` are internal asset sources and are not
 valid `resource-pack` values for Minecraft clients.
 
+The image can also generate `resource-pack` from resourcepack object-storage settings when
+`RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true` and `RESOURCE_PACK` is not explicitly set. Use
+`RESOURCEPACKS_PUBLIC_BASE_URL` as the public HTTP/HTTPS URL for the bucket root, not for the
+resourcepack prefix itself. The entrypoint appends `RESOURCEPACKS_S3_PREFIX` and
+`RESOURCEPACKS_FILE` to that base URL.
+
+Example:
+
+```yaml
+env:
+  - name: APPLY_SERVER_PROPERTIES_DIFF
+    value: "true"
+  - name: RESOURCEPACKS_AUTO_SET_RESOURCE_PACK
+    value: "true"
+  - name: RESOURCEPACKS_PUBLIC_BASE_URL
+    value: "https://assets.example.com"
+  - name: RESOURCEPACKS_S3_PREFIX
+    value: "fabric/prison/resourcepacks"
+  - name: RESOURCEPACKS_FILE
+    value: "pack.zip"
+  - name: REQUIRE_RESOURCE_PACK
+    value: "true"
+  - name: RESOURCE_PACK_PROMPT
+    value: "Please accept the server resource pack."
+```
+
+This generates:
+
+```properties
+resource-pack=https://assets.example.com/fabric/prison/resourcepacks/pack.zip
+```
+
 Only environment variables that are explicitly set are applied. If a variable is set to an empty
 string, the corresponding line is written as `key=`. Existing keys are replaced, missing keys are
 appended, and comments or unrelated keys are preserved where possible.
@@ -280,7 +312,14 @@ under `/data/.mc` on persistent world volumes.
 
 Resourcepacks synced from S3/MinIO are stored as local files for operator-managed distribution
 workflows. Minecraft clients are not served files from `/data/resourcepacks` automatically; set
-`RESOURCE_PACK` to the HTTP/HTTPS URL that clients can fetch.
+`RESOURCE_PACK` to the HTTP/HTTPS URL that clients can fetch. The install phase does not activate
+resourcepacks into `/data/resourcepacks`; local sync is retained for object validation, optional local
+inspection, and future local serving workflows.
+
+If your MinIO bucket is exposed through cloudflared, nginx, Kubernetes Ingress, or a CDN, set
+`RESOURCEPACKS_PUBLIC_BASE_URL` to that public bucket-root URL. Do not set `resource-pack` to
+internal values such as `s3://...`, `s3/...`, `/resourcepacks/...`, `/data/resourcepacks/...`, or an
+internal-only MinIO endpoint.
 
 For asset syncs, `*_REMOVE_EXTRA=false` is the safer default. Enabling `*_REMOVE_EXTRA=true` treats the
 selected remote S3/MinIO prefix as authoritative: local files that are not present under that prefix may

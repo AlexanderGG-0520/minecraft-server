@@ -151,6 +151,70 @@ validate_server_property_env_value() {
   esac
 }
 
+resourcepack_public_url_auto_enabled() {
+  [[ "${RESOURCEPACKS_AUTO_SET_RESOURCE_PACK:-false}" == "true" ]]
+}
+
+trim_url_boundary_slashes() {
+  local value="$1"
+
+  while [[ "$value" == */ ]]; do
+    value="${value%/}"
+  done
+  while [[ "$value" == /* ]]; do
+    value="${value#/}"
+  done
+  printf '%s' "$value"
+}
+
+build_resourcepack_public_url() {
+  local base="${RESOURCEPACKS_PUBLIC_BASE_URL:-}"
+  local prefix="${RESOURCEPACKS_S3_PREFIX:-}"
+  local file="${RESOURCEPACKS_FILE:-}"
+  local url
+
+  [[ -n "$base" ]] || die "RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true but RESOURCEPACKS_PUBLIC_BASE_URL is empty"
+  [[ -n "$prefix" ]] || die "RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true but RESOURCEPACKS_S3_PREFIX is empty"
+  [[ -n "$file" ]] || die "RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true but RESOURCEPACKS_FILE is empty"
+
+  while [[ "$base" == */ ]]; do
+    base="${base%/}"
+  done
+  prefix="$(trim_url_boundary_slashes "$prefix")"
+  file="$(trim_url_boundary_slashes "$file")"
+
+  [[ -n "$base" ]] || die "RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true but RESOURCEPACKS_PUBLIC_BASE_URL is empty"
+  [[ -n "$prefix" ]] || die "RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true but RESOURCEPACKS_S3_PREFIX is empty"
+  [[ -n "$file" ]] || die "RESOURCEPACKS_AUTO_SET_RESOURCE_PACK=true but RESOURCEPACKS_FILE is empty"
+  [[ "$base" != */"$prefix" ]] \
+    || die "RESOURCEPACKS_PUBLIC_BASE_URL must be the public bucket-root URL; do not include RESOURCEPACKS_S3_PREFIX in it"
+
+  url="${base}/${prefix}/${file}"
+  validate_server_property_env_value resource-pack "$url"
+  printf '%s' "$url"
+}
+
+prepare_resourcepack_public_url_env() {
+  local generated_url
+
+  if server_properties_env_is_set RESOURCE_PACK; then
+    validate_server_property_env_value resource-pack "${RESOURCE_PACK}"
+    return 0
+  fi
+  if server_properties_env_is_set RESOURCEPACK_URL; then
+    validate_server_property_env_value resource-pack "${RESOURCEPACK_URL}"
+    return 0
+  fi
+
+  resourcepack_public_url_auto_enabled || return 0
+
+  generated_url="$(build_resourcepack_public_url)" || return 1
+  RESOURCE_PACK="$generated_url"
+  export RESOURCE_PACK
+  SERVER_PROPERTIES_ENV_WAS_SET["RESOURCE_PACK"]=1
+  log INFO "Generated resource-pack URL from RESOURCEPACKS_PUBLIC_BASE_URL, RESOURCEPACKS_S3_PREFIX, and RESOURCEPACKS_FILE"
+}
+
 server_property_value() {
   local file="$1"
   local key="$2"
@@ -289,6 +353,7 @@ install_server_properties() {
 
   if [[ "${APPLY_SERVER_PROPERTIES_DIFF:-true}" == "true" ]]; then
     log INFO "server.properties ready, applying env diff"
+    prepare_resourcepack_public_url_env
     apply_server_properties_diff
   else
     log INFO "server.properties exists, no changes applied"
