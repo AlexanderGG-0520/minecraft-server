@@ -9,6 +9,7 @@ trap 'rm -rf "$tmp"' EXIT
 
 source ./scripts/lib/logging.sh
 source ./scripts/lib/filesystem.sh
+source ./scripts/lib/world_paths.sh
 source ./scripts/lib/world_install.sh
 
 archive="$tmp/world.zip"
@@ -160,3 +161,23 @@ output="$(install_world 2>&1)"
 printf '%s\n' "$output" | grep -q 'World already exists, skipping world install'
 assert_no_s3_calls
 test "$(cat "$DATA_DIR/world/level.dat")" = "existing"
+
+DATA_DIR="$tmp/custom-level"
+LEVEL_NAME=custom-world
+WORLDS_S3_BUCKET=bucket
+WORLDS_S3_PREFIX=prefix
+MC_LS_MODE=single
+reset_calls
+install_world
+test -f "$DATA_DIR/custom-world/level.dat"
+test ! -e "$DATA_DIR/world"
+
+DATA_DIR="$tmp/custom-level-existing"
+LEVEL_NAME=custom-world
+mkdir -p "$DATA_DIR/custom-world"
+printf '%s\n' existing-custom > "$DATA_DIR/custom-world/level.dat"
+reset_calls
+output="$(install_world 2>&1)"
+printf '%s\n' "$output" | grep -q 'World already exists, skipping world install'
+assert_no_s3_calls
+test "$(cat "$DATA_DIR/custom-world/level.dat")" = "existing-custom"

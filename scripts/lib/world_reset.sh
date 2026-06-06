@@ -134,6 +134,7 @@ validate_world_reset_paths() {
   local mods_dir="${6:-}"
   local remove_mods="${7:-false}"
   local backup_enabled="${8:-true}"
+  local expected_world_dir_literal
 
   if [[ -z "${data_dir}" ]]; then
     log ERROR "DATA_DIR is required for world reset"
@@ -149,7 +150,8 @@ validate_world_reset_paths() {
     return 1
   fi
 
-  if [[ "${world_dir}" != "${data_dir}/world" ||
+  expected_world_dir_literal="$(minecraft_world_dir "${data_dir}")" || return 1
+  if [[ "${world_dir}" != "${expected_world_dir_literal}" ||
     "${backup_dir}" != "${data_dir}/backups" ]]; then
     log ERROR "Refusing unsafe world reset path"
     return 1
@@ -177,7 +179,7 @@ validate_world_reset_paths() {
     return 1
   fi
 
-  local resolved_data_dir resolved_world_dir expected_world_dir
+  local resolved_data_dir resolved_world_dir expected_world_dir expected_world_name
   local resolved_flag_file expected_flag_file
   local resolved_backup_dir expected_backup_dir resolved_backup_archive
   if ! resolved_data_dir="$(realpath -m -- "${data_dir}")"; then
@@ -190,7 +192,8 @@ validate_world_reset_paths() {
     return 1
   fi
 
-  if ! expected_world_dir="$(realpath -m -- "${resolved_data_dir}/world")"; then
+  expected_world_name="$(minecraft_world_name)" || return 1
+  if ! expected_world_dir="$(realpath -m -- "${resolved_data_dir}/${expected_world_name}")"; then
     log ERROR "Refusing unsafe world reset path"
     return 1
   fi
@@ -222,7 +225,7 @@ validate_world_reset_paths() {
     "${resolved_world_dir}" == "/data" ||
     "${resolved_world_dir}" == "${resolved_data_dir}" ||
     "${resolved_world_dir}" != "${expected_world_dir}" ||
-    "${resolved_world_dir##*/}" != "world" ||
+    "${resolved_world_dir##*/}" != "${expected_world_name}" ||
     "${resolved_flag_file}" != "${expected_flag_file}" ||
     "${resolved_flag_file##*/}" != "reset-world.flag" ||
     "${resolved_backup_dir}" != "${expected_backup_dir}" ||
@@ -322,10 +325,12 @@ reset_world() {
 
   local data_dir="${DATA_DIR:-}"
   local flag_file="${data_dir}/reset-world.flag"  # flag file path
-  local world_dir="${data_dir}/world"
+  local world_dir
   local mods_dir="${data_dir}/mods"
   local backup_dir="${data_dir}/backups"
   local backup_archive=""
+
+  world_dir="$(minecraft_world_dir "${data_dir}")" || return 1
 
   # ---- Safety check 1: explicit confirmation ----
   if [[ ! -f "${flag_file}" ]]; then

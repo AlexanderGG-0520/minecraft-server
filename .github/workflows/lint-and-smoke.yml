@@ -56,6 +56,7 @@ jobs:
           source ./scripts/lib/jvm_args.sh
           source ./scripts/lib/player_lists.sh
           source ./scripts/lib/paper_config.sh
+          source ./scripts/lib/world_paths.sh
           source ./scripts/lib/bootstrap_files.sh
           source ./scripts/lib/lifecycle.sh
           source ./scripts/lib/rcon.sh
@@ -108,6 +109,8 @@ jobs:
           declare -F configure_paper_configs >/dev/null
           declare -F yaml_escape_dq >/dev/null
           declare -F apply_paper_global_from_env >/dev/null
+          declare -F minecraft_world_name >/dev/null
+          declare -F minecraft_world_dir >/dev/null
           declare -F install_dirs >/dev/null
           declare -F install_eula >/dev/null
           declare -F setup_server_icon >/dev/null

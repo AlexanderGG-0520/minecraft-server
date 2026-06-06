@@ -12,7 +12,6 @@ install() {
 
   configure_paper_configs
   generate_velocity_toml
-  ensure_server_properties
 
   handle_reset_world_flag
   install_world
