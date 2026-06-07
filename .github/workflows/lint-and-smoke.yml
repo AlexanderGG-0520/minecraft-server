@@ -68,6 +68,7 @@ jobs:
           source ./scripts/lib/server_install.sh
           source ./scripts/lib/runtime_launch.sh
           source ./scripts/lib/world_install.sh
+          source ./scripts/lib/world_paths.sh
           source ./scripts/lib/world_reset.sh
           source ./scripts/lib/server_properties.sh
           source ./scripts/lib/install_phase.sh
