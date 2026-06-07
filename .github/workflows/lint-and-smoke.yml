@@ -478,6 +478,7 @@ jobs:
 
           source ./scripts/lib/logging.sh
           source ./scripts/lib/filesystem.sh
+          source ./scripts/lib/world_paths.sh
           source ./scripts/lib/world_install.sh
           configure_mc_alias() {
             test "$1" = "world"
@@ -594,6 +595,7 @@ jobs:
 
           source ./scripts/lib/logging.sh
           source ./scripts/lib/filesystem.sh
+          source ./scripts/lib/world_paths.sh
           source ./scripts/lib/world_reset.sh
 
           assert_reset_path_validation_failure() {
