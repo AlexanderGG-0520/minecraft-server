@@ -1,7 +1,7 @@
-# Kubernetes Paper MinIO Asset Sync Example
+# Kubernetes Paper S3-Compatible Asset Sync Example
 
 This example shows a Paper server on Kubernetes using a persistent volume, RCON-based graceful shutdown,
-and S3/MinIO-backed asset sync for plugins and configs.
+and S3-compatible asset sync for plugins and configs.
 
 It demonstrates:
 
@@ -9,7 +9,7 @@ It demonstrates:
 * A `ReadWriteOnce` persistent volume claim mounted at `/data`.
 * `TYPE=paper` and an explicit `VERSION`.
 * RCON credentials from a Kubernetes Secret.
-* S3/MinIO credentials from a Kubernetes Secret.
+* S3-compatible credentials from a Kubernetes Secret.
 * Plugins sync from an S3-compatible prefix.
 * Configs sync from an S3-compatible prefix.
 * `PLUGINS_REMOVE_EXTRA=false` and `CONFIGS_REMOVE_EXTRA=false`.
@@ -26,11 +26,11 @@ plugins and configs.
 
 * A Kubernetes cluster with a default storage class or another way to satisfy the PVC.
 * `kubectl` configured for the target cluster.
-* An S3-compatible endpoint, such as MinIO.
+* An S3-compatible endpoint, such as MinIO, Cloudflare R2, Garage, Backblaze B2, Wasabi, or AWS S3.
 * A bucket and prefixes prepared for Paper plugins and configs.
 * Network exposure appropriate for your cluster if players need to connect from outside the cluster.
 
-## Expected S3/MinIO layout
+## Expected S3 Layout
 
 The manifests use these placeholder values:
 
@@ -60,8 +60,9 @@ Adjust `PLUGINS_S3_BUCKET`, `PLUGINS_S3_PREFIX`, `CONFIGS_S3_BUCKET`, and `CONFI
 
 ## Credentials
 
-`secret-rcon.yaml` provides the RCON password. `secret-s3.yaml` provides `S3_ENDPOINT`, `S3_ACCESS_KEY`,
-and `S3_SECRET_KEY`.
+`secret-rcon.yaml` provides the RCON password. `secret-s3.yaml` provides the endpoint and credentials.
+The deployment maps those values to `S3_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`,
+`AWS_SECRET_ACCESS_KEY`, and `AWS_DEFAULT_REGION`.
 
 Replace all placeholder values before applying these manifests. Do not commit real secrets. In a real
 GitOps workflow, use your cluster's preferred secret management approach instead of storing plaintext
@@ -122,7 +123,7 @@ The readiness probe checks for `/data/.ready`. The image creates this file only 
 survived its readiness delay, and removes it during shutdown. This lets Kubernetes stop routing traffic
 to the pod during controlled termination.
 
-## S3/MinIO safety notes
+## S3 Safety Notes
 
 `PLUGINS_REMOVE_EXTRA=false` and `CONFIGS_REMOVE_EXTRA=false` are set explicitly in this example.
 Remove-extra is disabled by default because it can remove local files that are not present in the
@@ -132,7 +133,7 @@ Before enabling `*_REMOVE_EXTRA=true`, verify the bucket, endpoint, and prefix c
 you expect. Never point remove-extra at an empty or wrong prefix. When enabled, the selected remote
 prefix is treated as authoritative for that asset set.
 
-Do not commit real S3/MinIO credentials, RCON passwords, tokens, or private URLs.
+Do not commit real S3 credentials, RCON passwords, tokens, or private URLs.
 
 ## Volume safety
 

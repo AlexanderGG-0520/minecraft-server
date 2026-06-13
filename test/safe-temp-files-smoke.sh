@@ -69,23 +69,22 @@ assert_s3_tmp_empty() {
   ! find "$TMPDIR" -mindepth 1 -print -quit | grep -q .
 }
 
-mc() {
-  test "$1" = "find"
-  test "$3" = "--print"
-  test "$4" = "{}"
-  case "${MC_MODE:-success}" in
-    success) printf '%s\n' "${2%/}/remote.jar" ;;
-    empty) return 0 ;;
+aws() {
+  test "$1" = "s3api"
+  test "$2" = "list-objects-v2"
+  case "${S3_MODE:-success}" in
+    success) printf '%s\n' '{"Contents":[{"Key":"prefix/remote.jar"}]}' ;;
+    empty) printf '%s\n' '{"Contents":[]}' ;;
     fail) return 7 ;;
     *) return 99 ;;
   esac
 }
 
-MC_MODE=success ensure_s3_source_nonempty_for_remove "s3/bucket/prefix" "mods"
+S3_MODE=success ensure_s3_source_nonempty_for_remove "s3/bucket/prefix" "mods"
 assert_s3_tmp_empty
 
 set +e
-output="$(MC_MODE=fail ensure_s3_source_nonempty_for_remove "s3/bucket/prefix" "mods" 2>&1)"
+output="$(S3_MODE=fail ensure_s3_source_nonempty_for_remove "s3/bucket/prefix" "mods" 2>&1)"
 status=$?
 set -e
 test "$status" -eq 1
@@ -93,7 +92,7 @@ printf '%s\n' "$output" | grep -q 'Failed to list mods source before remove sync
 assert_s3_tmp_empty
 
 set +e
-output="$(MC_MODE=empty ensure_s3_source_nonempty_for_remove "s3/bucket/prefix" "mods" 2>&1)"
+output="$(S3_MODE=empty ensure_s3_source_nonempty_for_remove "s3/bucket/prefix" "mods" 2>&1)"
 status=$?
 set -e
 test "$status" -eq 1
@@ -122,21 +121,19 @@ assert_world_install_temps_unchanged() {
   test ! -e /tmp/world.zip
 }
 
-configure_mc_alias() {
+configure_s3_client() {
   test "$1" = "world"
 }
 
-mc() {
-  case "$1" in
-    ls)
-      test "$2" = "--json"
-      test "$3" = "s3/bucket/world/"
-      printf '%s\n' '{"type":"file","key":"world.zip"}'
+aws() {
+  case "$1 $2" in
+    "s3api list-objects-v2")
+      printf '%s\n' '{"Contents":[{"Key":"world/world.zip"}]}'
       ;;
-    cp)
-      test "$2" = "s3/bucket/world/world.zip"
-      printf '%s\n' "$3" > "$tmp/world-archive-target.txt"
-      command cp "$archive" "$3"
+    "s3 cp")
+      test "$3" = "s3://bucket/world/world.zip"
+      printf '%s\n' "$4" > "$tmp/world-archive-target.txt"
+      command cp "$archive" "$4"
       ;;
     *)
       return 99

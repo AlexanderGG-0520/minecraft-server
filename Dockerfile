@@ -1,38 +1,4 @@
 # ============================================================
-# mc builder
-# ============================================================
-ARG MC_RELEASE=RELEASE.2025-08-13T08-35-41Z
-ARG GO_VERSION=1.25.10
-
-FROM golang:${GO_VERSION}-bookworm AS mc-builder
-ARG MC_RELEASE
-
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /src
-RUN set -eux; \
-    for i in 1 2 3; do \
-      git clone --depth 1 --branch "${MC_RELEASE}" https://github.com/minio/mc.git . && break; \
-      if [ "$i" = "3" ]; then \
-        echo "Failed to clone MinIO mc after ${i} attempts" >&2; \
-        exit 1; \
-      fi; \
-      find . -mindepth 1 -maxdepth 1 -exec rm -rf {} +; \
-      sleep 2; \
-    done
-
-# security updates
-RUN go get golang.org/x/crypto@v0.43.0 \
-    && go get golang.org/x/net@v0.53.0 \
-    && go get google.golang.org/grpc@v1.79.3 \
-    && go get github.com/prometheus/prometheus@v0.311.3 \
-    && go mod tidy
-
-# Build static mc binary
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mc .
-
-# ============================================================
 # Base
 # ============================================================
 FROM debian:stable-slim AS base
@@ -62,12 +28,11 @@ RUN set -eux; \
 FROM debian:stable-slim AS runtime-base
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV MC_CONFIG_DIR=/tmp/mc-config
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     bash curl ca-certificates tini procps tzdata \
     pciutils ocl-icd-libopencl1 jq unzip tar \
-    rsync libpopt0 \
+    rsync libpopt0 awscli \
  && rm -rf /var/lib/apt/lists/*
 
 COPY scripts/lib /scripts/lib
@@ -91,14 +56,13 @@ FROM runtime-base AS runtime-jre8
 COPY --from=jre8 /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
-COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
 ARG UID=10001
 ARG GID=10001
 
 RUN chmod 0755 /entrypoint.sh \
- && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
+ && chmod 0755 /usr/local/bin/mcrcon
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
@@ -118,14 +82,13 @@ FROM runtime-base AS runtime-jre11
 COPY --from=jre11 /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
-COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
 ARG UID=10001
 ARG GID=10001
 
 RUN chmod 0755 /entrypoint.sh \
- && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
+ && chmod 0755 /usr/local/bin/mcrcon
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
@@ -145,14 +108,13 @@ FROM runtime-base AS runtime-jre17
 COPY --from=jre17 /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
-COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
 ARG UID=10001
 ARG GID=10001
 
 RUN chmod 0755 /entrypoint.sh \
- && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
+ && chmod 0755 /usr/local/bin/mcrcon
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
@@ -172,14 +134,13 @@ FROM runtime-base AS runtime-jre21
 COPY --from=jre21 /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
-COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
 ARG UID=10001
 ARG GID=10001
 
 RUN chmod 0755 /entrypoint.sh \
- && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
+ && chmod 0755 /usr/local/bin/mcrcon
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
@@ -199,14 +160,13 @@ FROM runtime-base AS runtime-jre25
 COPY --from=jre25 /opt/java/openjdk /opt/java/openjdk
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
-COPY --from=mc-builder /out/mc /usr/local/bin/mc
 COPY --from=base /usr/local/bin/mcrcon /usr/local/bin/mcrcon
 COPY entrypoint.sh /entrypoint.sh
 ARG UID=10001
 ARG GID=10001
 
 RUN chmod 0755 /entrypoint.sh \
- && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
+ && chmod 0755 /usr/local/bin/mcrcon
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
@@ -225,11 +185,10 @@ CMD ["run"]
 FROM nvidia/cuda:13.3.0-runtime-ubuntu24.04 AS runtime-jre25-gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV MC_CONFIG_DIR=/tmp/mc-config
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     bash ca-certificates curl tini procps tzdata \
-    pciutils ocl-icd-libopencl1 clinfo jq unzip rsync libpopt0 \
+    pciutils ocl-icd-libopencl1 clinfo jq unzip rsync libpopt0 awscli \
  && rm -rf /var/lib/apt/lists/*
 
 # LWJGL expects libOpenCL.so (not only libOpenCL.so.1)
@@ -237,10 +196,6 @@ RUN set -eux; \
     if [ -e /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 ] && [ ! -e /usr/lib/x86_64-linux-gnu/libOpenCL.so ]; then \
       ln -s /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so; \
     fi
-
-# --- MinIO client (mc) (built) ---
-COPY --from=mc-builder /out/mc /usr/local/bin/mc
-RUN chmod +x /usr/local/bin/mc && mc --version
 
 # --- Java 25 ---
 COPY --from=eclipse-temurin:25-jre /opt/java/openjdk /opt/java/openjdk
@@ -259,7 +214,7 @@ ARG UID=10001
 ARG GID=10001
 
 RUN chmod 0755 /entrypoint.sh \
- && chmod 0755 /usr/local/bin/mcrcon /usr/local/bin/mc
+ && chmod 0755 /usr/local/bin/mcrcon
 
 RUN groupadd -g ${GID} mc \
  && useradd -m -u ${UID} -g ${GID} -s /bin/bash mc \
@@ -272,4 +227,3 @@ WORKDIR /data
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["run"]
-

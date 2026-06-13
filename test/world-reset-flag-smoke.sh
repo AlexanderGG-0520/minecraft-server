@@ -9,6 +9,7 @@ trap 'rm -rf "$tmp"' EXIT
 
 source ./scripts/lib/logging.sh
 source ./scripts/lib/filesystem.sh
+source ./scripts/lib/s3_client.sh
 source ./scripts/lib/world_paths.sh
 source ./scripts/lib/world_reset.sh
 source ./scripts/lib/world_install.sh
@@ -221,27 +222,25 @@ run_reset_then_installs_s3_world() {
 
   local fixture_dir="$tmp/reset-install-fixture"
   local fixture_archive="$tmp/reset-install-world.zip"
-  local mc_calls="$tmp/reset-install-mc-calls"
+  local aws_calls="$tmp/reset-install-aws-calls"
   mkdir -p "$fixture_dir/world"
   printf '%s\n' s3-world > "$fixture_dir/world/level.dat"
   (cd "$fixture_dir" && zip -qr "$fixture_archive" world)
-  : > "$mc_calls"
+  : > "$aws_calls"
 
-  configure_mc_alias() {
+  configure_s3_client() {
     test "$1" = "world"
   }
 
-  mc() {
-    printf '%s\n' "$*" >> "$mc_calls"
-    case "$1" in
-      ls)
-        test "$2" = "--json"
-        test "$3" = "s3/bucket/world/"
-        printf '%s\n' '{"type":"file","key":"world.zip"}'
+  aws() {
+    printf '%s\n' "$*" >> "$aws_calls"
+    case "$1 $2" in
+      "s3api list-objects-v2")
+        printf '%s\n' '{"Contents":[{"Key":"world/world.zip"}]}'
         ;;
-      cp)
-        test "$2" = "s3/bucket/world/world.zip"
-        command cp "$fixture_archive" "$3"
+      "s3 cp")
+        test "$3" = "s3://bucket/world/world.zip"
+        command cp "$fixture_archive" "$4"
         ;;
       *)
         return 99
@@ -256,7 +255,7 @@ run_reset_then_installs_s3_world() {
   install_world >/dev/null 2>&1
   assert_file_present "$DATA_DIR/world/level.dat"
   test "$(cat "$DATA_DIR/world/level.dat")" = "s3-world"
-  test "$(sed -n '1p' "$mc_calls")" = "ls --json s3/bucket/world/"
+  test "$(sed -n '1p' "$aws_calls")" = "s3api list-objects-v2 --bucket bucket --prefix world/ --output json"
 }
 
 run_backup_failure_removes_staged_archive() {

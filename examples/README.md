@@ -7,7 +7,7 @@ Start with:
 - `docker/fabric/compose.yml` for a small local Fabric server.
 - `kubernetes/fabric-basic.yaml` for a minimal Kubernetes deployment.
 - `kubernetes/paper-pvc/` for a minimal Kubernetes Paper server with a PVC and RCON shutdown.
-- `kubernetes/paper-minio-assets/` for a Paper server with PVC storage and MinIO-backed plugin/config sync.
+- `kubernetes/paper-minio-assets/` for a Paper server with PVC storage and S3-compatible plugin/config sync.
 - `kubernetes/install-only-job.example.yaml` for pre-warming a volume without launching runtime.
 - `kubernetes/rcon-secret.example.yaml` for non-default RCON shutdown credentials.
 
@@ -265,22 +265,25 @@ spec:
               value: "8G"
 
             # --------------------------------------------------
-            # S3 / MinIO (mods & configs)
+            # S3-compatible object storage (mods & configs)
             # --------------------------------------------------
-            - name: S3_ENDPOINT
+            - name: S3_ENDPOINT_URL
               value: https://minio.example.com
 
-            - name: S3_ACCESS_KEY
+            - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
                   name: minio-minecraft-creds
                   key: access-key
 
-            - name: S3_SECRET_KEY
+            - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: minio-minecraft-creds
                   key: secret-key
+
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
 
             # --------------------------------------------------
             # Mods

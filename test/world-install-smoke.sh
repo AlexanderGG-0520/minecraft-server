@@ -9,6 +9,7 @@ trap 'rm -rf "$tmp"' EXIT
 
 source ./scripts/lib/logging.sh
 source ./scripts/lib/filesystem.sh
+source ./scripts/lib/s3_client.sh
 source ./scripts/lib/world_paths.sh
 source ./scripts/lib/world_install.sh
 
@@ -19,34 +20,31 @@ printf '%s\n' world > "$fixture_dir/world/level.dat"
 (cd "$fixture_dir" && zip -qr "$archive" world)
 
 configure_calls="$tmp/configure-calls"
-mc_calls="$tmp/mc-calls"
+aws_calls="$tmp/aws-calls"
 : > "$configure_calls"
-: > "$mc_calls"
+: > "$aws_calls"
 
-configure_mc_alias() {
+configure_s3_client() {
   printf '%s\n' "$1" >> "$configure_calls"
 }
 
-mc() {
-  printf '%s\n' "$*" >> "$mc_calls"
-  case "$1" in
-    ls)
-      test "$2" = "--json"
-      case "${MC_LS_MODE:-single}" in
-        single) printf '%s\n' '{"type":"file","key":"world.zip"}' ;;
+aws() {
+  printf '%s\n' "$*" >> "$aws_calls"
+  case "$1 $2" in
+    "s3api list-objects-v2")
+      case "${S3_LS_MODE:-single}" in
+        single) printf '%s\n' '{"Contents":[{"Key":"prefix/world.zip"}]}' ;;
         empty)
-          printf '%s\n' '{"type":"file","key":"notes.txt"}'
-          printf '%s\n' '{"type":"folder","key":"nested.zip/"}'
+          printf '%s\n' '{"Contents":[{"Key":"prefix/notes.txt"},{"Key":"prefix/nested.zip/file.txt"}]}'
           ;;
         multiple)
-          printf '%s\n' '{"type":"file","key":"first.zip"}'
-          printf '%s\n' '{"type":"file","key":"second.zip"}'
+          printf '%s\n' '{"Contents":[{"Key":"prefix/first.zip"},{"Key":"prefix/second.zip"}]}'
           ;;
         *) return 99 ;;
       esac
       ;;
-    cp)
-      command cp "$archive" "$3"
+    "s3 cp")
+      command cp "$archive" "$4"
       ;;
     *)
       return 99
@@ -56,12 +54,12 @@ mc() {
 
 reset_calls() {
   : > "$configure_calls"
-  : > "$mc_calls"
+  : > "$aws_calls"
 }
 
 assert_no_s3_calls() {
   test ! -s "$configure_calls"
-  test ! -s "$mc_calls"
+  test ! -s "$aws_calls"
 }
 
 DATA_DIR="$tmp/disabled-unset"
@@ -84,13 +82,13 @@ DATA_DIR="$tmp/success"
 WORLDS_ENABLED=true
 WORLDS_S3_BUCKET=bucket
 WORLDS_S3_PREFIX=prefix/
-MC_LS_MODE=single
+S3_LS_MODE=single
 reset_calls
 install_world
 test "$(cat "$configure_calls")" = "world"
-test "$(sed -n '1p' "$mc_calls")" = "ls --json s3/bucket/prefix/"
-case "$(sed -n '2p' "$mc_calls")" in
-  "cp s3/bucket/prefix/world.zip /tmp/world."*.zip) ;;
+test "$(sed -n '1p' "$aws_calls")" = "s3api list-objects-v2 --bucket bucket --prefix prefix/ --output json"
+case "$(sed -n '2p' "$aws_calls")" in
+  "s3 cp s3://bucket/prefix/world.zip /tmp/world."*.zip) ;;
   *) echo "unexpected world archive copy call" >&2; exit 1 ;;
 esac
 test -f "$DATA_DIR/world/level.dat"
@@ -116,7 +114,7 @@ test ! -e "$DATA_DIR/world"
 DATA_DIR="$tmp/no-archive"
 WORLDS_S3_BUCKET=bucket
 WORLDS_S3_PREFIX=prefix
-MC_LS_MODE=empty
+S3_LS_MODE=empty
 reset_calls
 set +e
 output="$(install_world 2>&1)"
@@ -125,11 +123,11 @@ set -e
 test "$status" -eq 1
 printf '%s\n' "$output" | grep -q 'No world archive found under s3://bucket/prefix'
 test "$(cat "$configure_calls")" = "world"
-test "$(cat "$mc_calls")" = "ls --json s3/bucket/prefix/"
+test "$(cat "$aws_calls")" = "s3api list-objects-v2 --bucket bucket --prefix prefix/ --output json"
 test ! -e "$DATA_DIR/world"
 
 DATA_DIR="$tmp/ambiguous-archive"
-MC_LS_MODE=multiple
+S3_LS_MODE=multiple
 reset_calls
 set +e
 output="$(install_world 2>&1)"
@@ -138,22 +136,22 @@ set -e
 test "$status" -eq 1
 printf '%s\n' "$output" | grep -q 'Ambiguous world archive source under s3://bucket/prefix'
 test "$(cat "$configure_calls")" = "world"
-test "$(cat "$mc_calls")" = "ls --json s3/bucket/prefix/"
+test "$(cat "$aws_calls")" = "s3api list-objects-v2 --bucket bucket --prefix prefix/ --output json"
 test ! -e "$DATA_DIR/world"
 
 DATA_DIR="$tmp/empty-world"
-MC_LS_MODE=single
+S3_LS_MODE=single
 mkdir -p "$DATA_DIR/world"
 reset_calls
 install_world
 test "$(cat "$configure_calls")" = "world"
-test "$(sed -n '1p' "$mc_calls")" = "ls --json s3/bucket/prefix/"
+test "$(sed -n '1p' "$aws_calls")" = "s3api list-objects-v2 --bucket bucket --prefix prefix/ --output json"
 test -f "$DATA_DIR/world/level.dat"
 
 DATA_DIR="$tmp/existing-world"
 WORLDS_S3_BUCKET=bucket
 WORLDS_S3_PREFIX=prefix
-MC_LS_MODE=single
+S3_LS_MODE=single
 mkdir -p "$DATA_DIR/world"
 printf '%s\n' existing > "$DATA_DIR/world/level.dat"
 reset_calls
@@ -166,7 +164,7 @@ DATA_DIR="$tmp/custom-level"
 LEVEL_NAME=custom-world
 WORLDS_S3_BUCKET=bucket
 WORLDS_S3_PREFIX=prefix
-MC_LS_MODE=single
+S3_LS_MODE=single
 reset_calls
 install_world
 test -f "$DATA_DIR/custom-world/level.dat"

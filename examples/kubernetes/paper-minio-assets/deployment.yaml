@@ -38,21 +38,23 @@ spec:
                 secretKeyRef:
                   name: minecraft-rcon
                   key: password
-            - name: S3_ENDPOINT
+            - name: S3_ENDPOINT_URL
               valueFrom:
                 secretKeyRef:
                   name: minecraft-s3
                   key: endpoint
-            - name: S3_ACCESS_KEY
+            - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
                   name: minecraft-s3
                   key: access-key
-            - name: S3_SECRET_KEY
+            - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: minecraft-s3
                   key: secret-key
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
             - name: PLUGINS_ENABLED
               value: "true"
             - name: PLUGINS_S3_BUCKET
