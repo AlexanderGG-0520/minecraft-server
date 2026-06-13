@@ -165,8 +165,6 @@ log INFO "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 : "${INPUT_CONFIG_DIR:=/config}"
 : "${INPUT_DATAPACKS_DIR:=/datapacks}"
 : "${INPUT_RESOURCEPACKS_DIR:=/resourcepacks}"
-: "${MC_CONFIG_DIR:=/tmp/mc-config}"
-export MC_CONFIG_DIR
 # ============================================================
 
 # RCON (runtime control)
@@ -255,8 +253,8 @@ opt_required_any_enabled() {
   return 1
 }
 
-opt_mc_configure_alias() {
-  configure_mc_alias "optimize mods"
+opt_configure_s3_client() {
+  configure_s3_client "optimize mods"
 }
 
 opt_mirror_from_s3() {
@@ -267,7 +265,7 @@ opt_mirror_from_s3() {
 
   # IMPORTANT: no --remove here (rule!)
   # We allow overwrite so updates propagate.
-  mc mirror --overwrite "$src" "$dst"
+  s3_sync "$src" "$dst"
 }
 
 opt_install_links() {

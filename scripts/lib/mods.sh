@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 
 install_mods() {
-  log INFO "Install mods (MinIO only)"
+  log INFO "Install mods"
 
   [[ "${MODS_ENABLED:-true}" == "true" ]] || {
     log INFO "Mods disabled"
@@ -24,8 +24,8 @@ install_mods() {
   fi
 
 
-  log INFO "Configuring MinIO client"
-  configure_mc_alias "mods"
+  log INFO "Configuring S3 client"
+  configure_s3_client "mods"
 
   local -a remove_args=()
   if [[ "${MODS_REMOVE_EXTRA}" == "true" ]]; then
@@ -35,12 +35,11 @@ install_mods() {
 
   log INFO "Syncing mods from s3://${MODS_S3_BUCKET}/${MODS_S3_PREFIX}"
 
-  mc mirror \
-    --overwrite \
-    "${remove_args[@]}" \
+  s3_sync \
     "s3/${MODS_S3_BUCKET}/${MODS_S3_PREFIX}" \
     "${MODS_DIR}" \
-    || die "Failed to sync mods from MinIO"
+    "${remove_args[@]}" \
+    || die "Failed to sync mods from S3"
 
   shopt -s nullglob
   jars=("${MODS_DIR}"/*.jar)

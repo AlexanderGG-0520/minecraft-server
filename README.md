@@ -9,7 +9,7 @@
 ![Java](https://img.shields.io/badge/java-8%20%7C%2011%20%7C%2017%20%7C%2021%20%7C%2025%20%7C%2025--gpu-orange)
 ![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue)
 
-Predictable Minecraft server Docker image for Kubernetes, GitOps, and S3/MinIO-backed asset workflows.
+Predictable Minecraft server Docker image for Kubernetes, GitOps, and S3-compatible asset workflows.
 
 This image is built for operators who want Minecraft server containers to behave predictably when pods
 are recreated, volumes are reused, and assets are supplied from object storage. It favors explicit
@@ -17,7 +17,7 @@ configuration, a clear install/runtime lifecycle, safe persistent volume handlin
 shutdown, and fail-fast errors instead of silent auto-repair.
 
 It can sync mods, plugins, configs, datapacks, resourcepacks, and world archives from S3-compatible
-storage such as MinIO. The goal is not to be the most feature-heavy Minecraft image; the goal is to make
+storage such as AWS S3, MinIO, Cloudflare R2, Garage, Backblaze B2, or Wasabi. The goal is not to be the most feature-heavy Minecraft image; the goal is to make
 operational state, lifecycle boundaries, and unsafe conditions visible enough for Kubernetes and GitOps
 workflows.
 
@@ -29,7 +29,7 @@ workflows.
 |---|---|
 | Kubernetes pod recreation | Separates install-time work from runtime launch so recreated pods behave predictably. |
 | Persistent world volumes | Treats existing world data cautiously and fails fast on unsafe or mismatched state. |
-| S3/MinIO asset management | Syncs mods, plugins, configs, datapacks, resourcepacks, and world archives from S3-compatible storage. |
+| S3-compatible asset management | Syncs mods, plugins, configs, datapacks, resourcepacks, and world archives from object storage. |
 | Graceful shutdown | Supports RCON-based shutdown flows for safer saves before container termination. |
 | GitOps workflows | Uses explicit environment-driven behavior instead of hidden auto-repair. |
 | Advanced server types | Supports managed or bring-your-own workflows for common Java server types. |
@@ -47,7 +47,7 @@ cluster.
 | Use case | Start here |
 |---|---|
 | Minimal Kubernetes Paper server with a PVC | [`examples/kubernetes/paper-pvc/`](examples/kubernetes/paper-pvc/) |
-| Kubernetes Paper server with S3/MinIO-backed plugins and configs | [`examples/kubernetes/paper-minio-assets/`](examples/kubernetes/paper-minio-assets/) |
+| Kubernetes Paper server with S3-compatible plugins and configs | [`examples/kubernetes/paper-minio-assets/`](examples/kubernetes/paper-minio-assets/) |
 | Pre-warm a volume without launching runtime | [`examples/kubernetes/install-only-job.example.yaml`](examples/kubernetes/install-only-job.example.yaml) |
 | Minimal local Fabric server with Docker Compose | [`examples/docker/fabric/compose.yml`](examples/docker/fabric/compose.yml) |
 
@@ -58,7 +58,7 @@ cluster.
 * [Examples](examples/README.md)
 * [Wiki](https://github.com/AlexanderGG-0520/minecraft-server/wiki)
 * [Environment Variables](https://github.com/AlexanderGG-0520/minecraft-server/wiki/Environment-Variables)
-* [S3/MinIO safety notes](#s3-sync-safety-notes)
+* [S3 safety notes](#s3-sync-safety-notes)
 * [Kubernetes shutdown recommendations](#kubernetes-shutdown-recommendations)
 * [Install-only mode](#install-only-mode-new)
 * [Server reinstall policy](docs/server-install-reinstall-policy.md)
@@ -90,7 +90,7 @@ This project is a good fit when you:
 
 * Run Minecraft servers on Kubernetes or through GitOps workflows.
 * Reuse persistent volumes and need conservative world-data handling.
-* Sync mods, plugins, configs, datapacks, resourcepacks, or world archives from S3/MinIO.
+* Sync mods, plugins, configs, datapacks, resourcepacks, or world archives from S3-compatible storage.
 * Operate advanced modded servers and want lifecycle behavior to be explicit.
 * Prefer predictable errors over silent repair when configuration or storage state is unsafe.
 
@@ -253,7 +253,7 @@ Examples:
 * `simulation-distance` -> `SIMULATION_DISTANCE`
 
 For server resource packs, `RESOURCE_PACK` must be a client-accessible `http://` or `https://`
-URL. S3/MinIO sync paths such as `s3/bucket/resourcepacks` are internal asset sources and are not
+URL. S3 sync paths such as `s3/bucket/resourcepacks` are internal asset sources and are not
 valid `resource-pack` values for Minecraft clients.
 
 The image can also generate `resource-pack` from resourcepack object-storage settings when
@@ -306,23 +306,30 @@ file to let it be regenerated; the entrypoint does not auto-repair it.
 
 ## S3 sync safety notes
 
-The image uses the MinIO `mc` client for S3-backed mods, plugins, configs, datapacks, resourcepacks,
-and world archives. `MC_CONFIG_DIR` defaults to `/tmp/mc-config`, so `mc` credentials are not written
-under `/data/.mc` on persistent world volumes.
+The image uses `aws-cli` for S3-backed mods, plugins, configs, datapacks, resourcepacks, and world
+archives. S3-compatible endpoints are supported with `S3_ENDPOINT_URL` or the legacy-compatible
+`S3_ENDPOINT`; when either is set, the entrypoint passes `--endpoint-url` to AWS CLI calls.
 
-Resourcepacks synced from S3/MinIO are stored as local files for operator-managed distribution
+Credential variables are AWS-compatible. Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` directly
+when possible. Existing project-specific variables are still accepted: `S3_ACCESS_KEY_ID` or
+`S3_ACCESS_KEY` map to `AWS_ACCESS_KEY_ID`, and `S3_SECRET_ACCESS_KEY` or `S3_SECRET_KEY` map to
+`AWS_SECRET_ACCESS_KEY` inside the runtime process. `AWS_REGION`, `AWS_DEFAULT_REGION`, or `S3_REGION`
+can set the region; otherwise the image defaults to `us-east-1` for S3-compatible storage. Secrets are
+not logged.
+
+Resourcepacks synced from S3-compatible storage are stored as local files for operator-managed distribution
 workflows. Minecraft clients are not served files from `/data/resourcepacks` automatically; set
 `RESOURCE_PACK` to the HTTP/HTTPS URL that clients can fetch. The install phase does not activate
 resourcepacks into `/data/resourcepacks`; local sync is retained for object validation, optional local
 inspection, and future local serving workflows.
 
-If your MinIO bucket is exposed through cloudflared, nginx, Kubernetes Ingress, or a CDN, set
+If your object-storage bucket is exposed through cloudflared, nginx, Kubernetes Ingress, or a CDN, set
 `RESOURCEPACKS_PUBLIC_BASE_URL` to that public bucket-root URL. Do not set `resource-pack` to
 internal values such as `s3://...`, `s3/...`, `/resourcepacks/...`, `/data/resourcepacks/...`, or an
-internal-only MinIO endpoint.
+internal-only object-storage endpoint.
 
 For asset syncs, `*_REMOVE_EXTRA=false` is the safer default. Enabling `*_REMOVE_EXTRA=true` treats the
-selected remote S3/MinIO prefix as authoritative: local files that are not present under that prefix may
+selected remote S3 prefix as authoritative: local files that are not present under that prefix may
 be removed. Before running a remove sync, the entrypoint lists the remote source and fails fast if it is
 empty, which helps catch bucket or prefix mistakes before local content is pruned.
 

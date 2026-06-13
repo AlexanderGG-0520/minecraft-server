@@ -120,24 +120,31 @@ install_world() {
   # ------------------------------------------------------------
   # Download
   # ------------------------------------------------------------
-  configure_mc_alias "world"
+  configure_s3_client "world"
 
   local WORLD_PREFIX="${WORLDS_S3_PREFIX%/}"
-  local WORLD_SOURCE="s3/${WORLDS_S3_BUCKET}/${WORLD_PREFIX}"
   local WORLD_SOURCE_DISPLAY="s3://${WORLDS_S3_BUCKET}/${WORLD_PREFIX}"
+  local WORLD_OBJECT_PREFIX="${WORLD_PREFIX}/"
   local WORLD_ARCHIVE_LISTING=""
   local WORLD_ARCHIVE_KEY=""
   local WORLD_ARCHIVES=()
 
   WORLD_ARCHIVE_LISTING="$(mktemp /tmp/world-source.XXXXXX.jsonl)" || return 1
-  if ! mc ls --json "${WORLD_SOURCE}/" > "${WORLD_ARCHIVE_LISTING}"; then
+  if ! s3api_list_objects_v2 "${WORLDS_S3_BUCKET}" "${WORLD_OBJECT_PREFIX}" --output json > "${WORLD_ARCHIVE_LISTING}"; then
     safe_rm_f "${WORLD_ARCHIVE_LISTING}"
     die "Failed to list world archive source under ${WORLD_SOURCE_DISPLAY}"
   fi
 
   while IFS= read -r WORLD_ARCHIVE_KEY; do
-    WORLD_ARCHIVES+=("${WORLD_SOURCE}/${WORLD_ARCHIVE_KEY##*/}")
-  done < <(jq -r 'select(.type == "file" and (.key | endswith(".zip"))) | .key' "${WORLD_ARCHIVE_LISTING}")
+    WORLD_ARCHIVES+=("s3/${WORLDS_S3_BUCKET}/${WORLD_ARCHIVE_KEY}")
+  done < <(jq -r --arg prefix "${WORLD_OBJECT_PREFIX}" '
+    .Contents[]?.Key
+    | select(startswith($prefix))
+    | . as $key
+    | ($key | ltrimstr($prefix)) as $rel
+    | select($rel | test("^[^/]+\\.zip$"))
+    | $key
+  ' "${WORLD_ARCHIVE_LISTING}")
   safe_rm_f "${WORLD_ARCHIVE_LISTING}"
 
   if [[ "${#WORLD_ARCHIVES[@]}" -eq 0 ]]; then
@@ -155,7 +162,7 @@ install_world() {
     return 1
   }
 
-  mc cp "${WORLD_ARCHIVES[0]}" "${TMP_ZIP}" || {
+  s3_cp "${WORLD_ARCHIVES[0]}" "${TMP_ZIP}" || {
     cleanup_world_install_temps "${TMP_ZIP}" "${EXTRACT_DIR}"
     die "Failed to download world archive"
   }

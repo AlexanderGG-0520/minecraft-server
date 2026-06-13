@@ -52,7 +52,7 @@ activate_dir() {
 }
 
 install_configs() {
-  log INFO "Install configs (MinIO only)"
+  log INFO "Install configs"
 
   [[ "${CONFIGS_ENABLED:-true}" == "true" ]] || {
     log INFO "Configs disabled"
@@ -76,8 +76,8 @@ install_configs() {
   fi
 
 
-  log INFO "Configuring MinIO client for configs"
-  configure_mc_alias "configs"
+  log INFO "Configuring S3 client for configs"
+  configure_s3_client "configs"
 
 
   local -a remove_args=()
@@ -88,12 +88,11 @@ install_configs() {
 
   log INFO "Syncing configs from s3://${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}"
 
-  mc mirror \
-    --overwrite \
-    "${remove_args[@]}" \
+  s3_sync \
     "s3/${CONFIGS_S3_BUCKET}/${CONFIGS_S3_PREFIX}" \
     "${CONFIG_DIR}" \
-    || die "Failed to sync configs from MinIO"
+    "${remove_args[@]}" \
+    || die "Failed to sync configs from S3"
 
   log INFO "Configs installed successfully"
 }
@@ -128,8 +127,8 @@ install_plugins() {
   # -----------------------------------
   # Stability knobs (Cloudflare Tunnel friendly)
   # -----------------------------------
-  local retry_max="${MC_RETRY_MAX:-8}"     # 6-10 recommended
-  local retry_base="${MC_RETRY_SLEEP:-1}"  # seconds (1,2,4,8...)
+  local retry_max="${S3_RETRY_MAX:-${MC_RETRY_MAX:-8}}"     # 6-10 recommended
+  local retry_base="${S3_RETRY_SLEEP:-${MC_RETRY_SLEEP:-1}}"  # seconds (1,2,4,8...)
   local strict="${PLUGINS_STRICT:-false}"  # true: die on any error, false: best-effort
   local max_errors="${PLUGINS_MAX_ERRORS:-50}"
 
@@ -146,7 +145,7 @@ install_plugins() {
   tmp_remote="$(mktemp)"
   tmp_remote_jars="$(mktemp)"
 
-  mc_retry() {
+  s3_retry() {
     local n=0
     while true; do
       "$@" && return 0
@@ -155,13 +154,13 @@ install_plugins() {
         return 1
       fi
       local s=$((retry_base << (n-1)))
-      log WARN "mc failed (attempt ${n}/${retry_max}), retry in ${s}s: $*"
+      log WARN "aws s3 command failed (attempt ${n}/${retry_max}), retry in ${s}s"
       sleep "${s}"
     done
   }
 
-  log INFO "Configuring MinIO client for plugins"
-  configure_mc_alias "plugins"
+  log INFO "Configuring S3 client for plugins"
+  configure_s3_client "plugins"
 
   # Build source path safely
   local src="s3/${PLUGINS_S3_BUCKET}"
@@ -201,8 +200,8 @@ install_plugins() {
   # -----------------------------------
   # List remote objects once
   # -----------------------------------
-  if ! mc_retry mc find "${src}" --print "{}" > "${tmp_remote}"; then
-    die "Failed to list objects from MinIO"
+  if ! s3_retry s3_list_paths "${src}" > "${tmp_remote}"; then
+    die "Failed to list objects from S3"
   fi
 
   # Build remote "top-level jar" list for safe remove_extra (plugins/*.jar only)
@@ -241,7 +240,7 @@ install_plugins() {
 
     dest="${plugins_dir}/${rel}"
     safe_rm_f "${dest}" || true
-    if ! mc_retry mc cp "${obj}" "${dest}"; then
+    if ! s3_retry s3_cp "${obj}" "${dest}"; then
       errors=$((errors+1))
       log WARN "Failed to download jar: ${obj}"
     fi
@@ -427,8 +426,8 @@ install_datapacks() {
   fi
 
 
-  log INFO "Configuring MinIO client for datapacks"
-  configure_mc_alias "datapacks"
+  log INFO "Configuring S3 client for datapacks"
+  configure_s3_client "datapacks"
 
   local -a remove_args=()
   if [[ "${DATAPACKS_REMOVE_EXTRA}" == "true" ]]; then
@@ -438,11 +437,10 @@ install_datapacks() {
 
   log INFO "Syncing datapacks from s3://${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}"
 
-  mc mirror \
-    --overwrite \
-    "${remove_args[@]}" \
+  s3_sync \
     "s3/${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}" \
     "${DATAPACKS_DIR}" \
+    "${remove_args[@]}" \
     || die "Failed to sync datapacks"
 
   log INFO "Datapacks installed successfully"
@@ -485,8 +483,8 @@ install_resourcepacks() {
     return
   fi
 
-  log INFO "Configuring MinIO client for resourcepacks"
-  configure_mc_alias "resourcepacks"
+  log INFO "Configuring S3 client for resourcepacks"
+  configure_s3_client "resourcepacks"
 
   local src="s3/${RESOURCEPACKS_S3_BUCKET}"
   src="${src%/}/${RESOURCEPACKS_S3_PREFIX}"
@@ -499,11 +497,10 @@ install_resourcepacks() {
 
   log INFO "Syncing resourcepacks from ${src} -> ${rp_dir}"
   log INFO "Resourcepacks sync stores local files only; set RESOURCE_PACK to a client-accessible HTTP/HTTPS URL for distribution"
-  mc mirror \
-    --overwrite \
-    "${remove_args[@]}" \
+  s3_sync \
     "${src}" \
     "${rp_dir}" \
+    "${remove_args[@]}" \
     || die "Failed to sync resourcepacks"
 
   log INFO "Resourcepacks installed successfully"

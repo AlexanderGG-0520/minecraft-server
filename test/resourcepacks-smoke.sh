@@ -14,23 +14,20 @@ source ./scripts/lib/s3_client.sh
 source ./scripts/lib/content_assets.sh
 
 configure_calls="$tmp/configure-calls"
-mc_calls="$tmp/mc-calls"
+aws_calls="$tmp/aws-calls"
 : > "$configure_calls"
-: > "$mc_calls"
+: > "$aws_calls"
 
-configure_mc_alias() {
+configure_s3_client() {
   printf '%s\n' "$1" >> "$configure_calls"
 }
 
-mc() {
-  printf '%s\n' "$*" >> "$mc_calls"
-  case "$1" in
-    mirror)
+aws() {
+  printf '%s\n' "$*" >> "$aws_calls"
+  case "$1 $2" in
+    "s3 sync")
       mkdir -p "$4"
       printf '%s\n' pack > "$4/example.zip"
-      ;;
-    find)
-      printf '%s\n' "$2/example.zip"
       ;;
     *)
       return 99
@@ -40,12 +37,12 @@ mc() {
 
 reset_calls() {
   : > "$configure_calls"
-  : > "$mc_calls"
+  : > "$aws_calls"
 }
 
 assert_no_s3_calls() {
   test ! -s "$configure_calls"
-  test ! -s "$mc_calls"
+  test ! -s "$aws_calls"
 }
 
 DATA_DIR="$tmp/data"
@@ -60,7 +57,7 @@ unset RESOURCEPACKS_REMOVE_EXTRA
 reset_calls
 install_resourcepacks
 test "$(cat "$configure_calls")" = "resourcepacks"
-test "$(cat "$mc_calls")" = "mirror --overwrite s3/bucket/resourcepacks $INPUT_RESOURCEPACKS_DIR"
+test "$(cat "$aws_calls")" = "s3 sync s3://bucket/resourcepacks $INPUT_RESOURCEPACKS_DIR"
 test -f "$INPUT_RESOURCEPACKS_DIR/example.zip"
 test ! -d "$INPUT_RESOURCEPACKS_DIR/resourcepacks"
 
