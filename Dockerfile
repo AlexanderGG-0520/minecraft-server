@@ -188,7 +188,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends \
     bash ca-certificates curl tini procps tzdata \
-    pciutils ocl-icd-libopencl1 clinfo jq unzip rsync libpopt0 \
+    pciutils ocl-icd-libopencl1 clinfo jq unzip rsync libpopt0 awscli \
  && rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
