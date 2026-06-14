@@ -191,6 +191,19 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-reco
     pciutils ocl-icd-libopencl1 clinfo jq unzip rsync libpopt0 awscli \
  && rm -rf /var/lib/apt/lists/*
 
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "${arch}" in \
+      amd64) aws_arch="x86_64" ;; \
+      arm64) aws_arch="aarch64" ;; \
+      *) echo "Unsupported architecture for AWS CLI: ${arch}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${aws_arch}.zip" -o /tmp/awscliv2.zip; \
+    unzip -q /tmp/awscliv2.zip -d /tmp; \
+    /tmp/aws/install; \
+    rm -rf /tmp/aws /tmp/awscliv2.zip; \
+    aws --version
+
 # LWJGL expects libOpenCL.so (not only libOpenCL.so.1)
 RUN set -eux; \
     if [ -e /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 ] && [ ! -e /usr/lib/x86_64-linux-gnu/libOpenCL.so ]; then \
