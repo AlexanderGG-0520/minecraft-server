@@ -18,7 +18,7 @@ spec:
       terminationGracePeriodSeconds: 120
       containers:
         - name: minecraft
-          image: ghcr.io/alexandergg-0520/minecraft-server:latest
+          image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21
           imagePullPolicy: Always
           ports:
             - name: minecraft
