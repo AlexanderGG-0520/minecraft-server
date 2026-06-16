@@ -485,3 +485,37 @@ jobs:
           printf '%s\n' "$output"
           test "$status" -ne 0
           printf '%s\n' "$output" | grep -F "Invalid UUID cache at /data/uuid_cache.json; expected a JSON object"
+
+  runtime-jre25-gpu-smoke:
+    name: GPU runtime packaging smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build GPU runtime image
+        run: docker build --target runtime-jre25-gpu -t minecraft-server:test-jre25-gpu .
+
+      - name: Check GPU runtime packaging
+        run: |
+          docker run --rm --entrypoint bash minecraft-server:test-jre25-gpu -lc '
+            set -euo pipefail
+            test -f /entrypoint.sh
+            test -x /entrypoint.sh
+            bash -n /entrypoint.sh
+            aws --version
+            jq --version
+            rsync --version
+            test -x /usr/local/bin/mcrcon
+            java -version
+            source /scripts/lib/logging.sh
+            source /scripts/lib/filesystem.sh
+            source /scripts/lib/s3_client.sh
+            declare -F s3_prepare_env >/dev/null
+            declare -F configure_s3_client >/dev/null
+            declare -F s3_cp >/dev/null
+            declare -F s3_sync >/dev/null
+            declare -F s3_list_paths >/dev/null
+            declare -F ensure_s3_source_nonempty_for_remove >/dev/null
+          '
