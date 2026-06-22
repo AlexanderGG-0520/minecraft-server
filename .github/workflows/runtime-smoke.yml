@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build runtime image
         run: docker build --target runtime-jre21 -t minecraft-server:test-jre21 .
@@ -492,7 +492,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build GPU runtime image
         run: docker build --target runtime-jre25-gpu -t minecraft-server:test-jre25-gpu .
