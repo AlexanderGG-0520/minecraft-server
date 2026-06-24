@@ -361,7 +361,7 @@ run_relative_data_dir_reset_is_rejected() {
 run_custom_level_name_reset_uses_matching_world_dir() {
   DATA_DIR="$tmp/custom-level-reset"
   LEVEL_NAME=custom-world
-  RESET_WORLD_BACKUP=false
+  RESET_WORLD_BACKUP=true
   RESET_WORLD_REMOVE_MODS=false
   mkdir -p "$DATA_DIR/custom-world" "$DATA_DIR/world"
   printf '%s\n' custom > "$DATA_DIR/custom-world/level.dat"
@@ -374,7 +374,45 @@ run_custom_level_name_reset_uses_matching_world_dir() {
   assert_file_absent "$DATA_DIR/custom-world"
   assert_file_present "$DATA_DIR/world/level.dat"
   test "$(cat "$DATA_DIR/world/level.dat")" = "default"
+  assert_file_absent "$DATA_DIR/reset-world.flag"
   assert_flag_removals 1
+
+  local backup_archive
+  backup_archive="$(find "$DATA_DIR/backups" -maxdepth 1 -type f -name 'world-*.tar.gz' -print)"
+  test "$(printf '%s\n' "$backup_archive" | sed '/^$/d' | wc -l)" -eq 1
+
+  tar -tzf "$backup_archive" | grep -Fx 'custom-world/level.dat' >/dev/null
+  if tar -tzf "$backup_archive" | grep -Fx 'world/level.dat' >/dev/null; then
+    echo "FAIL: backup archive included unrelated default world" >&2
+    exit 1
+  fi
+
+  unset LEVEL_NAME
+}
+
+run_dash_prefixed_level_name_backup_archives_member() {
+  DATA_DIR="$tmp/dash-prefixed-level-reset"
+  LEVEL_NAME=--checkpoint=1
+  RESET_WORLD_BACKUP=true
+  RESET_WORLD_REMOVE_MODS=false
+  mkdir -p "$DATA_DIR/$LEVEL_NAME"
+  printf '%s\n' dash > "$DATA_DIR/$LEVEL_NAME/level.dat"
+  touch "$DATA_DIR/reset-world.flag"
+
+  reset_flag_removal_count
+  reset_world >/dev/null 2>&1
+
+  assert_file_absent "$DATA_DIR/$LEVEL_NAME"
+  assert_file_absent "$DATA_DIR/reset-world.flag"
+  assert_no_backup_temps "$DATA_DIR/backups"
+  assert_flag_removals 1
+
+  local backup_archive
+  backup_archive="$(find "$DATA_DIR/backups" -maxdepth 1 -type f -name 'world-*.tar.gz' -print)"
+  test "$(printf '%s\n' "$backup_archive" | sed '/^$/d' | wc -l)" -eq 1
+  tar -tzf "$backup_archive" | grep -Fx -- '--checkpoint=1/level.dat' >/dev/null
+
+  unset LEVEL_NAME
 }
 
 run_successful_reset_consumes_flag_once
@@ -388,3 +426,4 @@ run_backup_failure_removes_staged_archive
 run_unsafe_reset_paths_are_rejected
 run_relative_data_dir_reset_is_rejected
 run_custom_level_name_reset_uses_matching_world_dir
+run_dash_prefixed_level_name_backup_archives_member

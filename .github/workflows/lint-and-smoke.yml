@@ -215,6 +215,12 @@ jobs:
       - name: Resourcepacks smoke
         run: test/resourcepacks-smoke.sh
 
+      - name: Plugin S3 failure smoke
+        run: test/plugin-s3-failure-smoke.sh
+
+      - name: Datapacks world path smoke
+        run: test/datapacks-world-path-smoke.sh
+
       - name: Safe temp files smoke
         run: test/safe-temp-files-smoke.sh
 
