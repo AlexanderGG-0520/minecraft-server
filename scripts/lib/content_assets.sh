@@ -220,7 +220,7 @@ install_plugins() {
   # -----------------------------------
   # Download loop (top-level jars only)
   # -----------------------------------
-  local obj rel dest
+  local obj rel dest tmp_dest
   local errors=0
 
   while IFS= read -r obj; do
@@ -239,10 +239,24 @@ install_plugins() {
     fi
 
     dest="${plugins_dir}/${rel}"
-    safe_rm_f "${dest}" || true
-    if ! s3_retry s3_cp "${obj}" "${dest}"; then
+    tmp_dest="$(mktemp "${plugins_dir}/.${rel}.tmp.XXXXXX")" || {
+      errors=$((errors+1))
+      log WARN "Failed to create temp jar for: ${dest}"
+      continue
+    }
+
+    if ! s3_retry s3_cp "${obj}" "${tmp_dest}"; then
+      safe_rm_f "${tmp_dest}" || true
       errors=$((errors+1))
       log WARN "Failed to download jar: ${obj}"
+      tmp_dest=""
+    elif ! safe_mv_f "${tmp_dest}" "${dest}"; then
+      safe_rm_f "${tmp_dest}" || true
+      errors=$((errors+1))
+      log WARN "Failed to move jar into place: ${dest}"
+      tmp_dest=""
+    else
+      tmp_dest=""
     fi
 
     if (( errors >= max_errors )); then
@@ -414,7 +428,10 @@ install_datapacks() {
     return
   }
 
-  DATAPACKS_DIR="${DATA_DIR}/world/datapacks"
+  local world_dir
+  world_dir="$(minecraft_world_dir "${DATA_DIR}")" || return 1
+
+  DATAPACKS_DIR="${world_dir}/datapacks"
   mkdir -p "${DATAPACKS_DIR}"
 
   # now already datapacks present and sync once mode, skipping
@@ -447,7 +464,8 @@ install_datapacks() {
 }
 
 activate_datapacks() {
-  local world_dir="${DATA_DIR}/world"
+  local world_dir
+  world_dir="$(minecraft_world_dir "${DATA_DIR}")" || return 1
 
   [[ -d "$world_dir" ]] || {
     log INFO "World directory not found, skipping datapacks activation"

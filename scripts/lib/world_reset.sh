@@ -98,10 +98,13 @@ create_world_reset_backup() {
   local data_dir="$1"
   local backup_dir="$2"
   local backup_archive="$3"
+  local world_dir="$4"
   local backup_base
   local backup_tmp=""
+  local world_name
 
   backup_base="$(basename "${backup_archive}")"
+  world_name="$(basename "${world_dir}")"
 
   mkdir -p "${backup_dir}" || return 1
   backup_tmp="$(mktemp "${backup_dir}/.${backup_base}.tmp.XXXXXX")" || return 1
@@ -112,7 +115,7 @@ create_world_reset_backup() {
   printf -v mode '%03o' "${mode}"
   chmod "${mode}" -- "${backup_tmp}" || { cleanup_world_reset_backup_tmp "${backup_tmp}"; return 1; }
 
-  if ! tar -czf "${backup_tmp}" -C "${data_dir}" world; then
+  if ! tar -czf "${backup_tmp}" -C "${data_dir}" -- "${world_name}"; then
     cleanup_world_reset_backup_tmp "${backup_tmp}"
     return 1
   fi
@@ -373,7 +376,7 @@ reset_world() {
   # ---- Step 2: optional backup ----
   if [[ "${RESET_WORLD_BACKUP:-true}" == "true" ]]; then
     log INFO "Creating world backup"
-    create_world_reset_backup "${data_dir}" "${backup_dir}" "${backup_archive}" \
+    create_world_reset_backup "${data_dir}" "${backup_dir}" "${backup_archive}" "${world_dir}" \
       || die "World backup failed; refusing to delete world"
   fi
 
