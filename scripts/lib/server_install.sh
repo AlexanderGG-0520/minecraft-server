@@ -159,32 +159,36 @@ install_quilt_server_artifact() {
 }
 
 install_forge_server_artifact() {
-  local FORGE_META_URL
   local FORGE_VER
-  local html
   local INSTALLER
+  local INSTALLER_URL
   local MARKER
+  local PROMOS_JSON
+  local PROMOS_URL
 
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for forge"
 
   FORGE_VER="${FORGE_VERSION:-latest}"
-  FORGE_META_URL="https://files.minecraftforge.net/net/minecraftforge/forge/index_${VERSION}.html"
+  PROMOS_URL="https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
 
   # ---- resolve version FIRST ----
-  if [[ "${FORGE_VER}" == "latest" ]]; then
-    log INFO "Resolving latest Forge version for MC ${VERSION}"
+  if [[ "${FORGE_VER}" == "latest" || "${FORGE_VER}" == "recommended" ]]; then
+    log INFO "Resolving Forge ${FORGE_VER} version for MC ${VERSION} from promotions_slim.json"
 
-    html="$(curl -fsSL "${FORGE_META_URL}" || true)"
+    PROMOS_JSON="$(curl -fsSL "${PROMOS_URL}")" \
+      || die "Failed to fetch Forge promotions_slim.json for VERSION=${VERSION}"
+    [[ -n "${PROMOS_JSON}" ]] \
+      || die "Forge promotions_slim.json response was empty for VERSION=${VERSION}"
 
-    FORGE_VER="$(printf '%s' "$html" \
-      | grep -oP 'forge-\K[0-9.]+' \
-      | head -n 1)"
-
-    [[ -n "${FORGE_VER}" ]] || {
-      log ERROR "Failed to resolve Forge version. Response was:"
-      log ERROR "$(echo "$html" | head -c 300)"
-      die "Invalid Forge version"
-    }
+    FORGE_VER="$(printf '%s' "${PROMOS_JSON}" | jq -er --arg key "${VERSION}-${FORGE_VER}" '
+      if type == "object"
+        and (.promos | type == "object")
+        and (.promos[$key] | type == "string")
+        and (.promos[$key] | length > 0)
+      then .promos[$key]
+      else empty
+      end
+    ')" || die "Failed to resolve Forge version from promotions_slim.json for VERSION=${VERSION} key=${VERSION}-${FORGE_VERSION:-latest}"
   fi
 
   # ---- sanity check ----
@@ -205,12 +209,18 @@ install_forge_server_artifact() {
   log INFO "Installing Forge server (MC=${VERSION}, forge=${FORGE_VER})"
 
   INSTALLER="forge-${VERSION}-${FORGE_VER}-installer.jar"
+  INSTALLER_URL="https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}"
+  log INFO "Forge installer URL: ${INSTALLER_URL}"
+
   local INSTALLER_TMP
   INSTALLER_TMP="$(mktemp "/tmp/${INSTALLER}.XXXXXX")"
-  curl -fL \
-    "https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_VER}/${INSTALLER}" \
-    -o "${INSTALLER_TMP}" \
-    || { safe_rm_f "${INSTALLER_TMP}"; die "Failed to download Forge installer"; }
+  curl -fL "${INSTALLER_URL}" -o "${INSTALLER_TMP}" \
+    || { safe_rm_f "${INSTALLER_TMP}"; die "Failed to download Forge installer (MC=${VERSION}, forge=${FORGE_VER}, url=${INSTALLER_URL})"; }
+
+  [[ -s "${INSTALLER_TMP}" ]] || {
+    safe_rm_f "${INSTALLER_TMP}"
+    die "Downloaded Forge installer is empty (MC=${VERSION}, forge=${FORGE_VER}, url=${INSTALLER_URL})"
+  }
 
   java -jar "${INSTALLER_TMP}" --installServer "${DATA_DIR}" \
     || { safe_rm_f "${INSTALLER_TMP}"; die "Forge installer failed"; }
@@ -282,34 +292,61 @@ install_neoforge_server_artifact() {
 
 install_paper_server_artifact() {
   local BUILD
-  local JAR_NAME
-  local json
+  local BUILD_OBJ
+  local BUILDS_JSON
+  local DL_URL
+  local PAPER_CHANNEL
+  local PAPER_UA
+  local PAPER_TMP
 
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for paper"
 
   BUILD="${PAPER_BUILD:-latest}"
+  PAPER_CHANNEL="${PAPER_CHANNEL:-STABLE}"
+  PAPER_UA="${PAPER_UA:-minecraft-server/paper-installer}"
+
+  if [[ "${BUILD}" != "latest" && -f "${DATA_DIR}/server.jar" ]]; then
+    if assert_server_install_matches "server.jar" "paper" "${VERSION}" "${BUILD}"; then
+      log INFO "server.jar already exists, skipping"
+      return
+    fi
+  fi
+
+  log INFO "Resolving Paper ${VERSION} build ${BUILD} (channel=${PAPER_CHANNEL}) via Fill v3"
+
+  BUILDS_JSON="$(curl -fsSL -H "User-Agent: ${PAPER_UA}" \
+    "https://fill.papermc.io/v3/projects/paper/versions/${VERSION}/builds")" \
+    || die "Failed to fetch Paper builds from Fill v3 for VERSION=${VERSION}"
+  [[ -n "${BUILDS_JSON}" ]] \
+    || die "Paper Fill v3 builds response was empty for VERSION=${VERSION}"
+
+  printf '%s' "${BUILDS_JSON}" | jq -e 'type == "array" and length > 0' >/dev/null \
+    || die "Invalid Paper Fill v3 builds response for VERSION=${VERSION}"
 
   if [[ "${BUILD}" == "latest" ]]; then
-    log INFO "Resolving latest Paper build for MC ${VERSION}"
+    if ! printf '%s' "${BUILDS_JSON}" | jq -e --arg ch "${PAPER_CHANNEL}" '.[] | select(.channel == $ch)' >/dev/null; then
+      log WARN "Paper channel '${PAPER_CHANNEL}' not found; falling back to an available channel"
+      PAPER_CHANNEL="$(printf '%s' "${BUILDS_JSON}" | jq -er '.[0].channel // empty')" \
+        || die "Failed to select fallback Paper channel for VERSION=${VERSION}"
+      log WARN "Using Paper channel='${PAPER_CHANNEL}'"
+    fi
 
-    json="$(curl -fsSL \
-      "https://api.papermc.io/v2/projects/paper/versions/${VERSION}" || true)"
-
-    BUILD="$(printf '%s' "$json" | jq -er '
-      if has("builds")
-        and (.builds|type=="array")
-        and (.builds|length>0)
-      then .builds[-1]
-      else empty
-      end
-    ')"
-
-    [[ -n "${BUILD}" ]] || {
-      log ERROR "Failed to resolve Paper build. Response was:"
-      log ERROR "$(echo "$json" | head -c 300)"
-      die "Invalid Paper build"
-    }
+    BUILD_OBJ="$(printf '%s' "${BUILDS_JSON}" | jq -ec --arg ch "${PAPER_CHANNEL}" '
+      [ .[] | select(.channel == $ch) ]
+      | (sort_by(.time) | last)
+    ')" || die "Failed to select latest Paper build object for VERSION=${VERSION} channel=${PAPER_CHANNEL}"
+  else
+    BUILD_OBJ="$(printf '%s' "${BUILDS_JSON}" | jq -ec --arg build "${BUILD}" '
+      [ .[] | select((.id | tostring) == $build) ]
+      | first
+    ')" || die "Failed to select Paper build object for VERSION=${VERSION} build=${BUILD}"
   fi
+
+  [[ -n "${BUILD_OBJ}" && "${BUILD_OBJ}" != "null" ]] \
+    || die "No Paper build found for VERSION=${VERSION} channel=${PAPER_CHANNEL} build=${BUILD}"
+
+  BUILD="$(printf '%s' "${BUILD_OBJ}" | jq -er '.id | tostring')" \
+    || die "Paper build id missing in Fill v3 response for VERSION=${VERSION}"
 
   if [[ -f "${DATA_DIR}/server.jar" ]]; then
     if assert_server_install_matches "server.jar" "paper" "${VERSION}" "${BUILD}"; then
@@ -320,12 +357,26 @@ install_paper_server_artifact() {
 
   log INFO "Installing Paper server (MC=${VERSION}, build=${BUILD})"
 
-  JAR_NAME="paper-${VERSION}-${BUILD}.jar"
+  DL_URL="$(printf '%s' "${BUILD_OBJ}" | jq -er '
+    .downloads["server:default"].url
+    // (.downloads // {} | to_entries[0].value.url)
+    // empty
+  ')" || die "Failed to resolve Paper download URL (VERSION=${VERSION} build=${BUILD})"
 
-  download_file_atomic \
-    "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/${JAR_NAME}" \
-    "${DATA_DIR}/server.jar" \
-    "Paper server.jar"
+  log INFO "Paper download URL: ${DL_URL}"
+
+  PAPER_TMP="${DATA_DIR}/server.jar.tmp.$$"
+  safe_rm_f "${PAPER_TMP}"
+  if ! curl -fL -H "User-Agent: ${PAPER_UA}" "${DL_URL}" -o "${PAPER_TMP}"; then
+    safe_rm_f "${PAPER_TMP}"
+    die "Failed to download Paper server.jar (VERSION=${VERSION}, build=${BUILD}, url=${DL_URL})"
+  fi
+
+  [[ -s "${PAPER_TMP}" ]] || {
+    safe_rm_f "${PAPER_TMP}"
+    die "Downloaded Paper server.jar is empty (VERSION=${VERSION}, build=${BUILD}, url=${DL_URL})"
+  }
+  safe_mv_f "${PAPER_TMP}" "${DATA_DIR}/server.jar"
 
   log INFO "Paper server.jar ready"
   write_server_install_marker "server.jar" "paper" "${VERSION}" "${BUILD}"
@@ -333,7 +384,6 @@ install_paper_server_artifact() {
 
 install_purpur_server_artifact() {
   local BUILD
-  local JAR_NAME
   local json
 
   [[ -n "${VERSION:-}" ]] || die "VERSION is required for purpur"
@@ -367,8 +417,6 @@ install_purpur_server_artifact() {
       return
     fi
   fi
-
-  JAR_NAME="purpur-${VERSION}-${BUILD}.jar"
 
   download_file_atomic \
     "https://api.purpurmc.org/v2/purpur/${VERSION}/${BUILD}/download" \
