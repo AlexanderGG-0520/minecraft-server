@@ -9,6 +9,21 @@ trap 'rm -rf "$tmp"' EXIT
 
 mkdir -p "$tmp/bin"
 
+cat > "$tmp/bin/timeout" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+timeout_duration="$1"
+shift
+
+if [[ "${1:-}" == "--" ]]; then
+  shift
+fi
+
+printf '%s %s\n' "$timeout_duration" "$*" >> "$TIMEOUT_LOG"
+"$@"
+EOF
+
 cat > "$tmp/bin/java" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -25,8 +40,10 @@ enable-rcon=false
 PROPS
 EOF
 
-chmod +x "$tmp/bin/java"
+chmod +x "$tmp/bin/timeout" "$tmp/bin/java"
 PATH="$tmp/bin:$PATH"
+TIMEOUT_LOG="$tmp/timeout.log"
+export TIMEOUT_LOG
 
 DATA_DIR="$tmp/data"
 TYPE=paper
@@ -51,9 +68,11 @@ touch "$DATA_DIR/server.jar"
 
 output="$(install_server_properties 2>&1)"
 printf '%s\n' "$output" | grep -F "server.properties not found, generating via bootstrap" >/dev/null
+printf '%s\n' "$output" | grep -F "server.properties bootstrap timeout: 15s" >/dev/null
 printf '%s\n' "$output" | grep -F "server.properties successfully bootstrapped" >/dev/null
 printf '%s\n' "$output" | grep -F "server.properties ready, applying env diff" >/dev/null
 printf '%s\n' "$output" | grep -F "server.properties diff apply completed" >/dev/null
+grep -F "15s java -jar $DATA_DIR/server.jar nogui" "$TIMEOUT_LOG" >/dev/null
 
 grep -Fx "enforce-secure-profile=false" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "online-mode=false" "$DATA_DIR/server.properties" >/dev/null
@@ -108,3 +127,33 @@ grep -Fx "enforce-secure-profile=true" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "enable-rcon=true" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "rcon.port=25575" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "rcon.password=secret" "$DATA_DIR/server.properties" >/dev/null
+
+DATA_DIR="$tmp/forge"
+TYPE=forge
+unset SERVER_PROPERTIES_BOOTSTRAP_TIMEOUT
+export DATA_DIR TYPE
+mkdir -p "$DATA_DIR"
+cat > "$DATA_DIR/run.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat > "$(dirname "$0")/server.properties" <<'PROPS'
+enable-rcon=false
+PROPS
+EOF
+chmod +x "$DATA_DIR/run.sh"
+
+output="$(bootstrap_server_properties 2>&1)"
+printf '%s\n' "$output" | grep -F "server.properties bootstrap timeout: 90s" >/dev/null
+grep -F "90s $DATA_DIR/run.sh nogui" "$TIMEOUT_LOG" >/dev/null
+
+DATA_DIR="$tmp/override"
+TYPE=paper
+SERVER_PROPERTIES_BOOTSTRAP_TIMEOUT=3s
+export DATA_DIR TYPE SERVER_PROPERTIES_BOOTSTRAP_TIMEOUT
+mkdir -p "$DATA_DIR"
+touch "$DATA_DIR/server.jar"
+
+output="$(bootstrap_server_properties 2>&1)"
+printf '%s\n' "$output" | grep -F "server.properties bootstrap timeout: 3s" >/dev/null
+grep -F "3s java -jar $DATA_DIR/server.jar nogui" "$TIMEOUT_LOG" >/dev/null
