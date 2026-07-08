@@ -402,6 +402,10 @@ bootstrap_server_properties() {
       ;;
   esac
 
+  if [[ ! "${bootstrap_timeout}" =~ ^[0-9]+([.][0-9]+)?[smhd]?$ ]]; then
+    die "invalid SERVER_PROPERTIES_BOOTSTRAP_TIMEOUT: ${bootstrap_timeout}"
+  fi
+
   log INFO "server.properties bootstrap timeout: ${bootstrap_timeout}"
 
   case "$type" in
