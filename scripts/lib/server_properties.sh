@@ -410,19 +410,21 @@ bootstrap_server_properties() {
 
   case "$type" in
     vanilla|paper|purpur|spigot)
-      timeout "${bootstrap_timeout}" java -jar "${DATA_DIR}/server.jar" nogui || true
+      bootstrap_server_properties_init_settings "$bootstrap_timeout" "${DATA_DIR}/server.jar" \
+        || return 1
       ;;
     fabric)
-      timeout "${bootstrap_timeout}" java -jar "${DATA_DIR}/fabric-server-launch.jar" nogui || true
+      bootstrap_server_properties_init_settings "$bootstrap_timeout" "${DATA_DIR}/fabric-server-launch.jar" \
+        || return 1
       ;;
     forge|neoforge)
-      # NeoForge / Forge must go through run.sh
-      if [[ -x "${DATA_DIR}/run.sh" ]]; then
-        timeout "${bootstrap_timeout}" "${DATA_DIR}/run.sh" nogui || true
-      else
+      [[ -x "${DATA_DIR}/run.sh" ]] || {
         log WARN "run.sh not found, cannot bootstrap properties yet"
         return 1
-      fi
+      }
+      log INFO "server.properties bootstrap method: isolated legacy run.sh compatibility fallback"
+      bootstrap_server_properties_legacy "$bootstrap_timeout" "${DATA_DIR}/run.sh" nogui \
+        || return 1
       ;;
     *)
       die "bootstrap_server_properties: unsupported TYPE=${type}"
@@ -434,4 +436,89 @@ bootstrap_server_properties() {
   fi
 
   log INFO "server.properties successfully bootstrapped"
+}
+
+bootstrap_server_properties_init_settings() {
+  local bootstrap_timeout="$1"
+  local server_jar="$2"
+  local output status=0
+
+  output="$(mktemp "${TMPDIR:-/tmp}/minecraft-init-settings.XXXXXX")" \
+    || die "Failed to create bootstrap output file"
+
+  log INFO "server.properties bootstrap method: --initSettings"
+  (cd "${DATA_DIR}" && timeout "$bootstrap_timeout" \
+    java -jar "$server_jar" --initSettings nogui) >"$output" 2>&1 || status=$?
+
+  if [[ "$status" -eq 0 && -f "${DATA_DIR}/server.properties" ]]; then
+    rm -f "$output"
+    return 0
+  fi
+
+  if grep -Eqi 'unrecognized option|not (a )?recognized option|unknown option|unknown argument|invalid option|no such option' "$output"; then
+    log WARN "--initSettings is unsupported; using isolated compatibility fallback"
+    rm -f "$output"
+    bootstrap_server_properties_legacy "$bootstrap_timeout" java -jar "$server_jar" nogui
+    return $?
+  fi
+
+  rm -f "$output"
+  log ERROR "server.properties --initSettings bootstrap failed (TYPE=$(server_properties_type), status=${status})"
+  return 1
+}
+
+bootstrap_server_properties_legacy() {
+  local bootstrap_timeout="$1"
+  shift
+  local bootstrap_dir bootstrap_props install_props status=0
+
+  bootstrap_dir="$(mktemp -d "${TMPDIR:-/tmp}/minecraft-properties-bootstrap.XXXXXX")" \
+    || die "Failed to create isolated bootstrap directory"
+  bootstrap_props="${bootstrap_dir}/server.properties"
+
+  # Forge-family run scripts use paths relative to their working directory.
+  # Link only top-level files and runtime libraries; generated directories stay isolated.
+  find "${DATA_DIR}" -mindepth 1 -maxdepth 1 \
+    ! -name server.properties ! -name eula.txt ! -name world \
+    \( -type f -o \( -type d \( -name libraries -o -name versions \) \) \) \
+    -exec ln -s -t "$bootstrap_dir" {} + || {
+      rm -rf "$bootstrap_dir"
+      die "Failed to prepare isolated server.properties bootstrap directory"
+    }
+  if [[ -f "${DATA_DIR}/eula.txt" ]]; then
+    cp "${DATA_DIR}/eula.txt" "${bootstrap_dir}/eula.txt" || {
+      rm -rf "$bootstrap_dir"
+      die "Failed to prepare bootstrap eula.txt"
+    }
+  fi
+
+  log INFO "Running isolated legacy server.properties compatibility fallback"
+  (cd "$bootstrap_dir" && timeout "$bootstrap_timeout" "$@") >/dev/null 2>&1 || status=$?
+
+  if [[ "$status" -ne 0 && "$status" -ne 124 ]]; then
+    rm -rf "$bootstrap_dir"
+    log ERROR "Isolated server.properties compatibility fallback failed (TYPE=$(server_properties_type), status=${status})"
+    return 1
+  fi
+  if [[ ! -s "$bootstrap_props" ]]; then
+    rm -rf "$bootstrap_dir"
+    log ERROR "Isolated server.properties compatibility fallback did not generate server.properties"
+    return 1
+  fi
+
+  install_props="$(mktemp "${DATA_DIR}/server.properties.bootstrap.XXXXXX")" || {
+    rm -rf "$bootstrap_dir"
+    die "Failed to create server.properties install file"
+  }
+  cp "$bootstrap_props" "$install_props" || {
+    rm -f "$install_props"
+    rm -rf "$bootstrap_dir"
+    die "Failed to copy generated server.properties into DATA_DIR"
+  }
+  mv "$install_props" "${DATA_DIR}/server.properties" || {
+    rm -f "$install_props"
+    rm -rf "$bootstrap_dir"
+    die "Failed to install generated server.properties"
+  }
+  rm -rf "$bootstrap_dir"
 }

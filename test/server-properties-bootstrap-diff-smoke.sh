@@ -28,8 +28,25 @@ cat > "$tmp/bin/java" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-props="$(dirname "$2")/server.properties"
-cat > "$props" <<'PROPS'
+printf '%s|%s\n' "$PWD" "$*" >> "$JAVA_LOG"
+
+if [[ "$*" == *"--initSettings"* ]]; then
+  case "${JAVA_MODE:-supported}" in
+    supported) ;;
+    unsupported)
+      printf '%s\n' 'initSettings is not a recognized option' >&2
+      exit 2
+      ;;
+    unexpected)
+      printf '%s\n' 'Bootstrap exploded unexpectedly' >&2
+      exit 7
+      ;;
+  esac
+else
+  mkdir -p world
+fi
+
+cat > server.properties <<'PROPS'
 enforce-secure-profile=true
 online-mode=true
 server-port=25566
@@ -43,7 +60,8 @@ EOF
 chmod +x "$tmp/bin/timeout" "$tmp/bin/java"
 PATH="$tmp/bin:$PATH"
 TIMEOUT_LOG="$tmp/timeout.log"
-export TIMEOUT_LOG
+JAVA_LOG="$tmp/java.log"
+export TIMEOUT_LOG JAVA_LOG
 
 DATA_DIR="$tmp/data"
 TYPE=paper
@@ -56,9 +74,11 @@ SERVER_IP=0.0.0.0
 MOTD="Env MOTD"
 GAMEMODE=creative
 ENABLE_RCON=false
+LEVEL_NAME=custom-world
 __SOURCED=1
 export PATH DATA_DIR TYPE EULA APPLY_SERVER_PROPERTIES_DIFF
 export ENFORCE_SECURE_PROFILE ONLINE_MODE SERVER_PORT SERVER_IP MOTD GAMEMODE ENABLE_RCON
+export LEVEL_NAME
 export __SOURCED
 
 source ./entrypoint.sh
@@ -72,7 +92,9 @@ printf '%s\n' "$output" | grep -F "server.properties bootstrap timeout: 15s" >/d
 printf '%s\n' "$output" | grep -F "server.properties successfully bootstrapped" >/dev/null
 printf '%s\n' "$output" | grep -F "server.properties ready, applying env diff" >/dev/null
 printf '%s\n' "$output" | grep -F "server.properties diff apply completed" >/dev/null
-grep -F "15s java -jar $DATA_DIR/server.jar nogui" "$TIMEOUT_LOG" >/dev/null
+grep -F "15s java -jar $DATA_DIR/server.jar --initSettings nogui" "$TIMEOUT_LOG" >/dev/null
+test ! -e "$DATA_DIR/world"
+test ! -e "$DATA_DIR/custom-world"
 
 grep -Fx "enforce-secure-profile=false" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "online-mode=false" "$DATA_DIR/server.properties" >/dev/null
@@ -81,6 +103,7 @@ grep -Fx "server-ip=0.0.0.0" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "motd=Env MOTD" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "gamemode=creative" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "enable-rcon=false" "$DATA_DIR/server.properties" >/dev/null
+grep -Fx "level-name=custom-world" "$DATA_DIR/server.properties" >/dev/null
 
 DATA_DIR="$tmp/diff-disabled"
 APPLY_SERVER_PROPERTIES_DIFF=false
@@ -128,24 +151,30 @@ grep -Fx "enable-rcon=true" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "rcon.port=25575" "$DATA_DIR/server.properties" >/dev/null
 grep -Fx "rcon.password=secret" "$DATA_DIR/server.properties" >/dev/null
 
-DATA_DIR="$tmp/forge"
-TYPE=forge
-unset SERVER_PROPERTIES_BOOTSTRAP_TIMEOUT
-export DATA_DIR TYPE
-mkdir -p "$DATA_DIR"
-cat > "$DATA_DIR/run.sh" <<'EOF'
+for TYPE in forge neoforge; do
+  DATA_DIR="$tmp/$TYPE"
+  unset SERVER_PROPERTIES_BOOTSTRAP_TIMEOUT
+  export DATA_DIR TYPE
+  mkdir -p "$DATA_DIR"
+  cat > "$DATA_DIR/run.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-cat > "$(dirname "$0")/server.properties" <<'PROPS'
+mkdir -p world
+cat > server.properties <<'PROPS'
 enable-rcon=false
 PROPS
 EOF
-chmod +x "$DATA_DIR/run.sh"
+  chmod +x "$DATA_DIR/run.sh"
 
-output="$(bootstrap_server_properties 2>&1)"
-printf '%s\n' "$output" | grep -F "server.properties bootstrap timeout: 90s" >/dev/null
-grep -F "90s $DATA_DIR/run.sh nogui" "$TIMEOUT_LOG" >/dev/null
+  output="$(bootstrap_server_properties 2>&1)"
+  printf '%s\n' "$output" | grep -F "server.properties bootstrap timeout: 90s" >/dev/null
+  printf '%s\n' "$output" | grep -F "isolated legacy run.sh compatibility fallback" >/dev/null
+  grep -F "90s $DATA_DIR/run.sh nogui" "$TIMEOUT_LOG" >/dev/null
+  test -s "$DATA_DIR/server.properties"
+  test ! -e "$DATA_DIR/world"
+  test ! -e "$DATA_DIR/custom-world"
+done
 
 DATA_DIR="$tmp/override"
 TYPE=paper
@@ -156,4 +185,44 @@ touch "$DATA_DIR/server.jar"
 
 output="$(bootstrap_server_properties 2>&1)"
 printf '%s\n' "$output" | grep -F "server.properties bootstrap timeout: 3s" >/dev/null
-grep -F "3s java -jar $DATA_DIR/server.jar nogui" "$TIMEOUT_LOG" >/dev/null
+grep -F "3s java -jar $DATA_DIR/server.jar --initSettings nogui" "$TIMEOUT_LOG" >/dev/null
+
+DATA_DIR="$tmp/fabric"
+TYPE=fabric
+unset SERVER_PROPERTIES_BOOTSTRAP_TIMEOUT
+export DATA_DIR TYPE
+mkdir -p "$DATA_DIR"
+touch "$DATA_DIR/fabric-server-launch.jar"
+output="$(bootstrap_server_properties 2>&1)"
+printf '%s\n' "$output" | grep -F "bootstrap method: --initSettings" >/dev/null
+grep -F "java -jar $DATA_DIR/fabric-server-launch.jar --initSettings nogui" "$TIMEOUT_LOG" >/dev/null
+test -s "$DATA_DIR/server.properties"
+test ! -e "$DATA_DIR/world"
+test ! -e "$DATA_DIR/custom-world"
+
+DATA_DIR="$tmp/unsupported"
+TYPE=paper
+JAVA_MODE=unsupported
+export DATA_DIR TYPE JAVA_MODE
+mkdir -p "$DATA_DIR"
+touch "$DATA_DIR/server.jar"
+output="$(bootstrap_server_properties 2>&1)"
+printf '%s\n' "$output" | grep -F -- "--initSettings is unsupported; using isolated compatibility fallback" >/dev/null
+test -s "$DATA_DIR/server.properties"
+test ! -e "$DATA_DIR/world"
+test ! -e "$DATA_DIR/custom-world"
+grep -F "java -jar $DATA_DIR/server.jar nogui" "$TIMEOUT_LOG" >/dev/null
+
+DATA_DIR="$tmp/unexpected"
+JAVA_MODE=unexpected
+export DATA_DIR JAVA_MODE
+mkdir -p "$DATA_DIR"
+touch "$DATA_DIR/server.jar"
+set +e
+output="$(bootstrap_server_properties 2>&1)"
+status=$?
+set -e
+test "$status" -ne 0
+printf '%s\n' "$output" | grep -F -- "--initSettings bootstrap failed" >/dev/null
+test ! -e "$DATA_DIR/server.properties"
+test ! -e "$DATA_DIR/world"
