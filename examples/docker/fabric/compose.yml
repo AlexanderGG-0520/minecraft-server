@@ -1,29 +1,27 @@
 services:
   minecraft:
-    image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21
+    image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre25
     pull_policy: always
     container_name: mc-fabric
-    ports:
-      - "25565:25565" 
-    volumes:
-      - ./data:/data
-    environment:
-      EULA: "true" 
-      TYPE: "fabric"
-      VERSION: "1.21.1"
-      MAX_MEMORY: "4G" 
-      JVM_XMS: "1G" 
-      JVM_XMX: "4G"  
-      MAX_PLAYERS: "20"  
-    networks:
-      - minecraft_network  
-    restart: unless-stopped  
-    mem_limit: 4g  
-    cpu_count: 2 
-    tty: true  
-    command: ["/entrypoint.sh"]
-      
-networks:
-  minecraft_network:
-    driver: bridge  
 
+    ports:
+      - "25565:25565"
+
+    volumes:
+      - minecraft_data:/data
+
+    environment:
+      EULA: "true"
+      TYPE: "fabric"
+      VERSION: "26.2"
+      JVM_XMS: "1G"
+      JVM_XMX: "4G"
+      MAX_PLAYERS: "20"
+
+    restart: unless-stopped
+    mem_limit: 6g
+    cpu_count: 2
+    tty: true
+
+volumes:
+  minecraft_data:
