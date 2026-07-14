@@ -81,7 +81,7 @@ if "refs/tags/${release_tag}:refs/tags/${release_tag}" not in resolver_text or "
 if "release_tag_is_valid" not in resolver_text or re.search(r"\beval\b", resolver_text):
     fail("manual tag validation is missing or unsafe")
 
-if "CHANNEL}" == "main" not in workflow_text:
+if '"${CHANNEL}" == "main"' not in workflow_text:
     fail("main-only mutable runtime alias policy is missing")
 if "${RELEASE_TAG}-${TARGET}" not in workflow_text:
     fail("versioned release alias promotion is missing")
