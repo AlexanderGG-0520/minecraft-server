@@ -857,6 +857,7 @@ jobs:
           trap 'rm -rf "$tmp"' EXIT
 
           source ./scripts/lib/logging.sh
+          source ./scripts/lib/numeric_validation.sh
           source ./scripts/lib/filesystem.sh
           source ./scripts/lib/shutdown.sh
 
