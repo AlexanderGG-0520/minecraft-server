@@ -776,6 +776,7 @@ jobs:
           chmod +x "$tmp/bin/rcon-cli"
 
           source ./scripts/lib/logging.sh
+          source ./scripts/lib/numeric_validation.sh
           source ./scripts/lib/rcon.sh
           json_escape() {
             local s="$*"
@@ -813,6 +814,7 @@ jobs:
           trap 'rm -rf "$tmp"' EXIT
 
           source ./scripts/lib/logging.sh
+          source ./scripts/lib/numeric_validation.sh
           source ./scripts/lib/filesystem.sh
           source ./scripts/lib/rcon.sh
           source ./scripts/lib/shutdown.sh
