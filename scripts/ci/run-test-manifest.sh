@@ -4,7 +4,7 @@ set -o pipefail
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 manifest="${1:-${root}/test/ci-test-manifest.tsv}"
-cd -- "${root}"
+cd -- "${root}" || exit 2
 export LC_ALL=C
 export LANG=C
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY S3_ACCESS_KEY S3_SECRET_KEY
@@ -37,7 +37,7 @@ validate_manifest || exit $?
 passed=0 failed=0 timed_out=0 total=0
 while IFS= read -r raw; do
   [[ -z "${raw}" || "${raw}" == \#* ]] && continue
-  IFS=$'\t' read -r path runner tier timeout_seconds reason <<< "${raw}"
+  IFS=$'\t' read -r path runner tier timeout_seconds _reason <<< "${raw}"
   [[ "${tier}" == mandatory ]] || continue
   total=$((total + 1))
   start="$(date +%s)"

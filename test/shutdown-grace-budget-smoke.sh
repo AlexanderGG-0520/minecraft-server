@@ -46,7 +46,10 @@ for manifest in \
   examples/kubernetes/paper-pvc/deployment.yaml \
   examples/kubernetes/paper-minio-assets/deployment.yaml; do
   grep -F 'terminationGracePeriodSeconds: 240' "${manifest}" >/dev/null
-  ! grep -Eq 'preStop:|rcon-stop' "${manifest}"
+  if grep -Eq 'preStop:|rcon-stop' "${manifest}"; then
+    printf 'unexpected preStop or rcon-stop configuration in %s\n' "${manifest}" >&2
+    exit 1
+  fi
   grep -F 'TERM' "${manifest}" >/dev/null
 done
 

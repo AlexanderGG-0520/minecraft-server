@@ -30,7 +30,10 @@ printf '%s\n' "${output}" | grep -F 'Mandatory tests: 4' >/dev/null
 printf '%s\n' "${output}" | grep -F 'Passed: 2' >/dev/null
 printf '%s\n' "${output}" | grep -F 'Failed: 1' >/dev/null
 printf '%s\n' "${output}" | grep -F 'Timed out: 1' >/dev/null
-! pgrep -f "${tmp}/timeout-smoke.sh" >/dev/null
+if pgrep -f "${tmp}/timeout-smoke.sh" >/dev/null; then
+  printf 'timed-out test process is still running\n' >&2
+  exit 1
+fi
 
 bad_manifest="${tmp}/bad-manifest.tsv"
 printf '%s\t%s\t%s\t%s\t\n' "${tmp}/after-smoke.sh" not-a-runner mandatory 5 > "${bad_manifest}"

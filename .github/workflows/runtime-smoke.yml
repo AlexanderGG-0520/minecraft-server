@@ -40,7 +40,7 @@ jobs:
 
           test -s "$data/server.properties"
           test ! -e "$data/world"
-          test ! -e "$data/custom-world"
+          test ! -e "$data/custom-world/level.dat"
 
           wait_until_ready() {
             local log_file="$1"

@@ -59,8 +59,12 @@ assert_preflight_failure() {
   [[ "${rc}" -ne 0 ]]
   local displayed_value="${value:-<empty>}"
   grep -F "[preflight] ${variable_name} must be a ${expected_rule} integer, got: ${displayed_value}" "${log_file}" >/dev/null
-  ! grep -F "unbound variable" "${log_file}"
-  ! grep -F "syntax error: operand expected" "${log_file}"
+  if grep -F "unbound variable" "${log_file}"; then
+    return 1
+  fi
+  if grep -F "syntax error: operand expected" "${log_file}"; then
+    return 1
+  fi
 }
 
 DATA_DIR="${tmp}/data"
@@ -91,19 +95,19 @@ assert_preflight_success defaults
 for variable_name in "${nonnegative_variables[@]}"; do
   set_numeric_defaults
   printf -v "${variable_name}" '%s' 0
-  export "${variable_name}"
+  export "${variable_name?}"
   assert_preflight_success "${variable_name}-zero"
 done
 
 for variable_name in "${positive_variables[@]}"; do
   set_numeric_defaults
   printf -v "${variable_name}" '%s' 1
-  export "${variable_name}"
+  export "${variable_name?}"
   assert_preflight_success "${variable_name}-one"
 
   set_numeric_defaults
   printf -v "${variable_name}" '%s' 0
-  export "${variable_name}"
+  export "${variable_name?}"
   assert_preflight_failure "${variable_name}-zero" "${variable_name}" positive 0
 done
 
@@ -116,7 +120,7 @@ for variable_name in "${nonnegative_variables[@]}" "${positive_variables[@]}"; d
   for value in "${invalid_values[@]}"; do
     set_numeric_defaults
     printf -v "${variable_name}" '%s' "${value}"
-    export "${variable_name}"
+  export "${variable_name?}"
     assert_preflight_failure "${variable_name}-${value// /space}" "${variable_name}" "${rule}" "${value}"
   done
 done

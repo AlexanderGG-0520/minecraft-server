@@ -9,8 +9,7 @@ is_safe_nonnegative_integer() {
     return 0
   fi
 
-  [[ "${value}" == "2147483647" ]] && return 0
-  [[ ${#value} -eq 10 && "${value}" < "2147483647" ]]
+  (( ${#value} == 10 && 10#${value} <= 2147483647 ))
 }
 
 is_safe_positive_integer() {

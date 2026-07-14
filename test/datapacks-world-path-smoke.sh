@@ -44,6 +44,7 @@ run_datapack_path_case() {
   DATAPACKS_S3_PREFIX=prefix
   DATAPACKS_SYNC_ONCE=false
   DATAPACKS_REMOVE_EXTRA=false
+  export DATAPACKS_SYNC_ONCE DATAPACKS_REMOVE_EXTRA
 
   if [[ -n "$level_name" ]]; then
     LEVEL_NAME="$level_name"
