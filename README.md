@@ -46,10 +46,24 @@ cluster.
 
 | Use case | Start here |
 |---|---|
+| Simplest local Paper server with plugins | [`examples/docker/paper/`](examples/docker/paper/) |
+| Local Fabric modded server | [`examples/docker/fabric/`](examples/docker/fabric/) |
 | Minimal Kubernetes Paper server with a PVC | [`examples/kubernetes/paper-pvc/`](examples/kubernetes/paper-pvc/) |
 | Kubernetes Paper server with S3-compatible plugins and configs | [`examples/kubernetes/paper-minio-assets/`](examples/kubernetes/paper-minio-assets/) |
 | Pre-warm a volume without launching runtime | [`examples/kubernetes/install-only-job.example.yaml`](examples/kubernetes/install-only-job.example.yaml) |
-| Minimal local Fabric server with Docker Compose | [`examples/docker/fabric/compose.yml`](examples/docker/fabric/compose.yml) |
+
+## Docker Compose Quick Start
+
+Choose one maintained local example, then follow its short README exactly:
+
+* **[Paper Compose Quick Start](examples/docker/paper/)** — the recommended simplest path for a
+  plugin-based server.
+* **[Fabric Compose Quick Start](examples/docker/fabric/)** — a modded-server starting point.
+
+Both examples use explicit Java runtime image tags, a named `/data` volume, local-only port binding,
+conservative JVM defaults, and a 240-second Compose stop grace period. Their READMEs cover startup,
+logs, updates, plugins or mods, ownership troubleshooting, and the data-loss warning for
+`docker compose down -v`.
 
 ---
 

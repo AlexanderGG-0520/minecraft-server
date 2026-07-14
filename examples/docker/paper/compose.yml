@@ -1,6 +1,6 @@
 services:
   minecraft:
-    image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre25
+    image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21
     pull_policy: always
 
     ports:
@@ -11,8 +11,8 @@ services:
 
     environment:
       EULA: "true"
-      TYPE: "fabric"
-      VERSION: "26.2"
+      TYPE: "paper"
+      VERSION: "1.21.8"
       JVM_XMS: "1G"
       JVM_XMX: "2G"
       ENABLE_RCON: "true"
