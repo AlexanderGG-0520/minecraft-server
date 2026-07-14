@@ -12,11 +12,11 @@ unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN S3_ACCESS_KEY_ID
 [[ -f "${manifest}" ]] || { echo "Manifest not found: ${manifest}" >&2; exit 2; }
 
 validate_manifest() {
-  local raw path runner tier timeout_seconds reason extra line=0
+  local raw path runner tier timeout_seconds _reason extra line=0
   while IFS= read -r raw; do
     line=$((line + 1))
     [[ -z "${raw}" || "${raw}" == \#* ]] && continue
-    IFS=$'\t' read -r path runner tier timeout_seconds reason extra <<< "${raw}"
+    IFS=$'\t' read -r path runner tier timeout_seconds _reason extra <<< "${raw}"
     [[ -z "${extra}" ]] || { printf 'Invalid manifest line %s: expected five tab-separated fields\n' "${line}" >&2; return 2; }
     [[ -n "${runner}" && -n "${tier}" && -n "${timeout_seconds}" ]] || {
       printf 'Invalid manifest line %s: expected path, runner, tier, and timeout\n' "${line}" >&2
