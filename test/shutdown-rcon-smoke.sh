@@ -350,6 +350,25 @@ run_shutdown_timeout_phase_log_smoke() {
   unset -f signal_server_process wait_for_server_exit
 }
 
+run_shutdown_clears_readiness_smoke() {
+  setup_rcon_env "shutdown-clears-readiness"
+  local log_file="${TMP_DIR}/shutdown-clears-readiness.log"
+
+  touch "${DATA_DIR}/.ready"
+  TYPE=PAPER
+  SHUTDOWN_WAIT_TIMEOUT=0
+  export TYPE SHUTDOWN_WAIT_TIMEOUT
+  rcon_stop_once() { return 0; }
+  wait_for_server_exit() { return 0; }
+
+  ( graceful_shutdown ) > "${log_file}" 2>&1
+
+  [[ ! -e "${DATA_DIR}/.ready" ]]
+  assert_log_contains "${log_file}" "[shutdown] begin"
+  assert_log_contains "${log_file}" "[shutdown] end"
+  unset -f rcon_stop_once wait_for_server_exit
+}
+
 run_lock_owner_success_smoke() {
   setup_rcon_env "lock-owner-success"
   local log_file="${TMP_DIR}/lock-owner.log"
@@ -507,3 +526,4 @@ run_stale_result_smoke
 run_signal_group_smoke
 run_invalid_shutdown_fallback_smoke
 run_shutdown_timeout_phase_log_smoke
+run_shutdown_clears_readiness_smoke
