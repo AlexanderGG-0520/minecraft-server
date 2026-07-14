@@ -18,17 +18,22 @@ jobs:
       - name: Install shellcheck
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y shellcheck jq unzip
+          sudo apt-get install -y shellcheck jq unzip python3-yaml
 
       - name: Bash syntax check
         run: |
           shopt -s nullglob
           lib_scripts=(scripts/lib/*.sh)
+          ci_scripts=(scripts/ci/*.sh)
           test_scripts=(test/*.sh)
           test "${#lib_scripts[@]}" -gt 0
+          test "${#ci_scripts[@]}" -gt 0
           test "${#test_scripts[@]}" -gt 0
           bash -n entrypoint.sh
           for script in "${lib_scripts[@]}"; do
+            bash -n "$script"
+          done
+          for script in "${ci_scripts[@]}"; do
             bash -n "$script"
           done
           for script in "${test_scripts[@]}"; do
@@ -39,16 +44,26 @@ jobs:
         run: |
           shopt -s nullglob
           lib_scripts=(scripts/lib/*.sh)
+          ci_scripts=(scripts/ci/*.sh)
           test_scripts=(test/*.sh)
           test "${#lib_scripts[@]}" -gt 0
+          test "${#ci_scripts[@]}" -gt 0
           test "${#test_scripts[@]}" -gt 0
-          shellcheck -x -s bash entrypoint.sh "${lib_scripts[@]}" "${test_scripts[@]}"
+          shellcheck -x -s bash entrypoint.sh "${lib_scripts[@]}" "${ci_scripts[@]}" "${test_scripts[@]}"
+
+      - name: Verify smoke-test inventory
+        run: python3 test/ci-test-inventory-smoke.py
+
+      - name: Run mandatory smoke-test inventory
+        run: scripts/ci/run-test-manifest.sh
 
       - name: Source library smoke
         run: |
           set -euo pipefail
           source ./scripts/lib/logging.sh
           source ./scripts/lib/filesystem.sh
+          source ./scripts/lib/numeric_validation.sh
+          source ./scripts/lib/shutdown_budget.sh
           source ./scripts/lib/runtime.sh
           source ./scripts/lib/preflight.sh
           source ./scripts/lib/runtime_env.sh
@@ -78,6 +93,12 @@ jobs:
           declare -F safe_rm_rf >/dev/null
           declare -F safe_mv >/dev/null
           declare -F safe_mv_f >/dev/null
+          declare -F is_safe_nonnegative_integer >/dev/null
+          declare -F is_safe_positive_integer >/dev/null
+          declare -F validate_shutdown_numeric_value >/dev/null
+          declare -F validate_shutdown_numeric_config >/dev/null
+          declare -F shutdown_graceful_budget_seconds >/dev/null
+          declare -F shutdown_recommended_grace_seconds >/dev/null
           declare -F is_auto_type >/dev/null
           declare -F is_supported_runtime_type >/dev/null
           declare -F uses_server_properties >/dev/null
@@ -185,51 +206,6 @@ jobs:
           declare -F handle_command_mode >/dev/null
           declare -F run_runtime_phase >/dev/null
 
-      - name: Filesystem safety smoke
-        run: test/filesystem-safety-smoke.sh
-
-      - name: Command mode smoke
-        run: test/command-mode-smoke.sh
-
-      - name: Runtime phase smoke
-        run: test/runtime-phase-smoke.sh
-
-      - name: Runtime environment smoke
-        run: test/runtime-env-smoke.sh
-
-      - name: Fabric loader version smoke
-        run: test/fabric-loader-version-smoke.sh
-
-      - name: C2ME helper smoke
-        run: test/c2me-smoke.sh
-
-      - name: JVM args smoke
-        run: test/jvm-args-smoke.sh
-
-      - name: Player list users smoke
-        run: test/player-list-users-smoke.sh
-
-      - name: S3 client smoke
-        run: test/s3-client-smoke.sh
-
-      - name: Resourcepacks smoke
-        run: test/resourcepacks-smoke.sh
-
-      - name: Plugin S3 failure smoke
-        run: test/plugin-s3-failure-smoke.sh
-
-      - name: Datapacks world path smoke
-        run: test/datapacks-world-path-smoke.sh
-
-      - name: Safe temp files smoke
-        run: test/safe-temp-files-smoke.sh
-
-      - name: World install smoke
-        run: test/world-install-smoke.sh
-
-      - name: World reset flag smoke
-        run: test/world-reset-flag-smoke.sh
-
       - name: Server properties TYPE smoke
         run: |
           set -euo pipefail
@@ -255,9 +231,6 @@ jobs:
           set -e
           test "$status" -eq 1
           printf '%s\n' "$output" | grep -E '^\[[^]]+\] \[ERROR\] bootstrap_server_properties: unsupported TYPE=$'
-
-      - name: Server properties bootstrap diff smoke
-        run: test/server-properties-bootstrap-diff-smoke.sh
 
       - name: Runtime launch message smoke
         run: |
@@ -803,6 +776,7 @@ jobs:
           chmod +x "$tmp/bin/rcon-cli"
 
           source ./scripts/lib/logging.sh
+          source ./scripts/lib/numeric_validation.sh
           source ./scripts/lib/rcon.sh
           json_escape() {
             local s="$*"
@@ -840,6 +814,7 @@ jobs:
           trap 'rm -rf "$tmp"' EXIT
 
           source ./scripts/lib/logging.sh
+          source ./scripts/lib/numeric_validation.sh
           source ./scripts/lib/filesystem.sh
           source ./scripts/lib/rcon.sh
           source ./scripts/lib/shutdown.sh
@@ -875,10 +850,6 @@ jobs:
           test "$second_rc" -eq 7
           test "$RCON_STOP_RESULT" -eq 7
 
-      - name: Shutdown RCON focused smoke
-        run: |
-          bash test/shutdown-rcon-smoke.sh
-
       - name: Wait helper smoke
         run: |
           set -euo pipefail
@@ -886,6 +857,7 @@ jobs:
           trap 'rm -rf "$tmp"' EXIT
 
           source ./scripts/lib/logging.sh
+          source ./scripts/lib/numeric_validation.sh
           source ./scripts/lib/filesystem.sh
           source ./scripts/lib/shutdown.sh
 
@@ -1023,6 +995,3 @@ jobs:
           TYPE=AUTO
           resolve_type_auto
           test "$TYPE" = "fabric"
-
-      - name: Runtime marker corrupt JSON smoke
-        run: bash test/runtime-marker-corrupt-json-smoke.sh

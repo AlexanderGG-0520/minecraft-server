@@ -46,10 +46,24 @@ cluster.
 
 | Use case | Start here |
 |---|---|
+| Simplest local Paper server with plugins | [`examples/docker/paper/`](examples/docker/paper/) |
+| Local Fabric modded server | [`examples/docker/fabric/`](examples/docker/fabric/) |
 | Minimal Kubernetes Paper server with a PVC | [`examples/kubernetes/paper-pvc/`](examples/kubernetes/paper-pvc/) |
 | Kubernetes Paper server with S3-compatible plugins and configs | [`examples/kubernetes/paper-minio-assets/`](examples/kubernetes/paper-minio-assets/) |
 | Pre-warm a volume without launching runtime | [`examples/kubernetes/install-only-job.example.yaml`](examples/kubernetes/install-only-job.example.yaml) |
-| Minimal local Fabric server with Docker Compose | [`examples/docker/fabric/compose.yml`](examples/docker/fabric/compose.yml) |
+
+## Docker Compose Quick Start
+
+Choose one maintained local example, then follow its short README exactly:
+
+* **[Paper Compose Quick Start](examples/docker/paper/)** — the recommended simplest path for a
+  plugin-based server.
+* **[Fabric Compose Quick Start](examples/docker/fabric/)** — a modded-server starting point.
+
+Both examples use explicit Java runtime image tags, a named `/data` volume, local-only port binding,
+conservative JVM defaults, and a 240-second Compose stop grace period. Their READMEs cover startup,
+logs, updates, plugins or mods, ownership troubleshooting, and the data-loss warning for
+`docker compose down -v`.
 
 ---
 
@@ -129,12 +143,33 @@ are not written by this feature.
 
 For reliable shutdown behavior (including Citizens save), we recommend:
 
-* Set `terminationGracePeriodSeconds` to **120s or higher**.
-* Add a `preStop` hook when possible (e.g., call `entrypoint.sh rcon-stop`).
+* Set `terminationGracePeriodSeconds` to **240s or higher** for the default timings.
 * Set `ENABLE_RCON=true` and provide a non-default `RCON_PASSWORD` so shutdown commands can run.
 
 `ENABLE_RCON` defaults to `false`. The image refuses an empty RCON password and also refuses
 `RCON_PASSWORD=changeme`.
+
+Shutdown timing values are validated during preflight. `STOP_SERVER_ANNOUNCE_DELAY`,
+`SHUTDOWN_SAVE_WAIT_SECONDS`, `RCON_RETRY_DELAY`, `SHUTDOWN_WAIT_TIMEOUT`,
+`SHUTDOWN_TERM_WAIT`, `RCON_STOP_LOCK_WAIT_TIMEOUT`, and `READY_DELAY` are non-negative integer
+seconds. `RCON_RETRIES` and `RCON_TIMEOUT` are positive integers (`RCON_TIMEOUT` is in seconds).
+Invalid, fractional, negative, whitespace-padded, or suffixed values fail before installation or
+Minecraft startup. Values greater than `2147483647` are also rejected.
+
+The modeled bounded default shutdown path is 219 seconds:
+`max(RCON_STOP_LOCK_WAIT_TIMEOUT, announcement + 4 * command_retry_budget + SHUTDOWN_SAVE_WAIT_SECONDS) + SHUTDOWN_WAIT_TIMEOUT + SHUTDOWN_TERM_WAIT`, where
+`command_retry_budget = RCON_RETRIES * RCON_TIMEOUT + (RCON_RETRIES - 1) * RCON_RETRY_DELAY`.
+The four command budgets cover Citizens save, flush, fallback save, and stop; the announcement adds
+two command budgets only when enabled because its `say` fallback may run. Maintained examples use 240
+seconds, providing a 21-second shell/process-transition safety margin. Successful shutdowns normally
+finish much sooner. Recalculate the formula and increase the grace period when overriding any retry,
+timeout, announcement, save-wait, process-wait, or TERM-wait value.
+
+Kubernetes counts `preStop` time against `terminationGracePeriodSeconds`. The maintained examples do
+not run `rcon-stop` in `preStop`: `tini` forwards TERM to the entrypoint, whose TERM trap performs the
+single Minecraft-aware shutdown sequence and shares its RCON lock. Docker's default stop timeout can be
+too short for this path; use `docker stop --time 240` or a Compose `stop_grace_period: 240s` for defaults.
+SIGKILL or host failure can still interrupt saving.
 
 Minimal Kubernetes pattern:
 
@@ -157,10 +192,6 @@ containers:
           secretKeyRef:
             name: minecraft-rcon
             key: password
-    lifecycle:
-      preStop:
-        exec:
-          command: ["/entrypoint.sh", "rcon-stop"]
     readinessProbe:
       exec:
         command: ["test", "-f", "/data/.ready"]
@@ -169,7 +200,7 @@ containers:
     volumeMounts:
       - name: data
         mountPath: /data
-terminationGracePeriodSeconds: 120
+terminationGracePeriodSeconds: 240
 ```
 
 The `.ready` file is created only after the runtime survives `READY_DELAY` and is removed during
@@ -337,6 +368,42 @@ Keep S3 prefixes stable for a given world. Before enabling remove-extra, verify 
 contain the expected files and do not commit S3 credentials or other secrets. `*_SYNC_ONCE=true` skips a
 sync when the local target already has content and remove-extra is not enabled; enabling remove-extra
 always performs the sync safety check and mirror operation.
+
+### Datapack source policy
+
+Datapacks may come from the local datapack input directory (`INPUT_DATAPACKS_DIR`, default
+`/datapacks`) or from `DATAPACKS_S3_BUCKET` plus `DATAPACKS_S3_PREFIX`, but not both at once. The image
+stages S3 datapacks before touching `<world>/datapacks`. If both prepared sources contain files, startup
+fails before changing the world destination; configure only one source. Empty directories do not count
+as populated, and existing files in the world datapack directory are destination state, not an input.
+
+To use local input, mount or provide files under the local datapack input directory. To use S3 input,
+set the bucket and prefix and leave the local input empty. Before changing either source, back up and
+verify the world: a world directory or named volume is not a backup.
+
+### Local content input directories
+
+Local activation reads these directories by default: `INPUT_MODS_DIR=/mods`,
+`INPUT_PLUGINS_DIR=/plugins`, `INPUT_CONFIG_DIR=/config`,
+`INPUT_DATAPACKS_DIR=/datapacks`, and `INPUT_RESOURCEPACKS_DIR=/resourcepacks`.
+Set an `INPUT_*_DIR` value to use that exact local source instead; it controls activation as well as
+S3 staging. For mods, plugins, config, and datapacks, an explicitly configured activation path must
+exist and be a readable directory. An empty configured directory is a valid source and does not fall
+back to the image default or remove the active destination.
+
+An activated input source must not overlap its active destination under `/data`; a source equal to its
+destination is treated as already active and is left untouched. Quote paths containing spaces in Compose
+or YAML, for example:
+
+```yaml
+volumes:
+  - "./server inputs/mods:/custom mods:ro"
+environment:
+  INPUT_MODS_DIR: "/custom mods"
+```
+
+Datapacks retain the separate local-versus-S3 exclusivity rule above. The other content types preserve
+their existing S3 ordering and source behavior.
 
 ## Documentation
 

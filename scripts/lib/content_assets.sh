@@ -98,7 +98,9 @@ install_configs() {
 }
 
 activate_configs() {
-  activate_dir "/config" "${DATA_DIR}/config" "config"
+  resolve_content_input_source INPUT_CONFIG_DIR /config "${DATA_DIR}/config" || return 1
+  [[ "${CONTENT_INPUT_SOURCE_ALREADY_ACTIVE}" == true ]] && return 0
+  activate_dir "${CONTENT_INPUT_SOURCE}" "${DATA_DIR}/config" "config"
 }
 
 install_plugins() {
@@ -330,7 +332,10 @@ activate_plugins() {
     return 0
   fi
 
-  local src="/plugins"
+  resolve_content_input_source INPUT_PLUGINS_DIR /plugins "${DATA_DIR}/plugins" || return 1
+  [[ "${CONTENT_INPUT_SOURCE_ALREADY_ACTIVE}" == true ]] && return 0
+
+  local src="${CONTENT_INPUT_SOURCE}"
   local dst="${DATA_DIR}/plugins"
 
   [[ -d "${src}" ]] || {
@@ -423,56 +428,83 @@ install_datapacks() {
     return
   }
 
+  DATAPACKS_S3_STAGE_DIR=""
   [[ -n "${DATAPACKS_S3_BUCKET:-}" ]] || {
-    log INFO "DATAPACKS_S3_BUCKET not set, skipping datapacks"
-    return
+    log INFO "DATAPACKS_S3_BUCKET not set; local datapack input remains eligible"
+    return 0
   }
 
-  local world_dir
-  world_dir="$(minecraft_world_dir "${DATA_DIR}")" || return 1
-
-  DATAPACKS_DIR="${world_dir}/datapacks"
-  mkdir -p "${DATAPACKS_DIR}"
-
-  # now already datapacks present and sync once mode, skipping
-  if [[ "${DATAPACKS_SYNC_ONCE}" == "true" ]] \
-    && [[ -n "$(ls -A "${DATAPACKS_DIR}")" ]] \
-    && [[ "${DATAPACKS_REMOVE_EXTRA}" != "true" ]]; then
-    log INFO "Datapacks already present, skipping sync"
-    return
-  fi
-
-
+  DATAPACKS_S3_STAGE_DIR="$(mktemp -d "${DATA_DIR}/.datapacks-s3.XXXXXX")" || {
+    log ERROR "Failed to create isolated S3 datapack staging directory"
+    return 1
+  }
+  chmod 700 "${DATAPACKS_S3_STAGE_DIR}" || {
+    safe_rm_rf "${DATAPACKS_S3_STAGE_DIR}"
+    DATAPACKS_S3_STAGE_DIR=""
+    return 1
+  }
   log INFO "Configuring S3 client for datapacks"
-  configure_s3_client "datapacks"
-
-  local -a remove_args=()
-  if [[ "${DATAPACKS_REMOVE_EXTRA}" == "true" ]]; then
-    remove_args=(--remove)
-    ensure_s3_source_nonempty_for_remove "s3/${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}" "datapacks"
+  if ! configure_s3_client "datapacks"; then
+    safe_rm_rf "${DATAPACKS_S3_STAGE_DIR}"
+    DATAPACKS_S3_STAGE_DIR=""
+    log ERROR "Failed to prepare S3 datapack source"
+    return 1
   fi
-
-  log INFO "Syncing datapacks from s3://${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}"
-
-  s3_sync \
-    "s3/${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}" \
-    "${DATAPACKS_DIR}" \
-    "${remove_args[@]}" \
-    || die "Failed to sync datapacks"
-
-  log INFO "Datapacks installed successfully"
+  log INFO "Staging datapacks from configured S3 source"
+  if ! s3_sync "s3/${DATAPACKS_S3_BUCKET}/${DATAPACKS_S3_PREFIX}" "${DATAPACKS_S3_STAGE_DIR}"; then
+    safe_rm_rf "${DATAPACKS_S3_STAGE_DIR}"
+    DATAPACKS_S3_STAGE_DIR=""
+    log ERROR "Failed to prepare S3 datapack source"
+    return 1
+  fi
 }
 
 activate_datapacks() {
   local world_dir
   world_dir="$(minecraft_world_dir "${DATA_DIR}")" || return 1
 
+  [[ "${DATAPACKS_ENABLED:-true}" == "true" ]] || return 0
   [[ -d "$world_dir" ]] || {
     log INFO "World directory not found, skipping datapacks activation"
     return
   }
-
-  activate_dir "/datapacks" "${world_dir}/datapacks" "datapacks"
+  if ! resolve_content_input_source INPUT_DATAPACKS_DIR /datapacks "${world_dir}/datapacks"; then
+    safe_rm_rf "${DATAPACKS_S3_STAGE_DIR:-}"
+    DATAPACKS_S3_STAGE_DIR=""
+    return 1
+  fi
+  local local_source="${CONTENT_INPUT_SOURCE}"
+  local local_source_already_active="${CONTENT_INPUT_SOURCE_ALREADY_ACTIVE}"
+  local s3_source="${DATAPACKS_S3_STAGE_DIR:-}"
+  local local_payload=false
+  local s3_payload=false
+  find "${local_source}" -type f -print -quit 2>/dev/null | grep -q . && local_payload=true
+  [[ -n "${s3_source}" ]] && find "${s3_source}" -type f -print -quit 2>/dev/null | grep -q . && s3_payload=true
+  if [[ "${local_payload}" == true && "${s3_payload}" == true ]]; then
+    log ERROR "Datapack source conflict: both local input (${local_source}) and S3 (${DATAPACKS_S3_BUCKET:-DATAPACKS_S3_BUCKET}) contain files; configure only one datapack source"
+    safe_rm_rf "${s3_source}"
+    DATAPACKS_S3_STAGE_DIR=""
+    return 1
+  fi
+  if [[ "${local_payload}" == true && "${local_source_already_active}" == true ]]; then
+    log INFO "INPUT_DATAPACKS_DIR is already the active destination; skipping activation"
+  elif [[ "${local_payload}" == true ]]; then
+    if ! activate_dir "${local_source}" "${world_dir}/datapacks" "datapacks"; then
+      safe_rm_rf "${s3_source}"
+      DATAPACKS_S3_STAGE_DIR=""
+      return 1
+    fi
+  elif [[ "${s3_payload}" == true ]]; then
+    if ! activate_dir "${s3_source}" "${world_dir}/datapacks" "datapacks"; then
+      safe_rm_rf "${s3_source}"
+      DATAPACKS_S3_STAGE_DIR=""
+      return 1
+    fi
+  else
+    log INFO "No local or S3 datapack payload found; preserving existing world datapacks"
+  fi
+  [[ -z "${s3_source}" ]] || safe_rm_rf "${s3_source}"
+  DATAPACKS_S3_STAGE_DIR=""
 }
 
 install_resourcepacks() {

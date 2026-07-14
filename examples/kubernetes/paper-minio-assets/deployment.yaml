@@ -15,7 +15,8 @@ spec:
       labels:
         app: minecraft-paper
     spec:
-      terminationGracePeriodSeconds: 120
+      # tini forwards TERM to the entrypoint, which performs the single RCON-aware shutdown path.
+      terminationGracePeriodSeconds: 240
       containers:
         - name: minecraft
           image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21
@@ -75,10 +76,6 @@ spec:
               value: "true"
             - name: CONFIGS_REMOVE_EXTRA
               value: "false"
-          lifecycle:
-            preStop:
-              exec:
-                command: ["/entrypoint.sh", "rcon-stop"]
           readinessProbe:
             exec:
               command: ["test", "-f", "/data/.ready"]

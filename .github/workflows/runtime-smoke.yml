@@ -40,7 +40,7 @@ jobs:
 
           test -s "$data/server.properties"
           test ! -e "$data/world"
-          test ! -e "$data/custom-world"
+          test ! -e "$data/custom-world/level.dat"
 
           wait_until_ready() {
             local log_file="$1"
@@ -111,6 +111,8 @@ jobs:
             set -euo pipefail
             source /scripts/lib/logging.sh
             source /scripts/lib/filesystem.sh
+            source /scripts/lib/numeric_validation.sh
+            source /scripts/lib/shutdown_budget.sh
             source /scripts/lib/runtime.sh
             source /scripts/lib/preflight.sh
             source /scripts/lib/runtime_env.sh
@@ -140,6 +142,12 @@ jobs:
             declare -F safe_rm_rf >/dev/null
             declare -F safe_mv >/dev/null
             declare -F safe_mv_f >/dev/null
+            declare -F is_safe_nonnegative_integer >/dev/null
+            declare -F is_safe_positive_integer >/dev/null
+            declare -F validate_shutdown_numeric_value >/dev/null
+            declare -F validate_shutdown_numeric_config >/dev/null
+            declare -F shutdown_graceful_budget_seconds >/dev/null
+            declare -F shutdown_recommended_grace_seconds >/dev/null
             declare -F is_auto_type >/dev/null
             declare -F is_supported_runtime_type >/dev/null
             declare -F uses_server_properties >/dev/null

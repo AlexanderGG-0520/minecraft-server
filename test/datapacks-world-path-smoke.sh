@@ -23,11 +23,12 @@ configure_s3_client() {
 s3_sync() {
   test "$1" = "s3/bucket/prefix"
   mkdir -p "$2"
+  : > "$2/remote.zip"
   printf 'sync:%s\n' "$2" >> "$calls"
 }
 
 activate_dir() {
-  test "$1" = "/datapacks"
+  test "${1##*/.datapacks-s3.*}" != "$1"
   test "$3" = "datapacks"
   printf 'activate:%s\n' "$2" >> "$calls"
 }
@@ -43,6 +44,7 @@ run_datapack_path_case() {
   DATAPACKS_S3_PREFIX=prefix
   DATAPACKS_SYNC_ONCE=false
   DATAPACKS_REMOVE_EXTRA=false
+  export DATAPACKS_SYNC_ONCE DATAPACKS_REMOVE_EXTRA
 
   if [[ -n "$level_name" ]]; then
     LEVEL_NAME="$level_name"
@@ -56,7 +58,7 @@ run_datapack_path_case() {
   install_datapacks >/dev/null 2>&1
   activate_datapacks >/dev/null 2>&1
 
-  test "$(sed -n '1p' "$calls")" = "sync:$DATA_DIR/${expected_world_name}/datapacks"
+  [[ "$(sed -n '1p' "$calls")" == "sync:${DATA_DIR}/.datapacks-s3."* ]]
   test "$(sed -n '2p' "$calls")" = "activate:$DATA_DIR/${expected_world_name}/datapacks"
 }
 

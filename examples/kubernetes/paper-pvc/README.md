@@ -6,8 +6,7 @@ This example shows a minimal Paper server on Kubernetes using:
 * A `ReadWriteOnce` persistent volume claim mounted at `/data`.
 * `TYPE=paper` and an explicit `VERSION`.
 * RCON credentials from a Kubernetes Secret.
-* A `preStop` hook that calls `/entrypoint.sh rcon-stop`.
-* `terminationGracePeriodSeconds: 120`.
+* `terminationGracePeriodSeconds: 240`.
 * A readiness probe based on `/data/.ready`.
 * Deployment strategy `Recreate`.
 * A simple TCP `ClusterIP` Service for port `25565`.
@@ -60,11 +59,12 @@ The Deployment uses `strategy.type: Recreate` because the world is stored on a s
 Running multiple pods against the same world volume can corrupt state or create conflicting writes.
 `Recreate` keeps the intended single-writer behavior clear.
 
-## Why RCON `preStop` and 120 seconds
+## Why TERM handling and 240 seconds
 
-The `preStop` hook calls `/entrypoint.sh rcon-stop` so the server can receive a graceful shutdown command
-before the container exits. `terminationGracePeriodSeconds: 120` gives the server time to save world and
-plugin state before Kubernetes sends a final termination signal.
+Kubernetes sends TERM after beginning termination. `tini` forwards that signal to the entrypoint, whose
+trap performs the Minecraft-aware RCON shutdown sequence. There is no `preStop` RCON command because its
+runtime counts against the same grace period and would duplicate the shutdown path. The default modeled
+bounded path is 219 seconds; 240 seconds adds a 21-second safety margin.
 
 RCON is enabled explicitly and the password is read from `minecraft-rcon/password`. Replace the example
 secret value before use.
@@ -72,9 +72,9 @@ secret value before use.
 ## Why `/data/.ready`
 
 The readiness probe checks for `/data/.ready`. The image creates this file only after the runtime has
-survived its readiness delay. In this minimal example, the `preStop` hook only calls
-`/entrypoint.sh rcon-stop`, so you should not rely on `/data/.ready` being removed immediately during
-controlled termination; treat it primarily as a startup-readiness signal in this configuration.
+survived its readiness delay. During termination the entrypoint TERM handler owns shutdown, so you should
+not rely on `/data/.ready` being removed immediately during controlled termination; treat it primarily as
+a startup-readiness signal in this configuration.
 
 ## Volume safety
 

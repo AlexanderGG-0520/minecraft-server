@@ -33,6 +33,7 @@ services:
       - minecraft_network
 
     restart: unless-stopped
+    stop_grace_period: 240s
     mem_limit: 6g
     cpu_count: 2
     tty: true

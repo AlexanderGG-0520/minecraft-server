@@ -48,7 +48,9 @@ install_mods() {
 }
 
 activate_mods() {
-  activate_dir "/mods" "${DATA_DIR}/mods" "mods"
+  resolve_content_input_source INPUT_MODS_DIR /mods "${DATA_DIR}/mods" || return 1
+  [[ "${CONTENT_INPUT_SOURCE_ALREADY_ACTIVE}" == true ]] && return 0
+  activate_dir "${CONTENT_INPUT_SOURCE}" "${DATA_DIR}/mods" "mods"
 }
 
 extract_mrpack_index() {

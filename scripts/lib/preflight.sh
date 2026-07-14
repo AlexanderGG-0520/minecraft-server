@@ -22,6 +22,8 @@ preflight() {
     [[ "${RCON_PASSWORD}" != "changeme" ]] || die "RCON_PASSWORD=changeme is not allowed"
   fi
 
+  validate_shutdown_numeric_config preflight || return 1
+
   safe_rm_f "${DATA_DIR}/.ready"
   log INFO "Preflight OK"
 }

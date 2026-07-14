@@ -38,6 +38,28 @@ shellcheck -x -s bash entrypoint.sh "${lib_scripts[@]}"
 For behavior changes, also run the relevant smoke tests under `test/`. Prefer small temp-directory smoke
 coverage when possible instead of requiring a real Minecraft server boot.
 
+## Smoke-test inventory
+
+Run the complete mandatory suite locally with:
+
+```fish
+scripts/ci/run-test-manifest.sh
+```
+
+Run one test directly with its listed runner, for example:
+
+```fish
+bash test/filesystem-safety-smoke.sh
+```
+
+Every new `test/*-smoke.sh` or `test/*-smoke.py` must be added exactly once to
+`test/ci-test-manifest.tsv`; the inventory checker makes an unclassified test fail CI. Use `mandatory`
+for deterministic tests that use only repository fixtures and disposable state, have no production
+credentials, and are safe on untrusted pull requests. Use `external` only for a concrete environmental
+need such as a disposable Docker service, GPU execution, or an upstream integration; it requires a
+specific reason. Select a timeout that comfortably covers normal local execution. Tests must clean up
+their temporary state and must not use production credentials or persistent developer data.
+
 ## Documentation
 
 Documentation changes should be accurate about what the image does today. Avoid promising automatic

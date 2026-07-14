@@ -22,6 +22,9 @@ spec:
     spec:
       # --------------------------------------------------
       # NVIDIA runtime (CRI-O / containerd / Docker)
+      # tini forwards TERM to the entrypoint, which performs the single RCON-aware shutdown path.
+      terminationGracePeriodSeconds: 240
+
       # --------------------------------------------------
       runtimeClassName: nvidia
 
