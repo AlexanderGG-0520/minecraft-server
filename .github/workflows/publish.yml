@@ -1,11 +1,11 @@
-name: Publish Docker Images to GHCR
+name: Validate and publish Docker images
 
 on:
     workflow_dispatch:
         inputs:
             release_tag:
-                description: Optional existing release tag to backfill versioned image tags, for example v0.1.0
-                required: false
+                description: Existing vMAJOR.MINOR.PATCH tag to backfill
+                required: true
                 type: string
     push:
         branches:
@@ -13,106 +13,268 @@ on:
         tags:
         - v*
 
+# Never cancel a release that may already be promoting aliases.
+concurrency:
+    group: publish-${{ github.event_name }}-${{ github.ref_name || inputs.release_tag }}
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+
 jobs:
-    publish:
+    resolve-source:
         runs-on: ubuntu-latest
+        outputs:
+            source_sha: ${{ steps.resolve.outputs.source_sha }}
+            source_ref: ${{ steps.resolve.outputs.source_ref }}
+            release_tag: ${{ steps.resolve.outputs.release_tag }}
+            release_channel: ${{ steps.resolve.outputs.release_channel }}
+            release_mode: ${{ steps.resolve.outputs.release_mode }}
+            targets: ${{ steps.resolve.outputs.targets }}
+            created: ${{ steps.resolve.outputs.created }}
+        steps:
+        # This bootstrap checkout only obtains the resolver from this workflow revision.
+        # Every validation and publication job checks out the resolved source SHA below.
+        -   name: Checkout resolver
+            uses: actions/checkout@v7
+            with:
+                ref: ${{ github.sha }}
+                fetch-depth: 0
+        -   name: Assert bootstrap source
+            run: test "$(git rev-parse HEAD)" = "$(git rev-parse '${{ github.sha }}^{commit}')"
+        -   name: Resolve immutable release source
+            id: resolve
+            env:
+                DISPATCH_RELEASE_TAG: ${{ inputs.release_tag || '' }}
+            run: |
+                set -Eeuo pipefail
+                targets='["runtime-jre8","runtime-jre11","runtime-jre17","runtime-jre21","runtime-jre25","runtime-jre25-gpu"]'
+                case "${GITHUB_EVENT_NAME}" in
+                    push)
+                        if [[ "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" == "main" ]]; then
+                            source_sha="${GITHUB_SHA}"
+                            source_ref="refs/heads/main"
+                            release_tag=""
+                            release_channel="main"
+                            release_mode="main"
+                        elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+                            release_tag="${GITHUB_REF_NAME}"
+                            source_sha="$(scripts/release/resolve-source.sh "$PWD" "${release_tag}")"
+                            source_ref="refs/tags/${release_tag}"
+                            release_channel="release-tag"
+                            release_mode="tag"
+                        else
+                            echo "Unsupported push ref: ${GITHUB_REF}" >&2
+                            exit 1
+                        fi
+                        ;;
+                    workflow_dispatch)
+                        release_tag="${DISPATCH_RELEASE_TAG}"
+                        if [[ -z "${release_tag}" ]]; then
+                            echo 'workflow_dispatch requires release_tag' >&2
+                            exit 1
+                        fi
+                        source_sha="$(scripts/release/resolve-source.sh "$PWD" "${release_tag}")"
+                        source_ref="refs/tags/${release_tag}"
+                        release_channel="backfill"
+                        release_mode="manual-backfill"
+                        ;;
+                    *)
+                        echo "Unsupported event: ${GITHUB_EVENT_NAME}" >&2
+                        exit 1
+                        ;;
+                esac
+                if ! [[ "${source_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+                    echo "Resolved source is not a full commit SHA: ${source_sha}" >&2
+                    exit 1
+                fi
+                {
+                    printf 'source_sha=%s\n' "${source_sha}"
+                    printf 'source_ref=%s\n' "${source_ref}"
+                    printf 'release_tag=%s\n' "${release_tag}"
+                    printf 'release_channel=%s\n' "${release_channel}"
+                    printf 'release_mode=%s\n' "${release_mode}"
+                    printf 'targets=%s\n' "${targets}"
+                    printf 'created=%s\n' "$(date --utc +%Y-%m-%dT%H:%M:%SZ)"
+                } >> "$GITHUB_OUTPUT"
 
-        permissions:
-            contents: read
-            packages: write
+    validate-shell:
+        needs: resolve-source
+        runs-on: ubuntu-latest
+        steps:
+        -   name: Checkout resolved source
+            uses: actions/checkout@v7
+            with:
+                ref: ${{ needs.resolve-source.outputs.source_sha }}
+                fetch-depth: 1
+        -   name: Assert resolved source
+            run: test "$(git rev-parse HEAD)" = "${{ needs.resolve-source.outputs.source_sha }}"
+        -   name: Install shell validation tools
+            run: sudo apt-get update && sudo apt-get install --yes shellcheck jq unzip python3-yaml
+        -   name: Bash syntax
+            run: bash -n entrypoint.sh scripts/lib/*.sh scripts/ci/*.sh test/*.sh
+        -   name: ShellCheck
+            run: shellcheck -x -s bash entrypoint.sh scripts/lib/*.sh scripts/ci/*.sh test/*.sh
+        -   name: Verify smoke-test inventory
+            run: python3 test/ci-test-inventory-smoke.py
+        -   name: Run mandatory smoke-test inventory
+            run: scripts/ci/run-test-manifest.sh
 
+    validate-target:
+        needs:
+        - resolve-source
+        - validate-shell
+        runs-on: ubuntu-latest
         strategy:
             fail-fast: false
             matrix:
-                target:
-                - runtime-jre8
-                - runtime-jre11
-                - runtime-jre17
-                - runtime-jre21
-                - runtime-jre25
-                - runtime-jre25-gpu
-
+                target: ${{ fromJSON(needs.resolve-source.outputs.targets) }}
         steps:
-        -   name: Checkout
+        -   name: Checkout resolved source
             uses: actions/checkout@v7
-
-        # -----------------------------------
-        # Docker Buildx
-        # -----------------------------------
+            with:
+                ref: ${{ needs.resolve-source.outputs.source_sha }}
+                fetch-depth: 1
+        -   name: Assert resolved source
+            run: test "$(git rev-parse HEAD)" = "${{ needs.resolve-source.outputs.source_sha }}"
         -   name: Set up Docker Buildx
             uses: docker/setup-buildx-action@v4
+        -   name: Build validation image without publishing
+            uses: docker/build-push-action@v7
+            with:
+                context: .
+                file: ./Dockerfile
+                target: ${{ matrix.target }}
+                push: false
+                load: true
+                tags: minecraft-server:validate-${{ matrix.target }}
+                cache-from: type=gha
+                cache-to: type=gha,mode=max
+        -   name: Check published runtime dependencies
+            run: |
+                docker run --rm --entrypoint bash minecraft-server:validate-${{ matrix.target }} -lc \
+                    'bash -n /entrypoint.sh && aws --version && jq --version && rsync --version >/dev/null && test -x /usr/local/bin/mcrcon'
 
-        # -----------------------------------
-        # Login to GHCR
-        # -----------------------------------
-        -   name: Login to GHCR
+    publish-immutable:
+        needs:
+        - resolve-source
+        - validate-shell
+        - validate-target
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        strategy:
+            fail-fast: false
+            matrix:
+                target: ${{ fromJSON(needs.resolve-source.outputs.targets) }}
+        steps:
+        -   name: Checkout resolved source
+            uses: actions/checkout@v7
+            with:
+                ref: ${{ needs.resolve-source.outputs.source_sha }}
+                fetch-depth: 1
+        -   name: Assert resolved source
+            run: test "$(git rev-parse HEAD)" = "${{ needs.resolve-source.outputs.source_sha }}"
+        -   name: Set up Docker Buildx
+            uses: docker/setup-buildx-action@v4
+        -   name: Login to GHCR after validation
             uses: docker/login-action@v4
             with:
                 registry: ghcr.io
                 username: ${{ github.actor }}
                 password: ${{ secrets.GITHUB_TOKEN }}
-
-        # -----------------------------------
-        # Login to Docker Hub
-        # -----------------------------------
-        -   name: Login to Docker Hub
+        -   name: Login to Docker Hub after validation
             uses: docker/login-action@v4
             with:
                 username: ${{ secrets.DOCKERHUB_USERNAME }}
                 password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-        # -----------------------------------
-        # Image tags
-        # -----------------------------------
-        -   name: Prepare image tags
-            id: image-tags
-            env:
-                RELEASE_TAG: ${{ inputs.release_tag || '' }}
-            run: |
-                if [[ -n "${RELEASE_TAG}" && ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-                    echo "Invalid release_tag: ${RELEASE_TAG}" >&2
-                    exit 1
-                fi
-
-                version_tag=""
-                if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-                    version_tag="${GITHUB_REF_NAME}"
-                elif [[ -n "${RELEASE_TAG}" ]]; then
-                    version_tag="${RELEASE_TAG}"
-                fi
-
-                {
-                    echo 'tags<<EOF'
-                    printf '%s\n' "ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.target }}"
-                    printf '%s\n' "alecjp02/minecraft-server:${{ matrix.target }}"
-
-                    if [[ -n "${version_tag}" ]]; then
-                        printf '%s\n' "ghcr.io/alexandergg-0520/minecraft-server:${version_tag}-${{ matrix.target }}"
-                        printf '%s\n' "alecjp02/minecraft-server:${version_tag}-${{ matrix.target }}"
-                    fi
-
-                    echo EOF
-                } >> "$GITHUB_OUTPUT"
-
-        # -----------------------------------
-        # Build & Push
-        # -----------------------------------
-        -   name: Build & Push (${{ matrix.target }})
+        -   name: Publish immutable image
+            id: build
             uses: docker/build-push-action@v7
             with:
                 context: .
                 file: ./Dockerfile
                 target: ${{ matrix.target }}
                 push: true
-
                 pull: true
-
-                # cache
                 cache-from: type=gha
                 cache-to: type=gha,mode=max
-
-                tags: ${{ steps.image-tags.outputs.tags }}
-
-                # Supply chain attestations
+                tags: |
+                    ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.target }}-sha-${{ needs.resolve-source.outputs.source_sha }}
+                    alecjp02/minecraft-server:${{ matrix.target }}-sha-${{ needs.resolve-source.outputs.source_sha }}
+                labels: |
+                    org.opencontainers.image.revision=${{ needs.resolve-source.outputs.source_sha }}
+                    org.opencontainers.image.source=https://github.com/${{ github.repository }}
+                    org.opencontainers.image.version=${{ needs.resolve-source.outputs.release_tag || format('sha-{0}', needs.resolve-source.outputs.source_sha) }}
+                    org.opencontainers.image.created=${{ needs.resolve-source.outputs.created }}
                 sbom: true
                 provenance: mode=max
+        -   name: Record immutable digest
+            env:
+                DIGEST: ${{ steps.build.outputs.digest }}
+            run: |
+                test -n "${DIGEST}"
+                ghcr_ref="ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.target }}-sha-${{ needs.resolve-source.outputs.source_sha }}"
+                dockerhub_ref="alecjp02/minecraft-server:${{ matrix.target }}-sha-${{ needs.resolve-source.outputs.source_sha }}"
+                ghcr_digest="$(docker buildx imagetools inspect "${ghcr_ref}" --format '{{.Digest}}')"
+                dockerhub_digest="$(docker buildx imagetools inspect "${dockerhub_ref}" --format '{{.Digest}}')"
+                test -n "${ghcr_digest}"
+                test -n "${dockerhub_digest}"
+                test "${ghcr_digest}" = "${DIGEST}"
+                test "${dockerhub_digest}" = "${DIGEST}"
+                printf '%s %s %s %s\n' "${{ matrix.target }}" "${{ needs.resolve-source.outputs.source_sha }}" "${ghcr_ref}@${ghcr_digest}" "${dockerhub_ref}@${dockerhub_digest}" > digest-${{ matrix.target }}.txt
+                printf '| %s | %s | %s | %s |\n' "${{ matrix.target }}" "${{ needs.resolve-source.outputs.source_sha }}" "${ghcr_digest}" "${dockerhub_digest}" >> "$GITHUB_STEP_SUMMARY"
+        -   name: Upload immutable digest record
+            uses: actions/upload-artifact@v4
+            with:
+                name: published-digest-${{ matrix.target }}
+                path: digest-${{ matrix.target }}.txt
+                if-no-files-found: error
+
+    promote-aliases:
+        needs:
+        - resolve-source
+        - publish-immutable
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        strategy:
+            fail-fast: false
+            matrix:
+                target: ${{ fromJSON(needs.resolve-source.outputs.targets) }}
+        steps:
+        -   name: Set up Docker Buildx
+            uses: docker/setup-buildx-action@v4
+        -   name: Login to GHCR after immutable publication
+            uses: docker/login-action@v4
+            with:
+                registry: ghcr.io
+                username: ${{ github.actor }}
+                password: ${{ secrets.GITHUB_TOKEN }}
+        -   name: Login to Docker Hub after immutable publication
+            uses: docker/login-action@v4
+            with:
+                username: ${{ secrets.DOCKERHUB_USERNAME }}
+                password: ${{ secrets.DOCKERHUB_TOKEN }}
+        -   name: Promote permitted aliases
+            env:
+                CHANNEL: ${{ needs.resolve-source.outputs.release_channel }}
+                RELEASE_TAG: ${{ needs.resolve-source.outputs.release_tag }}
+                SOURCE_SHA: ${{ needs.resolve-source.outputs.source_sha }}
+                TARGET: ${{ matrix.target }}
+            run: |
+                set -Eeuo pipefail
+                immutable_ghcr="ghcr.io/alexandergg-0520/minecraft-server:${TARGET}-sha-${SOURCE_SHA}"
+                immutable_dockerhub="alecjp02/minecraft-server:${TARGET}-sha-${SOURCE_SHA}"
+                if [[ "${CHANNEL}" == "main" ]]; then
+                    docker buildx imagetools create --tag "ghcr.io/alexandergg-0520/minecraft-server:${TARGET}" "${immutable_ghcr}"
+                    docker buildx imagetools create --tag "alecjp02/minecraft-server:${TARGET}" "${immutable_dockerhub}"
+                elif [[ -n "${RELEASE_TAG}" ]]; then
+                    docker buildx imagetools create --tag "ghcr.io/alexandergg-0520/minecraft-server:${RELEASE_TAG}-${TARGET}" "${immutable_ghcr}"
+                    docker buildx imagetools create --tag "alecjp02/minecraft-server:${RELEASE_TAG}-${TARGET}" "${immutable_dockerhub}"
+                else
+                    echo "No mutable alias is eligible for ${CHANNEL}" >&2
+                    exit 1
+                fi
