@@ -59,7 +59,7 @@ jobs:
                             release_mode="main"
                         elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
                             release_tag="${GITHUB_REF_NAME}"
-                            source_sha="$(scripts/release/resolve-source.sh "$PWD" "${release_tag}")"
+                            source_sha="$(bash scripts/release/resolve-source.sh "$PWD" "${release_tag}")"
                             source_ref="refs/tags/${release_tag}"
                             release_channel="release-tag"
                             release_mode="tag"
@@ -74,7 +74,7 @@ jobs:
                             echo 'workflow_dispatch requires release_tag' >&2
                             exit 1
                         fi
-                        source_sha="$(scripts/release/resolve-source.sh "$PWD" "${release_tag}")"
+                        source_sha="$(bash scripts/release/resolve-source.sh "$PWD" "${release_tag}")"
                         source_ref="refs/tags/${release_tag}"
                         release_channel="backfill"
                         release_mode="manual-backfill"
