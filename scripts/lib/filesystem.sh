@@ -103,6 +103,11 @@ resolve_content_input_source() {
     return 0
   fi
 
+  if ! command -v realpath >/dev/null 2>&1; then
+    log ERROR "realpath is required to resolve ${variable} content input paths"
+    return 1
+  fi
+
   source_real="$(realpath -e -- "${source}")" || {
     log ERROR "${variable} must be a readable directory: ${source}"
     return 1
