@@ -91,8 +91,19 @@ if "org.opencontainers.image.revision=${{ needs.resolve-source.outputs.source_sh
     fail("OCI revision label must use resolved source SHA")
 if "cancel-in-progress: false" not in workflow_text:
     fail("release concurrency must not cancel an in-progress publication")
-if workflow_text.count("docker buildx imagetools inspect") != 2 or "test \"${ghcr_digest}\" = \"${DIGEST}\"" not in workflow_text:
-    fail("immutable publication must record and compare both registry digests")
+if "{{.Digest}}" in workflow_text:
+    fail("immutable digest recording uses unsupported top-level Digest template field")
+if workflow_text.count("docker buildx imagetools inspect") != 2:
+    fail("immutable publication must inspect both registry manifests")
+if workflow_text.count("--format '{{json .Manifest}}'") != 2:
+    fail("immutable digest recording must inspect JSON manifests for both registries")
+if workflow_text.count("jq -er '.digest | select(test(\"^sha256:[0-9a-f]{64}$\"))'") != 2:
+    fail("immutable digest recording must validate both extracted manifest digests")
+if (
+    "test \"${ghcr_digest}\" = \"${DIGEST}\"" not in workflow_text
+    or "test \"${dockerhub_digest}\" = \"${DIGEST}\"" not in workflow_text
+):
+    fail("immutable publication must compare both registry digests with the build digest")
 
 for job_name in ("resolve-source", "validate-shell", "validate-target"):
     permissions = jobs[job_name].get("permissions", {})

@@ -217,8 +217,16 @@ jobs:
                 test -n "${DIGEST}"
                 ghcr_ref="ghcr.io/alexandergg-0520/minecraft-server:${{ matrix.target }}-sha-${{ needs.resolve-source.outputs.source_sha }}"
                 dockerhub_ref="alecjp02/minecraft-server:${{ matrix.target }}-sha-${{ needs.resolve-source.outputs.source_sha }}"
-                ghcr_digest="$(docker buildx imagetools inspect "${ghcr_ref}" --format '{{.Digest}}')"
-                dockerhub_digest="$(docker buildx imagetools inspect "${dockerhub_ref}" --format '{{.Digest}}')"
+                ghcr_digest="$(
+                  docker buildx imagetools inspect "${ghcr_ref}" \
+                    --format '{{json .Manifest}}' |
+                    jq -er '.digest | select(test("^sha256:[0-9a-f]{64}$"))'
+                )"
+                dockerhub_digest="$(
+                  docker buildx imagetools inspect "${dockerhub_ref}" \
+                    --format '{{json .Manifest}}' |
+                    jq -er '.digest | select(test("^sha256:[0-9a-f]{64}$"))'
+                )"
                 test -n "${ghcr_digest}"
                 test -n "${dockerhub_digest}"
                 test "${ghcr_digest}" = "${DIGEST}"
