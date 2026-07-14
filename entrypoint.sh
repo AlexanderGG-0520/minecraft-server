@@ -162,6 +162,14 @@ log INFO "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
 # ============================================================
 # Input directories (external / immutable)
 # ============================================================
+for input_variable in INPUT_MODS_DIR INPUT_PLUGINS_DIR INPUT_CONFIG_DIR INPUT_DATAPACKS_DIR INPUT_RESOURCEPACKS_DIR; do
+  if [[ -v "${input_variable}" ]]; then
+    printf -v "${input_variable}_CONFIGURED" '%s' true
+  else
+    printf -v "${input_variable}_CONFIGURED" '%s' false
+  fi
+done
+unset input_variable
 : "${INPUT_MODS_DIR:=/mods}"
 : "${INPUT_PLUGINS_DIR:=/plugins}"
 : "${INPUT_CONFIG_DIR:=/config}"

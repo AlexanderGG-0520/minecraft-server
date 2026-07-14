@@ -355,6 +355,42 @@ contain the expected files and do not commit S3 credentials or other secrets. `*
 sync when the local target already has content and remove-extra is not enabled; enabling remove-extra
 always performs the sync safety check and mirror operation.
 
+### Datapack source policy
+
+Datapacks may come from the local datapack input directory (`INPUT_DATAPACKS_DIR`, default
+`/datapacks`) or from `DATAPACKS_S3_BUCKET` plus `DATAPACKS_S3_PREFIX`, but not both at once. The image
+stages S3 datapacks before touching `<world>/datapacks`. If both prepared sources contain files, startup
+fails before changing the world destination; configure only one source. Empty directories do not count
+as populated, and existing files in the world datapack directory are destination state, not an input.
+
+To use local input, mount or provide files under the local datapack input directory. To use S3 input,
+set the bucket and prefix and leave the local input empty. Before changing either source, back up and
+verify the world: a world directory or named volume is not a backup.
+
+### Local content input directories
+
+Local activation reads these directories by default: `INPUT_MODS_DIR=/mods`,
+`INPUT_PLUGINS_DIR=/plugins`, `INPUT_CONFIG_DIR=/config`,
+`INPUT_DATAPACKS_DIR=/datapacks`, and `INPUT_RESOURCEPACKS_DIR=/resourcepacks`.
+Set an `INPUT_*_DIR` value to use that exact local source instead; it controls activation as well as
+S3 staging. For mods, plugins, config, and datapacks, an explicitly configured activation path must
+exist and be a readable directory. An empty configured directory is a valid source and does not fall
+back to the image default or remove the active destination.
+
+An activated input source must not overlap its active destination under `/data`; a source equal to its
+destination is treated as already active and is left untouched. Quote paths containing spaces in Compose
+or YAML, for example:
+
+```yaml
+volumes:
+  - "./server inputs/mods:/custom mods:ro"
+environment:
+  INPUT_MODS_DIR: "/custom mods"
+```
+
+Datapacks retain the separate local-versus-S3 exclusivity rule above. The other content types preserve
+their existing S3 ordering and source behavior.
+
 ## Documentation
 
 This project has **extensive documentation** in the GitHub Wiki.
