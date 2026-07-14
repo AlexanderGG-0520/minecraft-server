@@ -80,6 +80,13 @@ if "refs/tags/${release_tag}:refs/tags/${release_tag}" not in resolver_text or "
     fail("manual tag resolution must fetch refs/tags and peel to a commit")
 if "release_tag_is_valid" not in resolver_text or re.search(r"\beval\b", resolver_text):
     fail("manual tag validation is missing or unsafe")
+resolver_call = 'source_sha="$(bash scripts/release/resolve-source.sh "$PWD" "${release_tag}")"'
+if workflow_text.count(resolver_call) != 2:
+    fail("tag pushes and manual backfills must invoke the resolver through Bash")
+if 'source_sha="$(scripts/release/resolve-source.sh' in workflow_text:
+    fail("release resolver must not be invoked directly")
+if '[[ "${GITHUB_REF_TYPE}" == "tag" ]]' not in workflow_text or "workflow_dispatch)" not in workflow_text:
+    fail("tag pushes and manual backfills must resolve through the same resolver")
 
 if '"${CHANNEL}" == "main"' not in workflow_text:
     fail("main-only mutable runtime alias policy is missing")
