@@ -14,6 +14,8 @@ spec:
       labels:
         app: fabric-hardcore-smp
     spec:
+      # tini forwards TERM to the entrypoint, which performs the single RCON-aware shutdown path.
+      terminationGracePeriodSeconds: 240
       containers:
         - name: minecraft
           image: ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21

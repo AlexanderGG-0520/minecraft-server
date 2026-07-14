@@ -110,10 +110,7 @@ wait_for_rcon_stop_result() {
   local timeout="$1"
   local elapsed=0
 
-  if [[ ! "${timeout}" =~ ^[0-9]+$ ]]; then
-    log WARN "[shutdown] invalid RCON stop lock wait timeout: ${timeout}"
-    return 1
-  fi
+  validate_shutdown_numeric_value shutdown RCON_STOP_LOCK_WAIT_TIMEOUT nonnegative "${timeout}" || return 1
 
   log INFO "[shutdown] waiting for shared rcon_stop result started (timeout: ${timeout}s)"
   while (( elapsed < timeout )); do
@@ -191,7 +188,10 @@ rcon_stop_once() {
 
 wait_for_server_exit() {
   local timeout="$1"
+  local variable_name="${2:-SHUTDOWN_WAIT_TIMEOUT}"
   local elapsed=0
+
+  validate_shutdown_numeric_value shutdown "${variable_name}" nonnegative "${timeout}" || return 1
 
   while [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; do
     if (( elapsed >= timeout )); then
@@ -220,22 +220,22 @@ graceful_shutdown() {
   fi
 
   log INFO "[shutdown] waiting for server process (timeout: ${SHUTDOWN_WAIT_TIMEOUT}s)"
-  if wait_for_server_exit "${SHUTDOWN_WAIT_TIMEOUT}"; then
+  if wait_for_server_exit "${SHUTDOWN_WAIT_TIMEOUT}" SHUTDOWN_WAIT_TIMEOUT; then
     log INFO "[shutdown] server process exited"
     log INFO "[shutdown] end"
     exit 0
   fi
 
-  log WARN "[shutdown] timeout exceeded, sending TERM"
+  log WARN "[shutdown] SHUTDOWN_WAIT_TIMEOUT exhausted, sending TERM"
   signal_server_process TERM
 
-  if wait_for_server_exit "${SHUTDOWN_TERM_WAIT}"; then
+  if wait_for_server_exit "${SHUTDOWN_TERM_WAIT}" SHUTDOWN_TERM_WAIT; then
     log INFO "[shutdown] server process exited after TERM"
     log INFO "[shutdown] end"
     exit 0
   fi
 
-  log WARN "[shutdown] forcing kill"
+  log WARN "[shutdown] SHUTDOWN_TERM_WAIT exhausted, forcing KILL"
   signal_server_process KILL
 
   log INFO "[shutdown] end"

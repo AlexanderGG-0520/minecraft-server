@@ -213,6 +213,131 @@ run_invalid_save_wait_smoke() {
   [[ "${rc}" -ne 0 ]]
 }
 
+run_invalid_announce_delay_smoke() {
+  setup_rcon_env "invalid-announce-delay"
+  local log_file="${TMP_DIR}/invalid-announce-delay.log"
+
+  STOP_SERVER_ANNOUNCE_DELAY=invalid
+  export STOP_SERVER_ANNOUNCE_DELAY
+  set +e
+  rcon_stop > "${log_file}" 2>&1
+  local rc=$?
+  set -e
+
+  [[ "${rc}" -ne 0 ]]
+  assert_log_contains "${log_file}" "STOP_SERVER_ANNOUNCE_DELAY must be a non-negative integer, got: invalid"
+  ! grep -F "unbound variable" "${log_file}"
+  ! grep -F "syntax error: operand expected" "${log_file}"
+  [[ ! -s "${TMP_DIR}/commands.txt" ]]
+}
+
+run_invalid_rcon_exec_smoke() {
+  setup_rcon_env "invalid-rcon-exec"
+  local log_file="${TMP_DIR}/invalid-rcon-exec.log"
+
+  RCON_RETRIES=invalid
+  export RCON_RETRIES
+  set +e
+  rcon_exec list > "${log_file}" 2>&1
+  local rc=$?
+  set -e
+
+  [[ "${rc}" -ne 0 ]]
+  assert_log_contains "${log_file}" "RCON_RETRIES must be a positive integer, got: invalid"
+  ! grep -F "unbound variable" "${log_file}"
+  [[ ! -s "${TMP_DIR}/commands.txt" ]]
+}
+
+run_invalid_wait_smokes() {
+  setup_rcon_env "invalid-waits"
+  local log_file="${TMP_DIR}/invalid-waits.log"
+
+  set +e
+  wait_for_rcon_stop_result invalid > "${log_file}" 2>&1
+  local lock_rc=$?
+  SHUTDOWN_WAIT_TIMEOUT=invalid
+  wait_for_server_exit "${SHUTDOWN_WAIT_TIMEOUT}" >> "${log_file}" 2>&1
+  local shutdown_rc=$?
+  SHUTDOWN_TERM_WAIT=invalid
+  wait_for_server_exit "${SHUTDOWN_TERM_WAIT}" SHUTDOWN_TERM_WAIT >> "${log_file}" 2>&1
+  local term_rc=$?
+  set -e
+
+  [[ "${lock_rc}" -ne 0 ]]
+  [[ "${shutdown_rc}" -ne 0 ]]
+  [[ "${term_rc}" -ne 0 ]]
+  assert_log_contains "${log_file}" "RCON_STOP_LOCK_WAIT_TIMEOUT must be a non-negative integer, got: invalid"
+  assert_log_contains "${log_file}" "SHUTDOWN_WAIT_TIMEOUT must be a non-negative integer, got: invalid"
+  assert_log_contains "${log_file}" "SHUTDOWN_TERM_WAIT must be a non-negative integer, got: invalid"
+  ! grep -F "unbound variable" "${log_file}"
+}
+
+run_invalid_ready_delay_smoke() {
+  setup_rcon_env "invalid-ready-delay"
+  local log_file="${TMP_DIR}/invalid-ready-delay.log"
+
+  READY_DELAY=invalid
+  export READY_DELAY
+  set +e
+  run_server bash -c 'exit 0' > "${log_file}" 2>&1
+  local rc=$?
+  set -e
+
+  [[ "${rc}" -ne 0 ]]
+  assert_log_contains "${log_file}" "READY_DELAY must be a non-negative integer, got: invalid"
+  ! grep -F "unbound variable" "${log_file}"
+}
+
+run_invalid_shutdown_fallback_smoke() {
+  setup_rcon_env "invalid-shutdown-fallback"
+  local log_file="${TMP_DIR}/invalid-shutdown-fallback.log"
+
+  SERVER_PID=4242
+  TYPE=PAPER
+  STOP_SERVER_ANNOUNCE_DELAY=invalid
+  SHUTDOWN_WAIT_TIMEOUT=0
+  SHUTDOWN_TERM_WAIT=0
+  RCON_STOP_LOCK="${TMP_DIR}/lock"
+  RCON_STOP_IN_PROGRESS=0
+  RCON_STOP_RESULT=1
+  export TYPE STOP_SERVER_ANNOUNCE_DELAY SHUTDOWN_WAIT_TIMEOUT SHUTDOWN_TERM_WAIT
+  signal_server_process() { printf '%s\n' "$*" >> "${TMP_DIR}/signals.txt"; }
+  wait_for_server_exit() { return 0; }
+
+  set +e
+  ( graceful_shutdown ) > "${log_file}" 2>&1
+  set -e
+
+  assert_log_contains "${log_file}" "STOP_SERVER_ANNOUNCE_DELAY must be a non-negative integer, got: invalid"
+  assert_log_contains "${log_file}" "RCON stop failed or unavailable, sending TERM to server process"
+  [[ "$(cat "${TMP_DIR}/signals.txt")" == "TERM" ]]
+  ! grep -F "unbound variable" "${log_file}"
+  unset -f signal_server_process wait_for_server_exit
+}
+
+run_shutdown_timeout_phase_log_smoke() {
+  setup_rcon_env "shutdown-timeout-phase-log"
+  local log_file="${TMP_DIR}/shutdown-timeout-phase.log"
+
+  SERVER_PID=4242
+  TYPE=PAPER
+  ENABLE_RCON=false
+  SHUTDOWN_WAIT_TIMEOUT=0
+  SHUTDOWN_TERM_WAIT=0
+  export TYPE ENABLE_RCON SHUTDOWN_WAIT_TIMEOUT SHUTDOWN_TERM_WAIT
+  signal_server_process() { printf '%s\n' "$*" >> "${TMP_DIR}/signals.txt"; }
+  wait_for_server_exit() { return 1; }
+
+  set +e
+  ( graceful_shutdown ) > "${log_file}" 2>&1
+  set -e
+
+  assert_log_contains "${log_file}" "SHUTDOWN_WAIT_TIMEOUT exhausted, sending TERM"
+  assert_log_contains "${log_file}" "SHUTDOWN_TERM_WAIT exhausted, forcing KILL"
+  [[ "$(cat "${TMP_DIR}/signals.txt")" == $'TERM\nTERM\nKILL' ]]
+  unset -f signal_server_process wait_for_server_exit
+}
+
 run_lock_owner_success_smoke() {
   setup_rcon_env "lock-owner-success"
   local log_file="${TMP_DIR}/lock-owner.log"
@@ -323,22 +448,25 @@ run_stale_result_smoke() {
 
 run_signal_group_smoke() {
   local sig_tmp="${tmp}/signal-group"
-
-  command -v setsid >/dev/null 2>&1 || return 0
   mkdir -p "${sig_tmp}"
-  setsid bash -c 'trap "exit 0" TERM; while true; do sleep 1; done' &
-  SERVER_PID=$!
-  sleep 1
+  local calls="${sig_tmp}/kill-calls"
+  kill() { printf '%s\n' "$*" >> "${calls}"; }
+  SERVER_PID=4242
   signal_server_process TERM
-  wait_for_server_exit 5
+  test "$(sed -n '1p' "${calls}")" = '-0 4242'
+  test "$(sed -n '2p' "${calls}")" = '-TERM 4242'
+  test "$(sed -n '3p' "${calls}")" = '-TERM -4242'
+  unset -f kill
 }
 
 ORIGINAL_PATH="${PATH}"
 cd "${repo}"
 source ./scripts/lib/logging.sh
 source ./scripts/lib/filesystem.sh
+source ./scripts/lib/numeric_validation.sh
 source ./scripts/lib/rcon.sh
 source ./scripts/lib/shutdown.sh
+source ./scripts/lib/runtime_launch.sh
 json_escape() {
   local s="$*"
   s="${s//\\/\\\\}"
@@ -356,7 +484,14 @@ run_rcon_exec_mcrcon_smoke
 run_lock_owner_success_smoke
 run_rcon_stop_command_mode_smoke
 run_invalid_save_wait_smoke
+run_invalid_announce_delay_smoke
+run_invalid_rcon_exec_smoke
+run_invalid_wait_smokes
+run_invalid_ready_delay_smoke
 run_lock_result_coordination_smoke
+source ./scripts/lib/rcon.sh
 run_lock_missing_result_smoke
 run_stale_result_smoke
 run_signal_group_smoke
+run_invalid_shutdown_fallback_smoke
+run_shutdown_timeout_phase_log_smoke

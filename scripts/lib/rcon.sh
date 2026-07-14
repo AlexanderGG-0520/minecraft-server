@@ -16,6 +16,10 @@ rcon_exec() {
   local command="$*"
   local attempt=1
 
+  validate_shutdown_numeric_value rcon RCON_RETRIES positive "${RCON_RETRIES:-}" || return 1
+  validate_shutdown_numeric_value rcon RCON_RETRY_DELAY nonnegative "${RCON_RETRY_DELAY:-}" || return 1
+  validate_shutdown_numeric_value rcon RCON_TIMEOUT positive "${RCON_TIMEOUT:-}" || return 1
+
   if [[ "${ENABLE_RCON}" != "true" ]]; then
     log INFO "RCON disabled, skipping command: ${command}"
     return 1
@@ -88,10 +92,8 @@ rcon_stop() {
   local save_succeeded=0
   local citizens_file="${DATA_DIR}/plugins/Citizens/saves.yml"
 
-  if [[ ! "${save_wait}" =~ ^[0-9]+$ ]]; then
-    log ERROR "[shutdown] invalid SHUTDOWN_SAVE_WAIT_SECONDS: ${save_wait}"
-    return 1
-  fi
+  validate_shutdown_numeric_value shutdown STOP_SERVER_ANNOUNCE_DELAY nonnegative "${delay}" || return 1
+  validate_shutdown_numeric_value shutdown SHUTDOWN_SAVE_WAIT_SECONDS nonnegative "${save_wait}" || return 1
 
   if [[ -f "${citizens_file}" ]]; then
     log INFO "Citizens data detected: ${citizens_file}"

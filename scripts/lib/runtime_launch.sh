@@ -1,6 +1,10 @@
 # shellcheck shell=bash
 
 run_server() {
+  local ready_delay="${READY_DELAY:-5}"
+
+  validate_shutdown_numeric_value runtime READY_DELAY nonnegative "${ready_delay}" || return 1
+
   cleanup_rcon_lock_on_boot
 
   if command -v setsid >/dev/null 2>&1; then
@@ -10,9 +14,6 @@ run_server() {
     "$@" &
   fi
   SERVER_PID=$!
-
-  local ready_delay="${READY_DELAY:-5}"
-  [[ "$ready_delay" =~ ^[0-9]+$ ]] || die "READY_DELAY must be a non-negative integer"
 
   local elapsed=0
   while (( elapsed < ready_delay )); do

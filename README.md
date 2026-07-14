@@ -129,12 +129,33 @@ are not written by this feature.
 
 For reliable shutdown behavior (including Citizens save), we recommend:
 
-* Set `terminationGracePeriodSeconds` to **120s or higher**.
-* Add a `preStop` hook when possible (e.g., call `entrypoint.sh rcon-stop`).
+* Set `terminationGracePeriodSeconds` to **240s or higher** for the default timings.
 * Set `ENABLE_RCON=true` and provide a non-default `RCON_PASSWORD` so shutdown commands can run.
 
 `ENABLE_RCON` defaults to `false`. The image refuses an empty RCON password and also refuses
 `RCON_PASSWORD=changeme`.
+
+Shutdown timing values are validated during preflight. `STOP_SERVER_ANNOUNCE_DELAY`,
+`SHUTDOWN_SAVE_WAIT_SECONDS`, `RCON_RETRY_DELAY`, `SHUTDOWN_WAIT_TIMEOUT`,
+`SHUTDOWN_TERM_WAIT`, `RCON_STOP_LOCK_WAIT_TIMEOUT`, and `READY_DELAY` are non-negative integer
+seconds. `RCON_RETRIES` and `RCON_TIMEOUT` are positive integers (`RCON_TIMEOUT` is in seconds).
+Invalid, fractional, negative, whitespace-padded, or suffixed values fail before installation or
+Minecraft startup. Values greater than `2147483647` are also rejected.
+
+The modeled bounded default shutdown path is 219 seconds:
+`max(RCON_STOP_LOCK_WAIT_TIMEOUT, announcement + 4 * command_retry_budget + SHUTDOWN_SAVE_WAIT_SECONDS) + SHUTDOWN_WAIT_TIMEOUT + SHUTDOWN_TERM_WAIT`, where
+`command_retry_budget = RCON_RETRIES * RCON_TIMEOUT + (RCON_RETRIES - 1) * RCON_RETRY_DELAY`.
+The four command budgets cover Citizens save, flush, fallback save, and stop; the announcement adds
+two command budgets only when enabled because its `say` fallback may run. Maintained examples use 240
+seconds, providing a 21-second shell/process-transition safety margin. Successful shutdowns normally
+finish much sooner. Recalculate the formula and increase the grace period when overriding any retry,
+timeout, announcement, save-wait, process-wait, or TERM-wait value.
+
+Kubernetes counts `preStop` time against `terminationGracePeriodSeconds`. The maintained examples do
+not run `rcon-stop` in `preStop`: `tini` forwards TERM to the entrypoint, whose TERM trap performs the
+single Minecraft-aware shutdown sequence and shares its RCON lock. Docker's default stop timeout can be
+too short for this path; use `docker stop --time 240` or a Compose `stop_grace_period: 240s` for defaults.
+SIGKILL or host failure can still interrupt saving.
 
 Minimal Kubernetes pattern:
 
@@ -157,10 +178,6 @@ containers:
           secretKeyRef:
             name: minecraft-rcon
             key: password
-    lifecycle:
-      preStop:
-        exec:
-          command: ["/entrypoint.sh", "rcon-stop"]
     readinessProbe:
       exec:
         command: ["test", "-f", "/data/.ready"]
@@ -169,7 +186,7 @@ containers:
     volumeMounts:
       - name: data
         mountPath: /data
-terminationGracePeriodSeconds: 120
+terminationGracePeriodSeconds: 240
 ```
 
 The `.ready` file is created only after the runtime survives `READY_DELAY` and is removed during

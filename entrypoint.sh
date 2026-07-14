@@ -6,6 +6,8 @@ ENTRYPOINT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "${ENTRYPOINT_DIR%/}/scripts/lib/logging.sh"
 # shellcheck source=scripts/lib/filesystem.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/filesystem.sh"
+# shellcheck source=scripts/lib/numeric_validation.sh
+source "${ENTRYPOINT_DIR%/}/scripts/lib/numeric_validation.sh"
 # shellcheck source=scripts/lib/runtime.sh
 source "${ENTRYPOINT_DIR%/}/scripts/lib/runtime.sh"
 # shellcheck source=scripts/lib/preflight.sh
