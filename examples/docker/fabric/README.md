@@ -10,8 +10,8 @@ requiring a host directory to be pre-owned by the container user.
 ## Start
 
 ```fish
-git clone https://github.com/AlexanderGG-0520/minecraft-server.git
-cd minecraft-server/examples/docker/fabric
+git clone https://github.com/AlexanderGG-0520/minecartainer.git
+cd minecartainer/examples/docker/fabric
 docker compose config
 docker compose pull
 docker compose up -d

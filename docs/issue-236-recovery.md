@@ -32,4 +32,4 @@ limitation because Minecraft can catch a startup error and remain alive briefly 
 exit successfully. Readiness is intentionally not changed in the bootstrap fix: a
 separate change should derive readiness from Minecraft's `Done` log message or an
 equivalent active probe, with coverage for log rotation and non-vanilla launchers
-(tracked in [Issue #240](https://github.com/AlexanderGG-0520/minecraft-server/issues/240)).
+(tracked in [Issue #240](https://github.com/AlexanderGG-0520/minecartainer/issues/240)).
