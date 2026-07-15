@@ -1,6 +1,6 @@
-# Minecraft Server Runtime (Kubernetes-native)
+# Minecartainer Documentation
 
-This repository provides a **Kubernetes-first Minecraft server image**,
+Minecartainer provides a **Kubernetes-first Minecraft Java server container image**,
 designed for long-term operation, reproducibility, and transparency.
 
 It is not a “plug-and-play” image.
@@ -52,5 +52,5 @@ inspect, and trust over time, you are in the right place.
 
 ## Links
 
-- [https://github.com/AlexanderGG-0520/minecraft-server](Github Repository)
-- [https://github.com/AlexanderGG-0520/minecraft-server/releases](Releases)
+- [https://github.com/AlexanderGG-0520/minecartainer](GitHub Repository)
+- [https://github.com/AlexanderGG-0520/minecartainer/releases](Releases)

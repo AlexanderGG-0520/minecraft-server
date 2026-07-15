@@ -11,8 +11,8 @@ container recreation without requiring a host directory to be pre-owned by the c
 From a fresh clone, run these fish-compatible commands:
 
 ```fish
-git clone https://github.com/AlexanderGG-0520/minecraft-server.git
-cd minecraft-server/examples/docker/paper
+git clone https://github.com/AlexanderGG-0520/minecartainer.git
+cd minecartainer/examples/docker/paper
 docker compose config
 docker compose pull
 docker compose up -d

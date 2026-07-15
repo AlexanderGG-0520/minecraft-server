@@ -1,118 +1,76 @@
-# Minecraft Server
+# Minecartainer
 
-![Docker Build](https://img.shields.io/github/actions/workflow/status/AlexanderGG-0520/minecraft-server/publish.yml?branch=main)
+**Minecraft Java Server Container Image**
+
+![Docker Build](https://img.shields.io/github/actions/workflow/status/AlexanderGG-0520/minecartainer/publish.yml?branch=main)
 [![Docker Pulls](https://img.shields.io/docker/pulls/alecjp02/minecraft-server.svg?logo=docker)](https://hub.docker.com/r/alecjp02/minecraft-server/)
 [![Docker Stars](https://img.shields.io/docker/stars/alecjp02/minecraft-server.svg?logo=docker)](https://hub.docker.com/r/alecjp02/minecraft-server/)
-[![GitHub Issues](https://img.shields.io/github/issues-raw/alexandergg-0520/minecraft-server.svg)](https://github.com/alexandergg-0520/minecraft-server/issues)
+[![GitHub Issues](https://img.shields.io/github/issues-raw/alexandergg-0520/minecartainer.svg)](https://github.com/alexandergg-0520/minecartainer/issues)
 ![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Falexandergg--0520%2Fminecraft--server-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Java](https://img.shields.io/badge/java-8%20%7C%2011%20%7C%2017%20%7C%2021%20%7C%2025%20%7C%2025--gpu-orange)
 ![Kubernetes](https://img.shields.io/badge/kubernetes-ready-blue)
 
-Predictable Minecraft server Docker image for Kubernetes, GitOps, and S3-compatible asset workflows.
+A predictable, fail-fast Minecraft Java server container image built for Kubernetes, GitOps, persistent volumes, and S3-compatible asset delivery.
 
-This image is built for operators who want Minecraft server containers to behave predictably when pods
-are recreated, volumes are reused, and assets are supplied from object storage. It favors explicit
-configuration, a clear install/runtime lifecycle, safe persistent volume handling, RCON-based graceful
-shutdown, and fail-fast errors instead of silent auto-repair.
+```bash
+docker pull ghcr.io/alexandergg-0520/minecraft-server:runtime-jre21
+```
 
-It can sync mods, plugins, configs, datapacks, resourcepacks, and world archives from S3-compatible
-storage such as AWS S3, MinIO, Cloudflare R2, Garage, Backblaze B2, or Wasabi. The goal is not to be the most feature-heavy Minecraft image; the goal is to make
-operational state, lifecycle boundaries, and unsafe conditions visible enough for Kubernetes and GitOps
-workflows.
+Stable published image locations:
 
----
+```text
+GHCR:
+ghcr.io/alexandergg-0520/minecraft-server
 
-## Why this image?
+Docker Hub:
+alecjp02/minecraft-server
+```
 
-| Operational need | How this image handles it |
-|---|---|
-| Kubernetes pod recreation | Separates install-time work from runtime launch so recreated pods behave predictably. |
-| Persistent world volumes | Treats existing world data cautiously and fails fast on unsafe or mismatched state. |
-| S3-compatible asset management | Syncs mods, plugins, configs, datapacks, resourcepacks, and world archives from object storage. |
-| Graceful shutdown | Supports RCON-based shutdown flows for safer saves before container termination. |
-| GitOps workflows | Uses explicit environment-driven behavior instead of hidden auto-repair. |
-| Advanced server types | Supports managed or bring-your-own workflows for common Java server types. |
+The GitHub project is Minecartainer; these published image paths intentionally remain unchanged for existing deployments.
 
-This image is intended for operators who care more about predictable lifecycle behavior than maximum
-automatic convenience.
+## Core capabilities
 
----
+* Conservative persistent-volume handling and fail-fast validation before unsafe mutations.
+* Explicit install and runtime lifecycle separation, with managed and bring-your-own server artifacts.
+* Minecraft-aware graceful shutdown through RCON.
+* Local and S3-compatible delivery of mods, plugins, configs, datapacks, resource packs, and world archives.
+* Kubernetes and GitOps-oriented operation, including install-only volume pre-warming.
+* Java 8, 11, 17, 21, and 25 runtime images, plus a GPU-enabled Java 25 image where applicable.
 
-## Common use cases
-
-These examples are intentionally small starting points, not production-ready manifests for every
-cluster.
-
-| Use case | Start here |
-|---|---|
-| Simplest local Paper server with plugins | [`examples/docker/paper/`](examples/docker/paper/) |
-| Local Fabric modded server | [`examples/docker/fabric/`](examples/docker/fabric/) |
-| Minimal Kubernetes Paper server with a PVC | [`examples/kubernetes/paper-pvc/`](examples/kubernetes/paper-pvc/) |
-| Kubernetes Paper server with S3-compatible plugins and configs | [`examples/kubernetes/paper-minio-assets/`](examples/kubernetes/paper-minio-assets/) |
-| Pre-warm a volume without launching runtime | [`examples/kubernetes/install-only-job.example.yaml`](examples/kubernetes/install-only-job.example.yaml) |
+Minecartainer is an advanced alternative for operators who prefer explicit behavior over broad automatic configuration; it is not a universal replacement for every Minecraft server image.
 
 ## Docker Compose Quick Start
 
-Choose one maintained local example, then follow its short README exactly:
+Start with a maintained local example:
 
-* **[Paper Compose Quick Start](examples/docker/paper/)** — the recommended simplest path for a
-  plugin-based server.
+* **[Paper Compose Quick Start](examples/docker/paper/)** — the recommended plugin-server path.
 * **[Fabric Compose Quick Start](examples/docker/fabric/)** — a modded-server starting point.
 
-Both examples use explicit Java runtime image tags, a named `/data` volume, local-only port binding,
-conservative JVM defaults, and a 240-second Compose stop grace period. Their READMEs cover startup,
-logs, updates, plugins or mods, ownership troubleshooting, and the data-loss warning for
-`docker compose down -v`.
+Both examples use explicit runtime tags, a named `/data` volume, local-only port binding, conservative JVM defaults, and a 240-second Compose stop grace period.
 
----
+## Kubernetes
 
-## Quick links
+Use the [Paper PVC example](examples/kubernetes/paper-pvc/) for a minimal single-writer world volume, or the [Paper S3-compatible assets example](examples/kubernetes/paper-minio-assets/) for plugins and configs from object storage. See [all examples](examples/README.md) for Fabric, GPU, RCON-secret, and install-only patterns.
 
-* [Examples](examples/README.md)
-* [Wiki](https://github.com/AlexanderGG-0520/minecraft-server/wiki)
-* [Environment Variables](https://github.com/AlexanderGG-0520/minecraft-server/wiki/Environment-Variables)
-* [S3 safety notes](#s3-sync-safety-notes)
-* [Kubernetes shutdown recommendations](#kubernetes-shutdown-recommendations)
-* [Install-only mode](#install-only-mode-new)
-* [Server reinstall policy](docs/server-install-reinstall-policy.md)
+## Supported server types
 
----
+Managed and bring-your-own workflows support Vanilla, Paper, Purpur, Fabric, Forge, NeoForge, Velocity, and existing Spigot artifacts. Prefer explicit `TYPE` and `VERSION`; see [server installation and reinstall policy](docs/server-install-reinstall-policy.md) for artifact rules and safeguards.
 
-## Why this exists
+## Supported Java runtimes
 
-General-purpose Minecraft Docker images are convenient, especially for local Docker Compose or
-single-host servers where the container is configured once and then left running. Kubernetes makes
-different trade-offs more visible: repeated pod recreation, GitOps-driven redeploys, persistent volume
-safety, lifecycle hook ordering, graceful shutdown timing, and object-storage-backed asset delivery.
+Published runtime targets are `runtime-jre8`, `runtime-jre11`, `runtime-jre17`, `runtime-jre21`, `runtime-jre25`, and `runtime-jre25-gpu`. Select the Java version required by your server software and mods; GPU support is workload- and host-runtime-specific.
 
-This image optimizes for explicit lifecycle, reproducibility, and safe failure modes. Install-time work
-is separated from runtime launch, persistent world data is treated cautiously, destructive actions are
-made explicit, and mismatched or unsafe state should fail loudly before the server mutates important
-data.
+## Safety model
 
-This is an alternative for advanced/containerized operations, not a universal replacement for every
-Minecraft server image. If another image matches your workflow better, that is a valid choice; this
-project exists for teams and operators who prefer explicit configuration and predictable failures over
-large amounts of hidden automation.
+Existing worlds and persistent volumes are treated as important state. The image separates installation from runtime, rejects unsafe or mismatched state before mutation, uses an explicit RCON shutdown path, and makes destructive S3 mirroring opt-in. Keep backups and verify new storage prefixes before enabling removal.
 
----
+## Examples
 
-## Who should use this
-
-This project is a good fit when you:
-
-* Run Minecraft servers on Kubernetes or through GitOps workflows.
-* Reuse persistent volumes and need conservative world-data handling.
-* Sync mods, plugins, configs, datapacks, resourcepacks, or world archives from S3-compatible storage.
-* Operate advanced modded servers and want lifecycle behavior to be explicit.
-* Prefer predictable errors over silent repair when configuration or storage state is unsafe.
-
-This project is probably not the best fit when you:
-
-* Are new to Minecraft server hosting and want the shortest path to a working server.
-* Want every feature automatically detected, installed, or repaired for you.
-* Prefer silent auto-repair over fail-fast errors that require manual review.
+* [Docker Compose examples](examples/README.md#start-with)
+* [Kubernetes Paper with a PVC](examples/kubernetes/paper-pvc/)
+* [Kubernetes Paper with S3-compatible assets](examples/kubernetes/paper-minio-assets/)
+* [Install-only Kubernetes job](examples/kubernetes/install-only-job.example.yaml)
 
 ## CI and smoke coverage
 
@@ -407,14 +365,14 @@ their existing S3 ordering and source behavior.
 
 ## Documentation
 
-This project has **extensive documentation** in the GitHub Wiki.
+This project has detailed guidance in the [documentation index](docs/index.md) and GitHub Wiki.
 
 The Wiki explains not only *how* to run the server, but *why* it is designed this way:
 including lifecycle separation, persistent storage strategy, and world safety guarantees.
 
 ### Start here
 
-[Wiki Home](https://github.com/AlexanderGG-0520/minecraft-server/wiki)
+[Wiki Home](https://github.com/AlexanderGG-0520/minecartainer/wiki)
 
 ### Recommended reading order
 
@@ -446,8 +404,21 @@ This is intended for explicit init workflows such as Kubernetes init containers.
 
 ---
 
+## Repository Rename
+
+This project was previously hosted at `AlexanderGG-0520/minecraft-server`.
+
+The GitHub repository is now `AlexanderGG-0520/minecartainer`. GitHub redirects the old repository URL to the new location.
+
+The published container image paths have not changed:
+
+* `ghcr.io/alexandergg-0520/minecraft-server`
+* `alecjp02/minecraft-server`
+
+Existing Docker Compose files, Kubernetes manifests, image tags, and digest-pinned deployments remain compatible.
+
 ## Credits
 
-This project is inspired by existing Minecraft server images and the broader container ecosystem.
+This project is inspired by existing Minecraft server images, including [itzg/docker-minecraft-server](https://github.com/itzg/docker-minecraft-server), and the broader container ecosystem.
 
-It exists to provide **another option** — not to replace anything.
+It exists to provide another option for explicit lifecycle boundaries, Kubernetes-oriented behavior, conservative persistent storage, predictable failures, and S3-compatible asset workflows—not to replace other projects.
